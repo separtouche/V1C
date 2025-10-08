@@ -167,16 +167,13 @@ for key in ["accepted_legal", "selected_program"]:
 # ===================== Header =====================
 logo_path = "guerbet_logo.png"
 if os.path.exists(logo_path):
-    try:
-        img_b64 = img_to_base64(logo_path)
-        st.markdown(f"""
-        <div class="header-banner">
-          <img src="data:image/png;base64,{img_b64}" class="header-logo" alt="Guerbet logo" />
-          <div class="header-title">Calculette de dose de produit de contraste</div>
-        </div>
-        """, unsafe_allow_html=True)
-    except:
-        st.markdown(f"<div class='header-banner'><div class='header-title'>Calculette de dose de produit de contraste</div></div>", unsafe_allow_html=True)
+    img_b64 = img_to_base64(logo_path)
+    st.markdown(f"""
+    <div class="header-banner">
+      <img src="data:image/png;base64,{img_b64}" class="header-logo" alt="Guerbet logo" />
+      <div class="header-title">Calculette de dose de produit de contraste</div>
+    </div>
+    """, unsafe_allow_html=True)
 else:
     st.markdown(f"<div class='header-banner'><div class='header-title'>Calculette de dose de produit de contraste</div></div>", unsafe_allow_html=True)
 
@@ -235,6 +232,7 @@ with tab_params:
         config["intermediate_time"] = st.number_input("Intermédiaire (s)", value=float(config.get("intermediate_time",28.0)), min_value=5.0, max_value=120.0, step=1.0)
     config["rincage_volume"] = st.number_input("Volume de rinçage (mL)", value=float(config.get("rincage_volume",35.0)), min_value=10.0, max_value=100.0, step=1.0)
     config["rincage_delta_debit"] = st.number_input("Différence débit NaCl vs contraste (mL/s)", value=float(config.get("rincage_delta_debit",0.5)), min_value=0.1, max_value=5.0, step=0.1)
+
     st.markdown("**Charges en iode par kV (g I/kg)**")
     df_charges = pd.DataFrame({"kV":[80,90,100,110,120],"Charge (g I/kg)":[float(config["charges"].get(str(kv),0.35)) for kv in [80,90,100,110,120]]})
     edited_df = st.data_editor(df_charges, num_rows="fixed", use_container_width=True)
@@ -278,31 +276,31 @@ with tab_patient:
     volume, bsa = calculate_volume(weight,height,kv_scanner,float(config.get("concentration_mg_ml",350)),imc,config.get("calc_mode","Charge iodée"),config.get("charges",{}))
     injection_rate, injection_time, time_adjusted = adjust_injection_rate(volume,float(base_time),float(config.get("max_debit",6.0)))
 
-    nacl_debit = max(0.1, injection_rate - config.get("rincage_delta_debit",0.5))
-    nacl_volume = config.get("rincage_volume",35.0)
-
-    # ==== Calcul contraste et NaCl pour injection simultanée ====
+    # ==== Calcul contraste et NaCl ====
     if config.get("simultaneous_enabled", False):
         target = config.get("target_concentration", 350)
-        vol_contrast = volume * target / config.get("concentration_mg_ml", 350)
-        vol_nacl_dilution = vol_contrast * (config.get("concentration_mg_ml",350)/target - 1)
-        vol_total_injection = vol_contrast + vol_nacl_dilution
-        perc_contrast = (vol_contrast / vol_total_injection) * 100
-        perc_dilution = (vol_nacl_dilution / vol_total_injection) * 100
-
+        vol_contrast = volume * target / config.get("concentration_mg_ml",350)
+        vol_nacl_dilution = volume - vol_contrast
+        perc_contrast = vol_contrast / volume * 100
+        perc_nacl_dilution = vol_nacl_dilution / volume * 100
         contrast_text = f"{vol_contrast:.1f} mL ({perc_contrast:.0f}%)"
-        nacl_text = f"Rinçage : {nacl_volume:.0f} mL @ {nacl_debit:.1f} mL/s\nDilution : {vol_nacl_dilution:.1f} mL ({perc_dilution:.0f}%)"
+        nacl_text = f"{vol_nacl_dilution:.1f} mL ({perc_nacl_dilution:.0f}%)"
     else:
         vol_contrast = volume
         contrast_text = f"{vol_contrast:.1f} mL"
-        nacl_text = f"{nacl_volume:.0f} mL @ {nacl_debit:.1f} mL/s"
+        nacl_text = f"{config.get('rincage_volume',35.0):.0f} mL"
 
-    # ==== Affichage résultats ====
+    nacl_debit = max(0.1, injection_rate - config.get("rincage_delta_debit",0.5))
+    nacl_volume = config.get("rincage_volume",35.0)
+    nacl_rincage_text = f"{nacl_volume:.0f} mL @ {nacl_debit:.1f} mL/s"
+
     col_contrast, col_nacl, col_rate = st.columns(3, gap="medium")
     with col_contrast:
         st.markdown(f"""<div class="result-card"><h3>💧 Volume contraste</h3><h1>{contrast_text}</h1></div>""", unsafe_allow_html=True)
     with col_nacl:
-        st.markdown(f"""<div class="result-card"><h3>💧 Volume NaCl</h3><h1 style="white-space: pre-line;">{nacl_text}</h1></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="result-card"><h3>💧 Volume NaCl</h3><h1>{nacl_text}</h1></div>""", unsafe_allow_html=True)
+        if config.get("simultaneous_enabled", False):
+            st.markdown(f"<div style='margin-top:8px; font-size:0.9rem;'>💧 Rinçage : {nacl_rincage_text}</div>", unsafe_allow_html=True)
     with col_rate:
         st.markdown(f"""<div class="result-card"><h3>🚀 Débit conseillé</h3><h1>{injection_rate:.1f} mL/s</h1></div>""", unsafe_allow_html=True)
 
