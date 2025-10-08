@@ -1,6 +1,7 @@
 import streamlit as st
 import json, os, math, base64
 from datetime import datetime
+import pandas as pd
 
 # ===================== Couleurs & Styles =====================
 GUERBET_BLUE = "#124F7A"
@@ -41,30 +42,11 @@ default_config = {
     "acquisition_start_param":70.0, "auto_acquisition_by_age":True,
     "calc_mode":"Charge iodée sauf IMC > 30 → Surface corporelle", "max_debit":6.0
 }
-
-def load_config():
-    if os.path.exists(CONFIG_FILE):
-        try:
-            with open(CONFIG_FILE,"r") as f:
-                cfg=json.load(f)
-            # forcer types numériques
-            cfg["concentration_mg_ml"]=int(cfg.get("concentration_mg_ml",350))
-            cfg["portal_time"]=float(cfg.get("portal_time",30.0))
-            cfg["arterial_time"]=float(cfg.get("arterial_time",25.0))
-            cfg["intermediate_enabled"]=bool(cfg.get("intermediate_enabled",False))
-            cfg["intermediate_time"]=float(cfg.get("intermediate_time",28.0))
-            cfg["acquisition_start_param"]=float(cfg.get("acquisition_start_param",70.0))
-            cfg["auto_acquisition_by_age"]=bool(cfg.get("auto_acquisition_by_age",True))
-            cfg["max_debit"]=float(cfg.get("max_debit",6.0))
-            cfg["charges"]={str(int(k)):float(v) for k,v in cfg.get("charges",default_config["charges"]).items()}
-            cfg["calc_mode"]=cfg.get("calc_mode","Charge iodée")
-            return cfg
-        except Exception:
-            return default_config.copy()
-    else:
-        return default_config.copy()
-
-config=load_config()
+if os.path.exists(CONFIG_FILE):
+    try:
+        with open(CONFIG_FILE,"r") as f: config=json.load(f)
+    except: config=default_config.copy()
+else: config=default_config.copy()
 def save_config(data):
     with open(CONFIG_FILE,"w") as f: json.dump(data,f,indent=4)
 
@@ -86,14 +68,6 @@ def adjust_rate(vol,time,maxd):
     rate=vol/time if time>0 else 0; adj=False
     if rate>maxd: time=vol/maxd; rate=maxd; adj=True
     return float(rate),float(time),adj
-
-def safe_number_input(label, value, min_val, max_val, step):
-    """Forcer value, min_val, max_val au même type float"""
-    value = float(value)
-    min_val = float(min_val)
-    max_val = float(max_val)
-    step = float(step)
-    return st.number_input(label, value=value, min_value=min_val, max_value=max_val, step=step)
 
 # ===================== Session =====================
 if "accepted_legal" not in st.session_state: st.session_state["accepted_legal"]=False
@@ -133,48 +107,50 @@ tab_patient, tab_params=st.tabs(["🧍 Patient","⚙️ Paramètres"])
 # ===================== Paramètres =====================
 with tab_params:
     st.header("⚙️ Paramètres globaux")
-    safe_number_input("Débit max (mL/s)", config["max_debit"], 1.0, 20.0, 0.1)
-    safe_number_input("Portal (s)", config["portal_time"], 5, 120, 1)
-    safe_number_input("Artériel (s)", config["arterial_time"], 5, 120, 1)
+    st.selectbox("Concentration (mg I/mL)",[300,320,350,370,400],index=[300,320,350,370,400].index(int(config.get("concentration_mg_ml",350))),disabled=False)
+    st.selectbox("Méthode de calcul",["Charge iodée","Surface corporelle","Charge iodée sauf IMC > 30 → Surface corporelle"],
+                 index=["Charge iodée","Surface corporelle","Charge iodée sauf IMC > 30 → Surface corporelle"].index(config.get("calc_mode","Charge iodée")))
+    st.number_input("Débit max (mL/s)",value=float(config.get("max_debit",6.0)),min_value=1.0,max_value=20.0,step=0.1)
+    st.number_input("Portal (s)",value=float(config.get("portal_time",30.0)),min_value=5,max_value=120,step=1.0)
+    st.number_input("Artériel (s)",value=float(config.get("arterial_time",25.0)),min_value=5,max_value=120,step=1.0)
     config["intermediate_enabled"]=st.checkbox("Activer temps intermédiaire",value=config.get("intermediate_enabled",False))
-    if config["intermediate_enabled"]: safe_number_input("Intermédiaire (s)", config.get("intermediate_time",28.0), 5, 120, 1)
-    st.markdown("**Charges en iode par kV (g I/kg)**")
-    for kv in [80,90,100,110,120]:
-        val=safe_number_input(f"{kv} kV", config["charges"].get(str(kv),0.4),0.1,2.0,0.01)
-        config["charges"][str(kv)]=val
+    if config["intermediate_enabled"]: st.number_input("Intermédiaire (s)",value=float(config.get("intermediate_time",28.0)),min_value=5,max_value=120,step=1.0)
 
 # ===================== Patient =====================
 with tab_patient:
     st.header("🧍 Informations patient")
-    weight=st.select_slider("Poids (kg)", options=list(range(20,201)), value=int(70))
-    height=st.select_slider("Taille (cm)", options=list(range(100,221)), value=int(170))
-    birth_year=st.select_slider("Année de naissance", options=list(range(datetime.now().year-120,datetime.now().year+1)), value=int(datetime.now().year-40))
+    weight=st.select_slider("Poids (kg)",options=list(range(20,201)),value=70)
+    height=st.select_slider("Taille (cm)",options=list(range(100,221)),value=170)
+    birth_year=st.select_slider("Année de naissance",options=list(range(datetime.now().year-120,datetime.now().year+1)),value=datetime.now().year-40)
     age=datetime.now().year-birth_year
     imc=weight/((height/100)**2)
     if age<18: st.warning("⚠️ Patient mineur (<18 ans) : calcul non autorisé."); st.stop()
-
+    
     kv_col, mode_col=st.columns([1,2])
     with kv_col:
         kv_scanner=st.radio("kV du scanner",[80,90,100,110,120],index=4,horizontal=True)
-        st.markdown(f"**Départ d’acquisition (s)** : {calculate_acq_start(age,config):.1f}")
-        st.markdown(f"**Concentration (mg I/mL)** : {config['concentration_mg_ml']}")
     with mode_col:
         modes=["Portal","Artériel"]
-        if config["intermediate_enabled"]: modes.append("Intermédiaire")
+        if config.get("intermediate_enabled",False): modes.append("Intermédiaire")
         injection_mode=st.radio("Mode d’injection",modes,horizontal=True)
         if injection_mode=="Portal": base_time=config.get("portal_time",30.0)
         elif injection_mode=="Artériel": base_time=config.get("arterial_time",25.0)
-        else: base_time=safe_number_input("Temps intermédiaire (s)", config.get("intermediate_time",28.0), 5, 120, 1)
+        else: base_time=st.number_input("Temps intermédiaire (s)",value=float(config.get("intermediate_time",28.0)),min_value=5,max_value=120,step=1.0)
+        st.markdown(f"**Départ d’acquisition (s)** : {calculate_acq_start(age,config):.1f}")
+        st.markdown(f"**Concentration (mg I/mL)** : {int(config.get('concentration_mg_ml',350))}")
 
     volume,bsa=calculate_volume(weight,height,kv_scanner,float(config.get("concentration_mg_ml",350)),imc,config.get("calc_mode","Charge iodée"),config.get("charges",{}))
-    injection_rate, injection_time, time_adjusted=adjust_rate(volume,float(base_time),config.get("max_debit",6.0))
+    injection_rate, injection_time, time_adjusted=adjust_rate(volume,float(base_time),float(config.get("max_debit",6.0)))
 
     res_col1,res_col2=st.columns(2,gap="medium")
     for col,title,val,note in zip([res_col1,res_col2],["💧 Volume appliqué","🚀 Débit recommandé"],[volume,injection_rate],["Limité à 200 mL",""]):
-        col.markdown(f"""<div class="result-card"><h3 style="color:{GUERBET_BLUE}; margin-bottom:6px;">{title}</h3><h1 style="color:{GUERBET_DARK}; margin:0;">{val:.1f} {'mL' if 'Volume' in title else 'mL/s'}</h1><div class='small-note'>{note}</div></div>""",unsafe_allow_html=True)
+        col.markdown(f"""<div class="result-card">
+        <h3 style="color:{GUERBET_BLUE}; margin-bottom:6px;">{title}</h3>
+        <h1 style="color:{GUERBET_DARK}; margin:0;">{val:.1f} {'mL' if 'Volume' in title else 'mL/s'}</h1>
+        <div class='small-note'>{note}</div></div>""",unsafe_allow_html=True)
     if time_adjusted: st.warning(f"⚠️ Temps ajusté à {injection_time:.1f}s pour respecter le débit max de {config.get('max_debit',6.0)} mL/s.")
     st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
-    st.markdown("""<div style='background-color:#FCE8E6;color:#6B1A00;padding:10px;border-radius:8px;margin-top:15px;font-size:0.9rem;'>⚠️ Outil indicatif, valider par un professionnel de santé.</div>""",unsafe_allow_html=True)
+    st.markdown("""<div style='background-color:#FCE8E6;color:#6B1A00;padding:10px;border-radius:8px;margin-top:15px;font-size:0.9rem;'>⚠️ <b>Avertissement :</b> Outil indicatif, valider par un professionnel de santé.</div>""",unsafe_allow_html=True)
 
 # ===================== Footer =====================
 st.markdown(f"""<div style='text-align:center;margin-top:20px;font-size:0.8rem;color:#666;'>
