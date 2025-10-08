@@ -201,13 +201,11 @@ tab_patient, tab_params = st.tabs(["🧍 Patient", "⚙️ Paramètres"])
 # ===================== Onglet Paramètres =====================
 with tab_params:
     st.header("⚙️ Paramètres et Bibliothèque")
-    # Injection simultanée
     st.subheader("💉 Injection simultanée")
     config["simultaneous_enabled"] = st.checkbox("Activer l'injection simultanée", value=config.get("simultaneous_enabled", False))
     if config["simultaneous_enabled"]:
         config["target_concentration"] = st.number_input("Concentration cible (mg I/mL)", value=config.get("target_concentration",350), min_value=300, max_value=400, step=10)
 
-    # Bibliothèque
     st.subheader("📚 Bibliothèque de programmes")
     program_choice = st.selectbox("Programme", ["Aucun"] + list(libraries.get("programs", {}).keys()))
     if program_choice != "Aucun":
@@ -226,7 +224,6 @@ with tab_params:
             if del_prog:
                 delete_program(del_prog)
 
-    # Paramètres classiques
     st.subheader("⚙️ Paramètres globaux")
     config["concentration_mg_ml"] = st.selectbox("Concentration (mg I/mL)", [300,320,350,370,400], index=[300,320,350,370,400].index(int(config.get("concentration_mg_ml",350))))
     config["calc_mode"] = st.selectbox("Méthode de calcul", ["Charge iodée","Surface corporelle","Charge iodée sauf IMC > 30 → Surface corporelle"], index=["Charge iodée","Surface corporelle","Charge iodée sauf IMC > 30 → Surface corporelle"].index(config.get("calc_mode","Charge iodée")))
@@ -282,26 +279,43 @@ with tab_patient:
     injection_rate, injection_time, time_adjusted = adjust_injection_rate(volume,float(base_time),float(config.get("max_debit",6.0)))
 
     # ==== Calcul contraste et NaCl ====
+    nacl_volume = config.get("rincage_volume",35.0)
+    nacl_debit = max(0.1, injection_rate - config.get("rincage_delta_debit",0.5))
+
     if config.get("simultaneous_enabled", False):
         target = config.get("target_concentration", 350)
-        vol_contrast = volume * target / config.get("concentration_mg_ml",350)
-        perc_contrast = min(100, target / config.get("concentration_mg_ml",350) * 100)
-        contrast_text = f"{vol_contrast:.1f} mL ({perc_contrast:.0f}%)"
+        vol_contrast = volume * target / config.get("concentration_mg_ml", 350)
+        vol_nacl_dilution = vol_contrast * (config.get("concentration_mg_ml",350)/target - 1)
+
+        contrast_text = f"{vol_contrast:.1f} mL"
+        nacl_text = (
+            f"Rinçage : {nacl_volume:.0f} mL\n"
+            f"Dilution : {vol_nacl_dilution:.1f} mL\n"
+            f"Formule : V_NaCl = V_contrast × (C_contrast / C_target - 1)\n"
+            f"@ {nacl_debit:.1f} mL/s"
+        )
     else:
         vol_contrast = volume
         contrast_text = f"{vol_contrast:.1f} mL"
+        nacl_text = f"{nacl_volume:.0f} mL @ {nacl_debit:.1f} mL/s"
 
-    nacl_debit = max(0.1, injection_rate - config.get("rincage_delta_debit",0.5))
-    nacl_volume = config.get("rincage_volume",35.0)
-    nacl_text = f"{nacl_volume:.0f} mL @ {nacl_debit:.1f} mL/s"
-
+    # ==== Affichage résultats ====
     col_contrast, col_nacl, col_rate = st.columns(3, gap="medium")
     with col_contrast:
-        st.markdown(f"""<div class="result-card"><h3>💧 Volume contraste</h3><h1>{contrast_text}</h1></div>""", unsafe_allow_html=True)
+        st.markdown(
+            f"""<div class="result-card"><h3>💧 Volume contraste</h3><h1>{contrast_text}</h1></div>""",
+            unsafe_allow_html=True
+        )
     with col_nacl:
-        st.markdown(f"""<div class="result-card"><h3>💧 Volume NaCl</h3><h1>{nacl_text}</h1></div>""", unsafe_allow_html=True)
+        st.markdown(
+            f"""<div class="result-card"><h3>💧 Volume NaCl</h3><h1 style="white-space: pre-line;">{nacl_text}</h1></div>""",
+            unsafe_allow_html=True
+        )
     with col_rate:
-        st.markdown(f"""<div class="result-card"><h3>🚀 Débit conseillé</h3><h1>{injection_rate:.1f} mL/s</h1></div>""", unsafe_allow_html=True)
+        st.markdown(
+            f"""<div class="result-card"><h3>🚀 Débit conseillé</h3><h1>{injection_rate:.1f} mL/s</h1></div>""",
+            unsafe_allow_html=True
+        )
 
     if time_adjusted:
         st.warning(f"⚠️ Le temps d’injection a été ajusté à {injection_time:.1f}s pour respecter le débit maximal de {config.get('max_debit',6.0)} mL/s.")
