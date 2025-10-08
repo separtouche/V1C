@@ -36,7 +36,6 @@ h1, h2, h3 {{ font-weight: 600; letter-spacing: -0.5px; }}
   letter-spacing: 0.5px;
   text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
 }}
-.header-right {{ width: 120px; }}
 .result-card {{
     background-color: {CARD_BG};
     border-radius: 12px;
@@ -158,14 +157,15 @@ else:
 if not st.session_state["accepted_legal"]:
     st.markdown("### Mentions légales — acceptation requise")
     st.markdown("Avant d'utiliser cet outil, vous devez accepter la mention légale et les conditions d'utilisation.")
+    
     accept = st.checkbox("✅ J’accepte les mentions légales.", key="accept_checkbox")
     
     if st.button("Accepter et continuer"):
         if accept:
             st.session_state["accepted_legal"] = True
-            st.experimental_rerun()
         else:
             st.warning("Vous devez cocher la case pour accepter.")
+    
     st.stop()
 
 # ===================== Onglets =====================
