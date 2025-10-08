@@ -83,6 +83,7 @@ default_config = {
     "calc_mode": "Charge iodée"
 }
 
+# Charger configuration
 if os.path.exists(CONFIG_FILE):
     try:
         with open(CONFIG_FILE, "r") as f:
@@ -92,11 +93,19 @@ if os.path.exists(CONFIG_FILE):
 else:
     config = default_config.copy()
 
+# Charger bibliothèque
 if os.path.exists(LIB_FILE):
-    with open(LIB_FILE, "r") as f:
-        libraries = json.load(f)
+    try:
+        with open(LIB_FILE, "r") as f:
+            libraries = json.load(f)
+    except:
+        libraries = {"programs": {}}
 else:
     libraries = {"programs": {}}
+
+# S'assurer que "programs" existe
+if "programs" not in libraries:
+    libraries["programs"] = {}
 
 def save_config(data):
     with open(CONFIG_FILE, "w") as f:
@@ -252,6 +261,8 @@ with tab_params:
         new_prog_name = st.text_input("Nom du programme à ajouter/modifier", key="new_program")
         if st.button("➕ Ajouter/Modifier Programme"):
             if new_prog_name:
+                if "programs" not in libraries:
+                    libraries["programs"] = {}
                 libraries["programs"][new_prog_name] = {
                     "charges": {str(int(row.kV)): float(row["Charge (g I/kg)"]) for _, row in edited_df.iterrows()},
                     "concentration_mg_ml": config["concentration_mg_ml"],
