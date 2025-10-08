@@ -285,10 +285,14 @@ with tab_patient:
         vol_nacl_dilution = volume - vol_contrast
         perc_contrast = vol_contrast / volume * 100
         perc_nacl_dilution = vol_nacl_dilution / volume * 100
+
         contrast_text = f"{vol_contrast:.1f} mL ({perc_contrast:.0f}%)"
+
         nacl_rincage_volume = config.get("rincage_volume",35.0)
         nacl_rincage_debit = max(0.1, injection_rate - config.get("rincage_delta_debit",0.5))
-        nacl_text = f"{vol_nacl_dilution:.1f} mL ({perc_nacl_dilution:.0f}%)<div class='sub-item'>Rinçage : {nacl_rincage_volume:.0f} mL @ {nacl_rincage_debit:.1f} mL/s</div>"
+
+        nacl_text = f"<div class='sub-item'>Dilution : {vol_nacl_dilution:.1f} mL ({perc_nacl_dilution:.0f}%)</div>"
+        nacl_text += f"<div class='sub-item'>Rinçage : {nacl_rincage_volume:.1f} mL @ {nacl_rincage_debit:.1f} mL/s</div>"
     else:
         vol_contrast = volume
         contrast_text = f"{vol_contrast:.1f} mL"
