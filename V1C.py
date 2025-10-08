@@ -223,25 +223,23 @@ with tab_patient:
     with col_kv:
         kv_scanner = st.radio("kV du scanner", [80,90,100,110,120], index=4, horizontal=True)
     with col_mode_time:
-        injection_modes = ["Portal","Artériel"]
-        if config.get("intermediate_enabled",False):
-            injection_modes.append("Intermédiaire")
-        injection_mode = st.radio("Mode d’injection", injection_modes, horizontal=True)
-
-        # Temps sélectionné juste en dessous du mode si Intermédiaire
-        if injection_mode == "Intermédiaire":
-            base_time = st.number_input("Temps intermédiaire (s)", 
-                                        value=float(config.get("intermediate_time",28.0)), 
-                                        min_value=5.0, max_value=120.0, step=1.0)
-        elif injection_mode=="Portal":
-            base_time=float(config.get("portal_time",30.0))
-        else:  # Artériel
-            base_time=float(config.get("arterial_time",25.0))
-
-        acquisition_start = calculate_acquisition_start(age, config)
-        st.markdown(f"**Temps sélectionné :** {base_time:.0f} s")
-        st.markdown(f"**Départ d'acquisition :** {acquisition_start:.1f} s")
-        st.markdown(f"**Concentration :** {int(config.get('concentration_mg_ml',350))} mg I/mL")
+        col_mode, col_times = st.columns([1.2,1])
+        with col_mode:
+            injection_modes = ["Portal","Artériel"]
+            if config.get("intermediate_enabled",False):
+                injection_modes.append("Intermédiaire")
+            injection_mode = st.radio("Mode d’injection", injection_modes, horizontal=True)
+        with col_times:
+            acquisition_start = calculate_acquisition_start(age, config)
+            if injection_mode=="Portal":
+                base_time=float(config.get("portal_time",30.0))
+            elif injection_mode=="Artériel":
+                base_time=float(config.get("arterial_time",25.0))
+            else:
+                base_time = st.number_input("Temps intermédiaire (s)", value=float(config.get("intermediate_time",28.0)), min_value=5.0, max_value=120.0, step=1.0)
+            st.markdown(f"**Temps sélectionné :** {base_time:.0f} s")
+            st.markdown(f"**Départ d'acquisition :** {acquisition_start:.1f} s")
+            st.markdown(f"**Concentration :** {int(config.get('concentration_mg_ml',350))} mg I/mL")
 
     # Calculs
     volume, bsa = calculate_volume(weight,height,kv_scanner,float(config.get("concentration_mg_ml",350)),imc,config.get("calc_mode","Charge iodée"),config.get("charges",{}))
