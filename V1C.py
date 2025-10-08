@@ -200,34 +200,44 @@ tab_patient, tab_params = st.tabs(["🧍 Patient", "⚙️ Paramètres"])
 # ===================== Onglet Paramètres =====================
 with tab_params:
     st.header("⚙️ Paramètres et Bibliothèque")
-    
+
     # --- Bibliothèque ---
     st.subheader("📚 Bibliothèque de programmes")
     program_choice = st.selectbox("Programme", ["Aucun"] + list(libraries.get("programs", {}).keys()), index=0)
     
-    if program_choice != st.session_state["selected_program"]:
+    # Mettre à jour config si programme sélectionné
+    if program_choice != "Aucun" and program_choice != st.session_state["selected_program"]:
         st.session_state["selected_program"] = program_choice
-        if program_choice != "Aucun":
-            prog_conf = libraries.get("programs", {}).get(program_choice, {})
-            config["charges"] = prog_conf.get("charges", config.get("charges", default_config["charges"]))
-            config["concentration_mg_ml"] = prog_conf.get("concentration_mg_ml", config.get("concentration_mg_ml", 350))
-            config["max_debit"] = prog_conf.get("max_debit", config.get("max_debit", 6.0))
-            config["calc_mode"] = prog_conf.get("calc_mode", config.get("calc_mode", "Charge iodée"))
-            config["rincage_volume"] = prog_conf.get("rincage_volume", config.get("rincage_volume", 35.0))
-            config["rincage_delta_debit"] = prog_conf.get("rincage_delta_debit", config.get("rincage_delta_debit", 0.5))
+        prog_conf = libraries.get("programs", {}).get(program_choice, {})
+        for key in ["charges", "concentration_mg_ml", "max_debit", "calc_mode", "rincage_volume", "rincage_delta_debit", "portal_time", "arterial_time", "intermediate_enabled", "intermediate_time"]:
+            if key in prog_conf:
+                st.session_state[key] = prog_conf[key]
 
-    # --- Configuration ---
+    # --- Configuration calcul ---
     with st.expander("💊 Configuration du calcul", expanded=True):
-        config["concentration_mg_ml"] = st.selectbox("Concentration (mg I/mL)", [300,320,350,370,400], index=[300,320,350,370,400].index(int(config.get("concentration_mg_ml",350))))
-        config["calc_mode"] = st.selectbox("Méthode de calcul", ["Charge iodée","Surface corporelle","Charge iodée sauf IMC > 30 → Surface corporelle"], index=["Charge iodée","Surface corporelle","Charge iodée sauf IMC > 30 → Surface corporelle"].index(config.get("calc_mode","Charge iodée")))
-        config["max_debit"] = st.number_input("Débit maximal autorisé (mL/s)", value=float(config.get("max_debit",6.0)), min_value=1.0, max_value=20.0, step=0.1)
+        config["concentration_mg_ml"] = st.selectbox("Concentration (mg I/mL)", [300,320,350,370,400], index=[300,320,350,370,400].index(st.session_state.get("concentration_mg_ml", config.get("concentration_mg_ml",350))))
+        config["calc_mode"] = st.selectbox("Méthode de calcul", ["Charge iodée","Surface corporelle","Charge iodée sauf IMC > 30 → Surface corporelle"], index=["Charge iodée","Surface corporelle","Charge iodée sauf IMC > 30 → Surface corporelle"].index(st.session_state.get("calc_mode", config.get("calc_mode","Charge iodée"))))
+        config["max_debit"] = st.number_input("Débit maximal autorisé (mL/s)", value=float(st.session_state.get("max_debit", config.get("max_debit",6.0))), min_value=1.0, max_value=20.0, step=0.1)
+
+    # --- Temps injection ---
+    with st.expander("⏱ Temps d'injection", expanded=True):
+        config["portal_time"] = st.number_input("Portal (s)", value=float(st.session_state.get("portal_time", config.get("portal_time",30.0))), min_value=5.0, max_value=120.0, step=1.0)
+        config["arterial_time"] = st.number_input("Artériel (s)", value=float(st.session_state.get("arterial_time", config.get("arterial_time",25.0))), min_value=5.0, max_value=120.0, step=1.0)
+        config["intermediate_enabled"] = st.checkbox("Activer temps intermédiaire", value=st.session_state.get("intermediate_enabled", config.get("intermediate_enabled", False)))
+        if config["intermediate_enabled"]:
+            config["intermediate_time"] = st.number_input("Intermédiaire (s)", value=float(st.session_state.get("intermediate_time", config.get("intermediate_time",28.0))), min_value=5.0, max_value=120.0, step=1.0)
+
+    # --- Rinçage NaCl ---
+    with st.expander("🚰 Rinçage au NaCl", expanded=True):
+        config["rincage_volume"] = st.number_input("Volume de rinçage (mL)", value=float(st.session_state.get("rincage_volume", config.get("rincage_volume",35.0))), min_value=10.0, max_value=100.0, step=1.0)
+        config["rincage_delta_debit"] = st.number_input("Différence débit NaCl vs contraste (mL/s)", value=float(st.session_state.get("rincage_delta_debit", config.get("rincage_delta_debit",0.5))), min_value=0.1, max_value=5.0, step=0.1)
 
     # --- Charges ---
     st.markdown("**Charges en iode par kV (g I/kg)**")
-    df_charges = pd.DataFrame({"kV":[80,90,100,110,120],"Charge (g I/kg)":[float(config["charges"].get(str(kv),0.35)) for kv in [80,90,100,110,120]]})
+    df_charges = pd.DataFrame({"kV":[80,90,100,110,120],"Charge (g I/kg)":[float(st.session_state.get("charges", config.get("charges", {})).get(str(kv),0.35)) for kv in [80,90,100,110,120]]})
     edited_df = st.data_editor(df_charges, num_rows="fixed", use_container_width=True)
 
-    # --- Sauvegarde & Gestion programmes ---
+    # --- Sauvegarde et gestion programmes ---
     col_save, col_add, col_del = st.columns(3)
     with col_save:
         if st.button("💾 Sauvegarder les paramètres"):
@@ -244,7 +254,11 @@ with tab_params:
                     "max_debit": config.get("max_debit", 6.0),
                     "calc_mode": config.get("calc_mode", "Charge iodée"),
                     "rincage_volume": config.get("rincage_volume", 35.0),
-                    "rincage_delta_debit": config.get("rincage_delta_debit", 0.5)
+                    "rincage_delta_debit": config.get("rincage_delta_debit", 0.5),
+                    "portal_time": config.get("portal_time",30.0),
+                    "arterial_time": config.get("arterial_time",25.0),
+                    "intermediate_enabled": config.get("intermediate_enabled",False),
+                    "intermediate_time": config.get("intermediate_time",28.0)
                 }
                 save_libraries(libraries)
                 st.success(f"Programme '{new_prog_name}' sauvegardé !")
@@ -298,6 +312,8 @@ with tab_patient:
     if time_adjusted:
         st.warning(f"⚠️ Le temps d’injection a été ajusté à {injection_time:.1f}s pour respecter le débit maximal de {config.get('max_debit',6.0)} mL/s.")
     st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
+
+    st.markdown("""<div style='background-color:#FCE8E6; color:#6B1A00; padding:10px; border-radius:8px; margin-top:15px; font-size:0.9rem;'>⚠️ <b>Avertissement :</b> Ce logiciel est un outil d’aide à la décision. Les résultats sont <b>indicatifs</b> et doivent être validés par un professionnel de santé. L’auteur, Sébastien Partouche, et Guerbet déclinent toute responsabilité en cas d’erreur ou de mauvaise utilisation.</div>""", unsafe_allow_html=True)
 
 # ===================== Footer =====================
 st.markdown(f"""<div style='text-align:center; margin-top:20px; font-size:0.8rem; color:#666;'>
