@@ -251,6 +251,7 @@ with tab_params:
 # ===================== Onglet Patient =====================
 with tab_patient:
     st.header("🧍 Informations patient")
+    
     col_w, col_h, col_birth = st.columns([1,1,1])
     with col_w:
         weight = st.select_slider("Poids (kg)", options=list(range(20,201)), value=70)
@@ -274,17 +275,24 @@ with tab_patient:
             if config.get("intermediate_enabled",False):
                 injection_modes.append("Intermédiaire")
             injection_mode = st.radio("Mode d’injection", injection_modes, horizontal=True)
+
         with col_times:
-            if injection_mode=="Portal":
-                base_time = float(config.get("portal_time",30.0))
-            elif injection_mode=="Artériel":
-                base_time = float(config.get("arterial_time",25.0))
-            else:
+            # --- Affichage des temps fixes Portal et Artériel ---
+            st.markdown(f"**Temps Portal :** {config.get('portal_time',30.0):.0f} s")
+            st.markdown(f"**Temps Artériel :** {config.get('arterial_time',25.0):.0f} s")
+
+            # --- Temps intermédiaire modifiable si sélectionné ---
+            if injection_mode == "Intermédiaire":
                 base_time = st.number_input(
                     "Temps Intermédiaire (s)", 
                     value=float(config.get("intermediate_time",28.0)),
                     min_value=5.0, max_value=120.0, step=1.0
                 )
+            elif injection_mode=="Portal":
+                base_time = float(config.get("portal_time",30.0))
+            else:
+                base_time = float(config.get("arterial_time",25.0))
+
             acquisition_start = calculate_acquisition_start(age, config)
             st.markdown(f"**Départ d'acquisition :** {acquisition_start:.1f} s")
             st.markdown(f"**Concentration :** {int(config.get('concentration_mg_ml',350))} mg I/mL")
@@ -322,7 +330,7 @@ with tab_patient:
 
     st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
 
-    st.markdown("""<div style='background-color:#FCE8E6; color:#6B1A00; padding:10px; border-radius:8px; margin-top:15px; font-size:0.9rem;'>⚠️ <b>Avertissement :</b> Ce logiciel est un outil d’aide à la décision. Les résultats sont <b>indicatifs</b> et doivent être validés par un professionnel de santé. L’auteur, Sébastien Partouche, et Guerbet déclinent toute responsabilité en cas d’erreur ou de mauvaise utilisation.</div>""", unsafe_allow_html=True)
+    st.markdown("""<div style='background-color:#FCE8E6; color:#6B1A00; padding:10px; border-radius:8px; margin-top:15px; font-size:0.9rem;'>⚠️ <b>Avertissement :</b> Ce logiciel est un outil d’aide à la décision. Les résultats sont <b>indicatifs</b> et doivent être validés par un professionnel de santé.</div>""", unsafe_allow_html=True)
 
 # ===================== Footer =====================
 st.markdown(f"""<div style='text-align:center; margin-top:20px; font-size:0.8rem; color:#666;'>
