@@ -160,7 +160,7 @@ def img_to_base64(path):
         return base64.b64encode(f.read()).decode()
 
 # ===================== Session init =====================
-for key in ["accepted_legal", "selected_program", "simultaneous_enabled", "target_concentration"]:
+for key in ["accepted_legal", "selected_program"]:
     if key not in st.session_state:
         st.session_state[key] = config.get(key)
 
@@ -204,74 +204,60 @@ with tab_params:
 
     # --- Injection simultanée ---
     st.subheader("💉 Injection simultanée")
-    st.session_state["simultaneous_enabled"] = st.checkbox("Activer l'injection simultanée", value=st.session_state.get("simultaneous_enabled", False))
-    if st.session_state["simultaneous_enabled"]:
-        st.session_state["target_concentration"] = st.number_input("Concentration cible (mg I/mL)", value=st.session_state.get("target_concentration", 300), min_value=50, max_value=400, step=10)
+    config["simultaneous_enabled"] = st.checkbox("Activer l'injection simultanée", value=config.get("simultaneous_enabled", False))
+    if config["simultaneous_enabled"]:
+        config["target_concentration"] = st.number_input("Concentration cible (mg I/mL)", value=config.get("target_concentration",350), min_value=300, max_value=400, step=10)
 
     # --- Bibliothèque ---
     st.subheader("📚 Bibliothèque de programmes")
-    program_choice = st.selectbox("Programme", ["Aucun"] + list(libraries.get("programs", {}).keys()), index=0)
-    if program_choice != "Aucun" and program_choice != st.session_state.get("selected_program"):
-        st.session_state["selected_program"] = program_choice
-        prog_conf = libraries.get("programs", {}).get(program_choice, {})
-        for key in ["charges", "concentration_mg_ml", "max_debit", "calc_mode", "rincage_volume", "rincage_delta_debit", "portal_time", "arterial_time", "intermediate_enabled", "intermediate_time", "simultaneous_enabled", "target_concentration"]:
-            if key in prog_conf:
-                st.session_state[key] = prog_conf[key]
+    program_choice = st.selectbox("Programme", ["Aucun"] + list(libraries.get("programs", {}).keys()))
+    if program_choice != "Aucun":
+        prog_conf = libraries["programs"].get(program_choice, {})
+        for key in prog_conf:
+            config[key] = prog_conf[key]
 
     # --- Configuration calcul ---
     with st.expander("💊 Configuration du calcul", expanded=True):
-        config["concentration_mg_ml"] = st.selectbox("Concentration (mg I/mL)", [300,320,350,370,400], index=[300,320,350,370,400].index(st.session_state.get("concentration_mg_ml", config.get("concentration_mg_ml",350))))
-        config["calc_mode"] = st.selectbox("Méthode de calcul", ["Charge iodée","Surface corporelle","Charge iodée sauf IMC > 30 → Surface corporelle"], index=["Charge iodée","Surface corporelle","Charge iodée sauf IMC > 30 → Surface corporelle"].index(st.session_state.get("calc_mode", config.get("calc_mode","Charge iodée"))))
-        config["max_debit"] = st.number_input("Débit maximal autorisé (mL/s)", value=float(st.session_state.get("max_debit", config.get("max_debit",6.0))), min_value=1.0, max_value=20.0, step=0.1)
+        config["concentration_mg_ml"] = st.selectbox("Concentration (mg I/mL)", [300,320,350,370,400], index=[300,320,350,370,400].index(config.get("concentration_mg_ml",350)))
+        config["calc_mode"] = st.selectbox("Méthode de calcul", ["Charge iodée","Surface corporelle","Charge iodée sauf IMC > 30 → Surface corporelle"], index=["Charge iodée","Surface corporelle","Charge iodée sauf IMC > 30 → Surface corporelle"].index(config.get("calc_mode","Charge iodée")))
+        config["max_debit"] = st.number_input("Débit maximal autorisé (mL/s)", value=float(config.get("max_debit",6.0)), min_value=1.0, max_value=20.0, step=0.1)
 
     # --- Temps injection ---
     with st.expander("⏱ Temps d'injection", expanded=True):
-        config["portal_time"] = st.number_input("Portal (s)", value=float(st.session_state.get("portal_time", config.get("portal_time",30.0))), min_value=5.0, max_value=120.0, step=1.0)
-        config["arterial_time"] = st.number_input("Artériel (s)", value=float(st.session_state.get("arterial_time", config.get("arterial_time",25.0))), min_value=5.0, max_value=120.0, step=1.0)
-        config["intermediate_enabled"] = st.checkbox("Activer temps intermédiaire", value=st.session_state.get("intermediate_enabled", config.get("intermediate_enabled", False)))
+        config["portal_time"] = st.number_input("Portal (s)", value=float(config.get("portal_time",30.0)), min_value=5.0, max_value=120.0, step=1.0)
+        config["arterial_time"] = st.number_input("Artériel (s)", value=float(config.get("arterial_time",25.0)), min_value=5.0, max_value=120.0, step=1.0)
+        config["intermediate_enabled"] = st.checkbox("Activer temps intermédiaire", value=config.get("intermediate_enabled",False))
         if config["intermediate_enabled"]:
-            config["intermediate_time"] = st.number_input("Intermédiaire (s)", value=float(st.session_state.get("intermediate_time", config.get("intermediate_time",28.0))), min_value=5.0, max_value=120.0, step=1.0)
+            config["intermediate_time"] = st.number_input("Intermédiaire (s)", value=float(config.get("intermediate_time",28.0)), min_value=5.0, max_value=120.0, step=1.0)
 
     # --- Rinçage NaCl ---
     with st.expander("🚰 Rinçage au NaCl", expanded=True):
-        config["rincage_volume"] = st.number_input("Volume de rinçage (mL)", value=float(st.session_state.get("rincage_volume", config.get("rincage_volume",35.0))), min_value=10.0, max_value=100.0, step=1.0)
-        config["rincage_delta_debit"] = st.number_input("Différence débit NaCl vs contraste (mL/s)", value=float(st.session_state.get("rincage_delta_debit", config.get("rincage_delta_debit",0.5))), min_value=0.1, max_value=5.0, step=0.1)
+        config["rincage_volume"] = st.number_input("Volume de rinçage (mL)", value=float(config.get("rincage_volume",35.0)), min_value=10.0, max_value=100.0, step=1.0)
+        config["rincage_delta_debit"] = st.number_input("Différence débit NaCl vs contraste (mL/s)", value=float(config.get("rincage_delta_debit",0.5)), min_value=0.1, max_value=5.0, step=0.1)
 
     # --- Charges ---
     st.markdown("**Charges en iode par kV (g I/kg)**")
-    df_charges = pd.DataFrame({"kV":[80,90,100,110,120],"Charge (g I/kg)":[float(st.session_state.get("charges", config.get("charges", {})).get(str(kv),0.35)) for kv in [80,90,100,110,120]]})
+    df_charges = pd.DataFrame({"kV":[80,90,100,110,120],"Charge (g I/kg)":[float(config.get("charges",{}).get(str(kv),0.35)) for kv in [80,90,100,110,120]]})
     edited_df = st.data_editor(df_charges, num_rows="fixed", use_container_width=True)
 
-    # --- Sauvegarde et gestion programmes ---
     col_save, col_add, col_del = st.columns(3)
     with col_save:
         if st.button("💾 Sauvegarder les paramètres"):
-            config["charges"] = {str(int(row.kV)): float(row["Charge (g I/kg)"]) for _,row in edited_df.iterrows()}
-            save_config(config)
-            st.success("✅ Paramètres sauvegardés !")
+            try:
+                config["charges"] = {str(int(row.kV)): float(row["Charge (g I/kg)"]) for _,row in edited_df.iterrows()}
+                save_config(config)
+                st.success("✅ Paramètres sauvegardés !")
+            except Exception as e:
+                st.error(f"Erreur : {e}")
     with col_add:
-        new_prog_name = st.text_input("Nom du programme à ajouter/modifier", key="new_program")
-        if st.button("➕ Ajouter/Modifier Programme"):
-            if new_prog_name:
-                libraries["programs"][new_prog_name] = {
-                    "charges": {str(int(row.kV)): float(row["Charge (g I/kg)"]) for _, row in edited_df.iterrows()},
-                    "concentration_mg_ml": config.get("concentration_mg_ml", 350),
-                    "max_debit": config.get("max_debit", 6.0),
-                    "calc_mode": config.get("calc_mode", "Charge iodée"),
-                    "rincage_volume": config.get("rincage_volume", 35.0),
-                    "rincage_delta_debit": config.get("rincage_delta_debit", 0.5),
-                    "portal_time": config.get("portal_time",30.0),
-                    "arterial_time": config.get("arterial_time",25.0),
-                    "intermediate_enabled": config.get("intermediate_enabled",False),
-                    "intermediate_time": config.get("intermediate_time",28.0),
-                    "simultaneous_enabled": st.session_state.get("simultaneous_enabled", False),
-                    "target_concentration": st.session_state.get("target_concentration", None)
-                }
-                save_libraries(libraries)
-                st.success(f"Programme '{new_prog_name}' sauvegardé !")
+        new_prog_name = st.text_input("Nom du nouveau programme")
+        if st.button("➕ Ajouter programme") and new_prog_name:
+            libraries["programs"][new_prog_name] = config.copy()
+            save_libraries(libraries)
+            st.success(f"Programme '{new_prog_name}' ajouté !")
     with col_del:
-        del_prog_name = st.selectbox("Programme à supprimer", ["Aucun"] + list(libraries.get("programs", {}).keys()), key="del_program")
-        if st.button("🗑️ Supprimer Programme") and del_prog_name != "Aucun":
+        del_prog_name = st.selectbox("Supprimer programme", [""] + list(libraries.get("programs", {}).keys()))
+        if st.button("🗑 Supprimer programme") and del_prog_name:
             delete_program(del_prog_name)
 
 # ===================== Onglet Patient =====================
@@ -298,7 +284,7 @@ with tab_patient:
             acquisition_start = calculate_acquisition_start(age, config)
             if injection_mode=="Portal": base_time=float(config.get("portal_time",30.0))
             elif injection_mode=="Artériel": base_time=float(config.get("arterial_time",25.0))
-            else: base_time = st.number_input("Temps intermédiaire (s)", value=float(config.get("intermediate_time",28.0)), min_value=5.0, max_value=120.0, step=1.0)
+            else: base_time = float(config.get("intermediate_time",28.0))
             st.markdown(f"**Temps sélectionné :** {base_time:.0f} s")
             st.markdown(f"**Départ d'acquisition :** {acquisition_start:.1f} s")
             st.markdown(f"**Concentration :** {int(config.get('concentration_mg_ml',350))} mg I/mL")
@@ -306,35 +292,34 @@ with tab_patient:
     volume, bsa = calculate_volume(weight,height,kv_scanner,float(config.get("concentration_mg_ml",350)),imc,config.get("calc_mode","Charge iodée"),config.get("charges",{}))
     injection_rate, injection_time, time_adjusted = adjust_injection_rate(volume,float(base_time),float(config.get("max_debit",6.0)))
 
-    # ==== Trois cartes côte à côte ====
-    col_contrast, col_nacl, col_rate = st.columns(3, gap="medium")
-    volume_affiche = volume
-
-    with col_contrast:
-        st.markdown(f"""<div class="result-card"><h3>💧 Quantité de contraste conseillée</h3><h1>{volume_affiche:.1f} mL</h1></div>""", unsafe_allow_html=True)
-
-    nacl_debit = max(0.1, injection_rate - config.get("rincage_delta_debit",0.5))
-    with col_nacl:
-        st.markdown(f"""<div class="result-card"><h3>💧 Volume NaCl conseillé</h3><h1>{config.get('rincage_volume',35.0):.0f} mL @ {nacl_debit:.1f} mL/s</h1></div>""", unsafe_allow_html=True)
-
-    with col_rate:
-        st.markdown(f"""<div class="result-card"><h3>🚀 Débit conseillé</h3><h1>{injection_rate:.1f} mL/s</h1></div>""", unsafe_allow_html=True)
-
-    # --- Injection simultanée ---
+    # Injection simultanée
     if config.get("simultaneous_enabled", False):
-        target = st.session_state.get("target_concentration", config.get("concentration_mg_ml", 350))
+        target = config.get("target_concentration",350)
         perc_contrast = min(100, target / config.get("concentration_mg_ml",350) * 100)
         perc_nacl = 100 - perc_contrast
         vol_contrast = volume * perc_contrast / 100
         vol_nacl = volume * perc_nacl / 100
-        st.info(f"💧 Injection simultanée activée :\n- Contraste : {vol_contrast:.1f} mL ({perc_contrast:.0f}%)\n- NaCl : {vol_nacl:.1f} mL ({perc_nacl:.0f}%)")
+    else:
+        vol_contrast = volume
+        vol_nacl = config.get("rincage_volume",35.0)
+        perc_contrast = 100
+        perc_nacl = 0
 
-    st.info(f"⚠️ Sans rinçage, il aurait fallu injecter {volume + 15:.0f} mL de contraste total.")
+    # ==== Trois cartes côte à côte ====
+    col_contrast, col_nacl, col_rate = st.columns(3, gap="medium")
+    with col_contrast:
+        st.markdown(f"""<div class="result-card"><h3>💧 Volume contraste</h3><h1>{vol_contrast:.1f} mL ({perc_contrast:.0f}%)</h1></div>""", unsafe_allow_html=True)
+    with col_nacl:
+        st.markdown(f"""<div class="result-card"><h3>💧 Volume NaCl</h3><h1>{vol_nacl:.1f} mL ({perc_nacl:.0f}%)</h1></div>""", unsafe_allow_html=True)
+    with col_rate:
+        st.markdown(f"""<div class="result-card"><h3>🚀 Débit conseillé</h3><h1>{injection_rate:.1f} mL/s</h1></div>""", unsafe_allow_html=True)
+
     if time_adjusted:
         st.warning(f"⚠️ Le temps d’injection a été ajusté à {injection_time:.1f}s pour respecter le débit maximal de {config.get('max_debit',6.0)} mL/s.")
+
     st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
 
-    st.markdown("""<div style='background-color:#FCE8E6; color:#6B1A00; padding:10px; border-radius:8px; margin-top:15px; font-size:0.9rem;'>⚠️ <b>Avertissement :</b> Ce logiciel est un outil d’aide à la décision. Les résultats sont <b>indicatifs</b> et doivent être validés par un professionnel de santé. L’auteur, Sébastien Partouche, et Guerbet déclinent toute responsabilité en cas d’erreur ou de mauvaise utilisation.</div>""", unsafe_allow_html=True)
+    st.markdown("""<div style='background-color:#FCE8E6; color:#6B1A00; padding:10px; border-radius:8px; margin-top:15px; font-size:0.9rem;'>⚠️ <b>Avertissement :</b> Ce logiciel est un outil d’aide à la décision. Les résultats sont <b>indicatifs</b> et doivent être validés par un professionnel de santé.</div>""", unsafe_allow_html=True)
 
 # ===================== Footer =====================
 st.markdown(f"""<div style='text-align:center; margin-top:20px; font-size:0.8rem; color:#666;'>
