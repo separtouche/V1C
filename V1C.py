@@ -42,18 +42,17 @@ h1, h2, h3 {{ font-weight: 600; letter-spacing: -0.5px; }}
     background-color: {CARD_BG};
     border-radius: 12px;
     box-shadow: 0 4px 8px rgba(0,0,0,0.07);
-    padding: 18px;
+    padding: 12px;
     text-align: center;
     transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-    min-height: 160px;
+    min-height: 120px;
 }}
 .result-card:hover {{
     transform: scale(1.02);
     box-shadow: 0 6px 14px rgba(0,0,0,0.12);
 }}
-.result-card h3 {{ margin-bottom:4px; font-size:1.1rem; }}
-.result-card h1 {{ margin:0; font-size:2rem; }}
-.small-note {{ font-size:0.85rem; color:#333; margin-top:6px; }}
+.result-card h3 {{ margin-bottom:4px; font-size:0.95rem; }}
+.result-card h1 {{ margin:0; font-size:1.5rem; }}
 .param-section {{
     background: #ffffff;
     border-radius: 10px;
@@ -246,14 +245,12 @@ with tab_patient:
     volume, bsa = calculate_volume(weight,height,kv_scanner,float(config.get("concentration_mg_ml",350)),imc,config.get("calc_mode","Charge iodée"),config.get("charges",{}))
     injection_rate, injection_time, time_adjusted = adjust_injection_rate(volume,float(base_time),float(config.get("max_debit",6.0)))
 
-    # ===================== Cartes côte à côte =====================
-    col_vol, col_debit = st.columns(2, gap="large")
+    col_vol, col_debit = st.columns(2, gap="medium")
     with col_vol:
         st.markdown(f"""
         <div class="result-card">
             <h3>💧 Volume appliqué</h3>
             <h1>{volume:.1f} mL</h1>
-            <div class='small-note'>Limité à 200 mL</div>
         </div>
         """, unsafe_allow_html=True)
     with col_debit:
@@ -271,7 +268,6 @@ with tab_patient:
 
     st.markdown("""<div style='background-color:#FCE8E6; color:#6B1A00; padding:10px; border-radius:8px; margin-top:15px; font-size:0.9rem;'>⚠️ <b>Avertissement :</b> Ce logiciel est un outil d’aide à la décision. Les résultats sont <b>indicatifs</b> et doivent être validés par un professionnel de santé. L’auteur, Sébastien Partouche, et Guerbet déclinent toute responsabilité en cas d’erreur ou de mauvaise utilisation.</div>""", unsafe_allow_html=True)
 
-# ===================== Footer =====================
 st.markdown(f"""<div style='text-align:center; margin-top:20px; font-size:0.8rem; color:#666;'>
 © 2025 Guerbet | Développé par <b>Sébastien Partouche</b><br>
 Ce logiciel fournit des <b>propositions de valeurs</b> et ne remplace pas le jugement médical.<br>
