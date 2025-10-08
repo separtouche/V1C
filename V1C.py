@@ -252,6 +252,7 @@ with tab_params:
 with tab_patient:
     st.header("🧍 Informations patient")
     
+    # --- Saisie poids, taille et année de naissance ---
     col_w, col_h, col_birth = st.columns([1,1,1])
     with col_w:
         weight = st.select_slider("Poids (kg)", options=list(range(20,201)), value=70)
@@ -264,6 +265,12 @@ with tab_patient:
     age = current_year - birth_year
     imc = weight / ((height/100)**2)
 
+    # --- Affichage juste sous année de naissance ---
+    acquisition_start = calculate_acquisition_start(age, config)
+    st.markdown(f"**Départ d'acquisition :** {acquisition_start:.1f} s")
+    st.markdown(f"**Concentration :** {int(config.get('concentration_mg_ml',350))} mg I/mL")
+
+    # --- kV et mode d’injection ---
     col_kv, col_mode_time = st.columns([1.2,2])
     with col_kv:
         kv_scanner = st.radio("kV du scanner", [80,90,100,110,120], index=4, horizontal=True)
@@ -274,7 +281,7 @@ with tab_patient:
             injection_modes.append("Intermédiaire")
         injection_mode = st.radio("Mode d’injection", injection_modes, horizontal=True)
 
-        # Temps sélectionné (modifiable uniquement si Intermédiaire)
+        # --- Temps sélectionné (modifiable uniquement si Intermédiaire) ---
         if injection_mode == "Intermédiaire":
             selected_time = st.number_input(
                 "Temps Intermédiaire (s)", 
@@ -286,15 +293,14 @@ with tab_patient:
         else:
             selected_time = float(config.get("arterial_time",25.0))
 
+        # --- Affichage du temps sélectionné ---
         st.markdown(f"**Temps sélectionné :** {selected_time:.0f} s")
 
-    acquisition_start = calculate_acquisition_start(age, config)
-    st.markdown(f"**Départ d'acquisition :** {acquisition_start:.1f} s")
-    st.markdown(f"**Concentration :** {int(config.get('concentration_mg_ml',350))} mg I/mL")
-
+    # --- Calcul du volume et débit ---
     volume, bsa = calculate_volume(weight, height, kv_scanner, float(config.get("concentration_mg_ml",350)), imc, config.get("calc_mode","Charge iodée"), config.get("charges",{}))
     injection_rate, injection_time, time_adjusted = adjust_injection_rate(volume,float(selected_time),float(config.get("max_debit",6.0)))
 
+    # --- Injection simultanée ---
     if config.get("simultaneous_enabled", False):
         target = config.get("target_concentration", 350)
         vol_contrast = volume * target / config.get("concentration_mg_ml",350)
@@ -312,6 +318,7 @@ with tab_patient:
         contrast_text = f"{vol_contrast:.1f} mL"
         nacl_text = f"{config.get('rincage_volume',35.0):.0f} mL"
 
+    # --- Affichage des résultats ---
     col_contrast, col_nacl, col_rate = st.columns(3, gap="medium")
     with col_contrast:
         st.markdown(f"""<div class="result-card"><h3>💧 Volume contraste conseillé</h3><h1>{contrast_text}</h1></div>""", unsafe_allow_html=True)
