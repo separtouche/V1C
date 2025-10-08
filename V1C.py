@@ -155,7 +155,10 @@ else:
 # ===================== Mentions légales =====================
 if not st.session_state["accepted_legal"]:
     st.markdown("### Mentions légales — acceptation requise")
-    st.markdown("Avant d'utiliser cet outil, vous devez accepter la mention légale et les conditions d'utilisation.")
+    st.markdown(
+        "Avant d'utiliser cet outil, vous devez accepter la mention légale et les conditions d'utilisation. "
+        "Les données et résultats proposés par cette calculette sont à titre indicatif et doivent être validés par un professionnel de santé."
+    )
     
     accept = st.checkbox("✅ J’accepte les mentions légales.", key="accept_checkbox")
     
@@ -243,7 +246,7 @@ with tab_patient:
     with col_rate:
         st.markdown(f"""<div class="result-card"><h3>🚀 Débit conseillé</h3><h1>{injection_rate:.1f} mL/s</h1></div>""", unsafe_allow_html=True)
 
-    # Message toujours affiché, dynamique
+    # Phrase dynamique sans rinçage
     st.info(f"⚠️ Sans rinçage, il aurait fallu injecter {volume + 15:.0f} mL de contraste total.")
 
     if time_adjusted:
