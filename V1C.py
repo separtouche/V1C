@@ -295,24 +295,13 @@ with tab_patient:
     nacl_volume = config.get("rincage_volume",35.0)
     nacl_text = f"{nacl_volume:.0f} mL @ {nacl_debit:.1f} mL/s"
 
-    # ==== Estimation pression injecteur selon concentration ====
-    max_pressure = 325  # psi
-    concentration_actuelle = config.get("concentration_mg_ml", 350)
-    K_base = 50  # psi/(mL/s) pour 350 mg I/mL
-    K = K_base * (concentration_actuelle / 350)
-    estimated_pressure = injection_rate * K
-    if estimated_pressure > max_pressure:
-        pressure_warning = f"⚠️ Débit élevé : pression estimée ~{estimated_pressure:.0f} psi (limite injecteur {max_pressure} psi)"
-    else:
-        pressure_warning = f"Pression estimée ~{estimated_pressure:.0f} psi"
-
     col_contrast, col_nacl, col_rate = st.columns(3, gap="medium")
     with col_contrast:
         st.markdown(f"""<div class="result-card"><h3>💧 Volume contraste</h3><h1>{contrast_text}</h1></div>""", unsafe_allow_html=True)
     with col_nacl:
         st.markdown(f"""<div class="result-card"><h3>💧 Volume NaCl</h3><h1>{nacl_text}</h1></div>""", unsafe_allow_html=True)
     with col_rate:
-        st.markdown(f"""<div class="result-card"><h3>🚀 Débit conseillé</h3><h1>{injection_rate:.1f} mL/s</h1><p>{pressure_warning}</p></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="result-card"><h3>🚀 Débit conseillé</h3><h1>{injection_rate:.1f} mL/s</h1></div>""", unsafe_allow_html=True)
 
     if time_adjusted:
         st.warning(f"⚠️ Le temps d’injection a été ajusté à {injection_time:.1f}s pour respecter le débit maximal de {config.get('max_debit',6.0)} mL/s.")
