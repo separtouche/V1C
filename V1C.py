@@ -106,8 +106,7 @@ def calculate_acquisition_start(age, config):
     if age < 70:
         return float(config["acquisition_start_param"])
     elif 70 <= age <= 90:
-        # linéaire de 70 → 90 ans : 70 → 90 s
-        return 70 + (age - 70) * (90 - 70) / (90 - 70)  # simplifie à age
+        return 70 + (age - 70)  # simple approximation linéaire
     else:
         return 90.0
 
@@ -173,13 +172,18 @@ with tab_patient:
     age = current_year - birth_year
     imc = weight / ((height / 100) ** 2)
 
+    # Calcul automatique du départ d'acquisition
+    auto_acquisition_start = calculate_acquisition_start(age, config)
+    if config.get("auto_acquisition_by_age", True):
+        st.session_state["patient_acquisition_start"] = auto_acquisition_start
+
     col1, col2 = st.columns(2)
     with col1:
         concentration_mg_ml = st.selectbox("Concentration (mg I/mL)", [300,320,350,370,400], index=[300,320,350,370,400].index(config["concentration_mg_ml"]), key="patient_concentration")
     with col2:
         acquisition_start = st.number_input(
             "Départ d’acquisition (modifiable) (s)",
-            value=calculate_acquisition_start(age, config),
+            value=st.session_state.get("patient_acquisition_start", auto_acquisition_start),
             min_value=0.0,
             max_value=300.0,
             step=1.0,
