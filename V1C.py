@@ -77,8 +77,8 @@ default_config = {
     "acquisition_start_param": 70.0,
     "auto_acquisition_by_age": True,
     "max_debit": 6.0,
-    "rinçage_volume": 35.0,
-    "rinçage_delta_debit": 0.5,
+    "rincage_volume": 35.0,
+    "rincage_delta_debit": 0.5,
     "calc_mode": "Charge iodée"
 }
 
@@ -162,8 +162,6 @@ def img_to_base64(path):
 # ===================== Session init =====================
 if "accepted_legal" not in st.session_state:
     st.session_state["accepted_legal"] = False
-if "selected_program" not in st.session_state:
-    st.session_state["selected_program"] = None
 
 # ===================== Header =====================
 logo_path = "guerbet_logo.png"
@@ -207,16 +205,15 @@ with tab_params:
     st.subheader("📚 Bibliothèque de programmes")
     program_choice = st.selectbox("Programme", ["Aucun"] + list(libraries.get("programs", {}).keys()), index=0)
     if program_choice != "Aucun":
-        if program_choice != st.session_state.get("selected_program", None):
-            st.session_state["selected_program"] = program_choice
-            prog_conf = libraries["programs"][program_choice]
-            config["charges"] = prog_conf.get("charges", config.get("charges"))
-            config["concentration_mg_ml"] = prog_conf.get("concentration_mg_ml", config.get("concentration_mg_ml"))
-            config["max_debit"] = prog_conf.get("max_debit", config.get("max_debit"))
-            config["calc_mode"] = prog_conf.get("calc_mode", config.get("calc_mode"))
-            config["rinçage_volume"] = prog_conf.get("rinçage_volume", config.get("rinçage_volume"))
-            st.experimental_rerun()
-
+        prog_conf = libraries["programs"][program_choice]
+        # Pré-remplissage automatique
+        config["charges"] = prog_conf.get("charges", config["charges"])
+        config["concentration_mg_ml"] = prog_conf.get("concentration_mg_ml", config["concentration_mg_ml"])
+        config["max_debit"] = prog_conf.get("max_debit", config["max_debit"])
+        config["calc_mode"] = prog_conf.get("calc_mode", config["calc_mode"])
+        config["rincage_volume"] = prog_conf.get("rincage_volume", config["rincage_volume"])
+        config["rincage_delta_debit"] = prog_conf.get("rincage_delta_debit", config["rincage_delta_debit"])
+    
     # --- Configuration ---
     with st.expander("💊 Configuration du calcul", expanded=True):
         config["concentration_mg_ml"] = st.selectbox("Concentration (mg I/mL)", [300,320,350,370,400], index=[300,320,350,370,400].index(int(config.get("concentration_mg_ml",350))))
@@ -247,7 +244,8 @@ with tab_params:
                     "concentration_mg_ml": config["concentration_mg_ml"],
                     "max_debit": config["max_debit"],
                     "calc_mode": config["calc_mode"],
-                    "rinçage_volume": config["rinçage_volume"]
+                    "rincage_volume": config["rincage_volume"],
+                    "rincage_delta_debit": config["rincage_delta_debit"]
                 }
                 save_libraries(libraries)
                 st.success(f"Programme '{new_prog_name}' sauvegardé !")
@@ -292,9 +290,9 @@ with tab_patient:
     col_contrast, col_nacl, col_rate = st.columns(3, gap="medium")
     with col_contrast:
         st.markdown(f"""<div class="result-card"><h3>💧 Quantité de contraste conseillée</h3><h1>{volume:.1f} mL</h1></div>""", unsafe_allow_html=True)
-    nacl_debit = max(0.1, injection_rate - config.get("rinçage_delta_debit",0.5))
+    nacl_debit = max(0.1, injection_rate - config.get("rincage_delta_debit",0.5))
     with col_nacl:
-        st.markdown(f"""<div class="result-card"><h3>💧 Volume NaCl conseillé</h3><h1>{config.get('rinçage_volume',35.0):.0f} mL @ {nacl_debit:.1f} mL/s</h1></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="result-card"><h3>💧 Volume NaCl conseillé</h3><h1>{config.get('rincage_volume',35.0):.0f} mL @ {nacl_debit:.1f} mL/s</h1></div>""", unsafe_allow_html=True)
     with col_rate:
         st.markdown(f"""<div class="result-card"><h3>🚀 Débit conseillé</h3><h1>{injection_rate:.1f} mL/s</h1></div>""", unsafe_allow_html=True)
 
