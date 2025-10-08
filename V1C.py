@@ -5,12 +5,12 @@ import pandas as pd
 import math
 from datetime import datetime
 
-# === 🎨 Définition des couleurs Guerbet ===
+# === 🎨 Couleurs Guerbet ===
 GUERBET_BLUE = "#124F7A"
 GUERBET_DARK = "#0D334F"
 CARD_BG = "#EAF1F8"
 
-# === 💅 Style CSS personnalisé ===
+# === 💅 CSS personnalisé ===
 st.markdown(f"""
 <style>
     .stApp {{
@@ -51,15 +51,16 @@ st.markdown(f"""
         text-align: center;
         color: #666;
     }}
-    .beta-banner {{
+    .beta-footer {{
         background-color: #FCE8B2;
-        border: 2px solid #F5B800;
-        padding: 10px 15px;
+        border: 1px solid #F5B800;
+        padding: 8px 15px;
         border-radius: 10px;
         color: #5A4500;
         text-align: center;
         font-weight: 600;
-        margin-bottom: 15px;
+        margin-top: 10px;
+        display: inline-block;
     }}
 </style>
 """, unsafe_allow_html=True)
@@ -78,26 +79,25 @@ default_config = {
     "calc_mode": "Charge iodée sauf IMC > 30 → Surface corporelle"
 }
 
-# Si un fichier de configuration existe → le charger
 if os.path.exists(CONFIG_FILE):
     with open(CONFIG_FILE, "r") as f:
         config = json.load(f)
 else:
     config = default_config.copy()
 
-# === 💾 Fonction pour sauvegarder la configuration ===
+# === 💾 Sauvegarde de la configuration ===
 def save_config(data):
+    """Sauvegarde la configuration JSON."""
     with open(CONFIG_FILE, "w") as f:
         json.dump(data, f, indent=4)
 
-# === 🧮 Fonction Surface corporelle (Mosteller) ===
+# === 🧮 Fonctions de calcul ===
 def calculate_bsa(weight, height):
-    """Calcule la surface corporelle (m²) selon la formule de Mosteller."""
+    """Surface corporelle (m²) selon la formule de Mosteller."""
     return math.sqrt((height * weight) / 3600)
 
-# === 💧 Calcul du volume de contraste ===
 def calculate_volume(weight, height, kv, concentration, imc, calc_mode, charges):
-    """Calcule le volume (mL) selon le mode de calcul et le kV."""
+    """Calcule le volume de contraste (mL) selon le mode choisi et le kV."""
     kv_factors = {80: 11, 90: 13, 100: 15, 110: 16.5, 120: 18.6}
 
     if calc_mode == "Surface corporelle" or (calc_mode.startswith("Charge iodée sauf") and imc >= 30):
@@ -113,24 +113,19 @@ def calculate_volume(weight, height, kv, concentration, imc, calc_mode, charges)
 
     return min(volume, 200), bsa
 
-# === ⚡ Calcul du débit d’injection ===
 def calculate_injection_rate(volume, time):
-    """Retourne le débit (mL/s)."""
+    """Retourne le débit d'injection (mL/s)."""
     return volume / time if time > 0 else 0
 
-# === ⚙️ Configuration de la page principale ===
+# === ⚙️ Page principale ===
 st.set_page_config(page_title="Calculette Contraste", page_icon="💉", layout="wide")
 
-# === 🏷️ En-tête avec logo + bandeau version beta ===
+# === 🏷️ En-tête ===
 col1, col2 = st.columns([1, 5])
 with col1:
     st.image("guerbet_logo.png", width=120)
 with col2:
     st.markdown(f"""
-    <div class='beta-banner'>
-        🧪 Version BETA TEST – Développée par <b>Sébastien Partouche</b><br>
-        Ce logiciel propose des <b>valeurs indicatives</b> et n’a pas vocation à remplacer le jugement clinique.
-    </div>
     <div style='display:flex; align-items:center; justify-content:center;'>
         <h1 style='color:white; background-color:{GUERBET_BLUE}; padding:15px 20px; border-radius:12px; width:100%; text-align:center;'>
             Calculette de dose de produit de contraste
@@ -138,7 +133,7 @@ with col2:
     </div>
     """, unsafe_allow_html=True)
 
-# === 🧭 Création des onglets ===
+# === 🧭 Onglets ===
 tab_patient, tab_params = st.tabs(["🧍 Patient", "⚙️ Paramètres"])
 
 # -----------------------------------------------------
@@ -198,26 +193,30 @@ with tab_patient:
     weight = st.select_slider("Poids (kg)", options=list(range(20,201)), value=70)
     height = st.select_slider("Taille (cm)", options=list(range(100,221)), value=170)
     current_year = datetime.now().year
-    birth_year = st.select_slider("Année de naissance", options=list(range(current_year-120,current_year+1)), value=current_year-40)
+    # --- FORCÉ int pour supprimer tout risque de types mixtes ---
+    birth_year = int(st.select_slider(
+        "Année de naissance",
+        options=list(range(current_year-120,current_year+1)),
+        value=current_year-40
+    ))
     age = current_year - birth_year
     imc = weight / ((height / 100) ** 2)
 
+    # --- Ligne compacte : concentration + départ d'acquisition
     col1, col2 = st.columns(2)
     with col1:
         concentration_mg_ml = st.selectbox("Concentration (mg I/mL)", [300,320,350,370,400], index=[300,320,350,370,400].index(config["concentration_mg_ml"]))
     with col2:
         if config.get("auto_acquisition_by_age", True):
             if 70 <= age <= 90:
-                acquisition_start = 70 + (age - 70)
+                acquisition_start = float(70 + (age - 70))
             elif age > 90:
-                acquisition_start = 90
+                acquisition_start = 90.0
             else:
-                acquisition_start = config["acquisition_start_param"]
-            st.info(f"🚀 Départ d’acquisition auto ({age} ans) : {acquisition_start:.1f} s")
+                acquisition_start = float(config["acquisition_start_param"])
         else:
-            acquisition_start = config["acquisition_start_param"]
-
-        acquisition_start = st.number_input("Départ d’acquisition (modifiable) (s)", value=acquisition_start, min_value=0.0, max_value=300.0, step=1.0)
+            acquisition_start = float(config["acquisition_start_param"])
+        acquisition_start = float(st.number_input("Départ d’acquisition (modifiable) (s)", value=acquisition_start, min_value=0.0, max_value=300.0, step=1.0))
 
     if age < 18:
         st.warning("⚠️ Patient mineur (<18 ans) : le calcul n'est pas autorisé.")
@@ -238,6 +237,12 @@ with tab_patient:
     st.info(f"⏱ Temps d’injection sélectionné : {injection_time:.1f} s")
 
     kv_scanner = st.radio("kV du scanner", [80,90,100,110,120], index=4, horizontal=True)
+
+    # --- Mention légale obligatoire avant calcul
+    accepted = st.checkbox("✅ J’ai lu et j’accepte la mention légale et les conditions d’utilisation.")
+    if not accepted:
+        st.warning("Vous devez accepter la mention légale pour afficher le calcul.")
+        st.stop()
 
     volume, bsa = calculate_volume(weight, height, kv_scanner, concentration_mg_ml, imc, config["calc_mode"], config["charges"])
     injection_rate = calculate_injection_rate(volume, injection_time)
@@ -260,19 +265,20 @@ with tab_patient:
 
     st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
 
-    # --- Mention légale dans l'onglet patient ---
+    # --- Mention légale
     st.markdown("""
     <div style='background-color:#FCE8E6; color:#6B1A00; padding:10px; border-radius:8px; margin-top:15px; font-size:0.9rem;'>
-    ⚠️ <b>Avertissement :</b> Ce logiciel est un outil de calcul d’aide à la décision.  
+    ⚠️ <b>Avertissement :</b> Ce logiciel est un outil d’aide à la décision.  
     Les résultats sont <b>indicatifs</b> et doivent être validés par un professionnel de santé.  
     L’auteur, Sébastien Partouche, et Guerbet déclinent toute responsabilité en cas d’erreur ou de mauvaise utilisation.
     </div>
     """, unsafe_allow_html=True)
 
-# --- Pied de page ---
+# --- 🧪 Pied de page (avec bandeau Beta Test) ---
 st.markdown(f"""
 <div class="footer">
-    <p>🧪 Version BETA TEST – Développée par Sébastien Partouche | © 2025 Guerbet<br>
-    Ce logiciel fournit des <b>propositions de valeurs</b> et ne remplace en aucun cas le jugement médical.</p>
+    <p>© 2025 Guerbet | Développé par <b>Sébastien Partouche</b></p>
+    <p>Ce logiciel fournit des <b>propositions de valeurs</b> et ne remplace pas le jugement médical.</p>
+    <div class="beta-footer">🧪 Version BETA TEST – Usage interne / évaluation</div>
 </div>
 """, unsafe_allow_html=True)
