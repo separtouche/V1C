@@ -92,12 +92,11 @@ if os.path.exists(CONFIG_FILE):
 else:
     config = default_config.copy()
 
-# ===================== Bibliothèques =====================
 if os.path.exists(LIB_FILE):
     with open(LIB_FILE, "r") as f:
         libraries = json.load(f)
 else:
-    libraries = {"scanners": {}, "doctors": {}}
+    libraries = {"programs": {}}
 
 def save_config(data):
     with open(CONFIG_FILE, "w") as f:
@@ -106,6 +105,14 @@ def save_config(data):
 def save_libraries(data):
     with open(LIB_FILE, "w") as f:
         json.dump(data, f, indent=4)
+
+def delete_program(name):
+    if name in libraries.get("programs", {}):
+        del libraries["programs"][name]
+        save_libraries(libraries)
+        st.success(f"Programme '{name}' supprimé !")
+    else:
+        st.warning(f"Programme '{name}' introuvable.")
 
 # ===================== Fonctions =====================
 def calculate_bsa(weight, height):
@@ -145,6 +152,8 @@ def adjust_injection_rate(volume, injection_time, max_debit):
 # ===================== Session init =====================
 if "accepted_legal" not in st.session_state:
     st.session_state["accepted_legal"] = False
+if "selected_program" not in st.session_state:
+    st.session_state["selected_program"] = None
 
 # ===================== Header =====================
 def img_to_base64(path):
@@ -191,22 +200,18 @@ tab_patient, tab_params = st.tabs(["🧍 Patient", "⚙️ Paramètres"])
 # ===================== Onglet Paramètres =====================
 with tab_params:
     st.header("⚙️ Paramètres globaux")
-
-    # --- Bibliothèques ---
-    st.subheader("📚 Sélection bibliothèque")
-    scanner_choice = st.selectbox("Scanner", ["Aucun"] + list(libraries.get("scanners", {}).keys()))
-    doctor_choice = st.selectbox("Médecin", ["Aucun"] + list(libraries.get("doctors", {}).keys()))
-
-    if scanner_choice != "Aucun":
-        sc_conf = libraries["scanners"][scanner_choice]
-        config["charges"] = sc_conf.get("charges", config.get("charges"))
-        config["concentration_mg_ml"] = sc_conf.get("concentration_mg_ml", config.get("concentration_mg_ml"))
-        config["max_debit"] = sc_conf.get("max_debit", config.get("max_debit"))
-
-    if doctor_choice != "Aucun":
-        doc_conf = libraries["doctors"][doctor_choice]
-        config["calc_mode"] = doc_conf.get("calc_mode", config.get("calc_mode"))
-        config["rinçage_volume"] = doc_conf.get("rinçage_volume", config.get("rinçage_volume"))
+    # --- Bibliothèque de programmes ---
+    st.subheader("📚 Bibliothèque de programmes")
+    program_choice = st.selectbox("Programme", ["Aucun"] + list(libraries.get("programs", {}).keys()), index=0)
+    if program_choice != "Aucun" and program_choice != st.session_state["selected_program"]:
+        prog_conf = libraries["programs"][program_choice]
+        config["charges"] = prog_conf.get("charges", config.get("charges"))
+        config["concentration_mg_ml"] = prog_conf.get("concentration_mg_ml", config.get("concentration_mg_ml"))
+        config["max_debit"] = prog_conf.get("max_debit", config.get("max_debit"))
+        config["calc_mode"] = prog_conf.get("calc_mode", config.get("calc_mode"))
+        config["rinçage_volume"] = prog_conf.get("rinçage_volume", config.get("rinçage_volume"))
+        st.session_state["selected_program"] = program_choice
+        st.experimental_rerun()  # Rafraîchissement automatique
 
     # --- Configuration du calcul ---
     with st.expander("💊 Configuration du calcul", expanded=True):
@@ -232,8 +237,8 @@ with tab_params:
     df_charges = pd.DataFrame({"kV":[80,90,100,110,120],"Charge (g I/kg)":[float(config["charges"].get(str(kv),0.35)) for kv in [80,90,100,110,120]]})
     edited_df = st.data_editor(df_charges, num_rows="fixed", use_container_width=True)
 
-    # --- Sauvegarde paramètres ---
-    col_save, col_add = st.columns(2)
+    # --- Sauvegarde et gestion programmes ---
+    col_save, col_add, col_del = st.columns(3)
     with col_save:
         if st.button("💾 Sauvegarder les paramètres"):
             try:
@@ -243,17 +248,25 @@ with tab_params:
             except Exception as e:
                 st.error(f"Erreur : {e}")
     with col_add:
-        st.markdown("### Ajouter / Modifier Scanner")
-        new_scanner_name = st.text_input("Nom du scanner à ajouter/modifier", key="new_scanner")
-        if st.button("➕ Ajouter/Modifier Scanner"):
-            if new_scanner_name:
-                libraries["scanners"][new_scanner_name] = {
+        st.markdown("### Ajouter / Modifier Programme")
+        new_prog_name = st.text_input("Nom du programme à ajouter/modifier", key="new_program")
+        if st.button("➕ Ajouter/Modifier Programme"):
+            if new_prog_name:
+                libraries["programs"][new_prog_name] = {
                     "charges": {str(int(row.kV)): float(row["Charge (g I/kg)"]) for _, row in edited_df.iterrows()},
                     "concentration_mg_ml": config["concentration_mg_ml"],
-                    "max_debit": config["max_debit"]
+                    "max_debit": config["max_debit"],
+                    "calc_mode": config["calc_mode"],
+                    "rinçage_volume": config["rinçage_volume"]
                 }
                 save_libraries(libraries)
-                st.success(f"Scanner {new_scanner_name} sauvegardé !")
+                st.success(f"Programme '{new_prog_name}' sauvegardé !")
+    with col_del:
+        st.markdown("### Supprimer Programme")
+        del_prog_name = st.selectbox("Programme à supprimer", ["Aucun"] + list(libraries.get("programs", {}).keys()), key="del_program")
+        if st.button("🗑️ Supprimer Programme"):
+            if del_prog_name != "Aucun":
+                delete_program(del_prog_name)
 
 # ===================== Onglet Patient =====================
 with tab_patient:
