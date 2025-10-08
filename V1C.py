@@ -15,45 +15,46 @@ st.set_page_config(page_title="Calculette Contraste", page_icon="💉", layout="
 
 st.markdown(f"""
 <style>
-/* Global */
 .stApp {{ background-color: #F7FAFC; font-family: 'Segoe UI', sans-serif; }}
 h1, h2, h3 {{ font-weight: 600; letter-spacing: -0.5px; }}
-
-/* Header banner */
 .header-banner {{
   display: flex;
   align-items: center;
   justify-content: space-between;
   background-color: {GUERBET_BLUE};
-  padding: 0.3rem 1rem;
+  padding: 0.2rem 1rem;
   border-radius: 10px;
   margin-bottom: 1rem;
-  height: 100px;
+  height: 120px;
 }}
-.header-logo {{
-  height: 100px;
-  width: auto;
-  object-fit: contain;
-}}
+.header-logo {{ height: 100%; width: auto; object-fit: contain; }}
 .header-title {{
   color: white;
   font-size: 2rem;
   text-align: center;
   flex: 1;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.5px;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
 }}
 .header-right {{ width: 120px; }}
-
-/* Result cards */
 .result-card {{
     background-color: {CARD_BG};
-    border-radius: 12px;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.06);
-    padding: 18px;
+    border-radius: 14px;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.1);
+    padding: 24px;
     text-align: center;
+    transition: 0.2s ease-in-out;
 }}
-.small-note {{ font-size:0.9rem; color:#333; }}
+.result-card:hover {{ transform: scale(1.03); }}
+.small-note {{ font-size:0.85rem; color:#333; margin-top:6px; }}
+.param-section {{
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    margin-bottom: 12px;
+}}
 </style>
 """, unsafe_allow_html=True)
 
@@ -72,8 +73,11 @@ default_config = {
     "max_debit": 6.0
 }
 if os.path.exists(CONFIG_FILE):
-    with open(CONFIG_FILE, "r") as f:
-        config = json.load(f)
+    try:
+        with open(CONFIG_FILE, "r") as f:
+            config = json.load(f)
+    except Exception:
+        config = default_config.copy()
 else:
     config = default_config.copy()
 
@@ -120,102 +124,151 @@ def adjust_injection_rate(volume, injection_time, max_debit):
 if "accepted_legal" not in st.session_state:
     st.session_state["accepted_legal"] = False
 
-# ===================== Header (logo + titre centré) =====================
+# ===================== Header =====================
 def img_to_base64(path):
     with open(path, "rb") as f:
         return base64.b64encode(f.read()).decode()
 
 logo_path = "guerbet_logo.png"
 if os.path.exists(logo_path):
-    img_b64 = img_to_base64(logo_path)
-    st.markdown(f"""
-    <div class="header-banner">
-      <img src="data:image/png;base64,{img_b64}" class="header-logo" alt="Guerbet logo" />
-      <div class="header-title">Calculette de dose de produit de contraste</div>
-      <div class="header-right"></div>
-    </div>
-    """, unsafe_allow_html=True)
+    try:
+        img_b64 = img_to_base64(logo_path)
+        st.markdown(f"""
+        <div class="header-banner">
+          <img src="data:image/png;base64,{img_b64}" class="header-logo" alt="Guerbet logo" />
+          <div class="header-title">Calculette de dose de produit de contraste</div>
+          <div class="header-right"></div>
+        </div>
+        """, unsafe_allow_html=True)
+    except Exception:
+        st.markdown(f"<div class='header-banner'><div class='header-title'>Calculette de dose de produit de contraste</div></div>", unsafe_allow_html=True)
 else:
-    st.markdown(f"""
-    <div class="header-banner">
-      <div class="header-title">Calculette de dose de produit de contraste</div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(f"<div class='header-banner'><div class='header-title'>Calculette de dose de produit de contraste</div></div>", unsafe_allow_html=True)
 
-# ===================== Acceptation initiale =====================
+# ===================== Acceptation légale =====================
 if not st.session_state["accepted_legal"]:
     st.markdown("### Mentions légales — acceptation requise")
     st.markdown("Avant d'utiliser cet outil, vous devez accepter la mention légale et les conditions d'utilisation. Ce logiciel est un outil d'aide à la décision ; il ne remplace pas le jugement d'un professionnel de santé.")
     col_a, col_b, col_c = st.columns([1,2,1])
     with col_b:
-        accept = st.checkbox("✅ Je reconnais avoir lu et j'accepte la mention légale et les conditions d'utilisation.", key="accept_checkbox")
+        accept = st.checkbox("✅ J’accepte les mentions légales.", key="accept_checkbox")
         if st.button("Accepter et continuer"):
             if accept:
                 st.session_state["accepted_legal"] = True
                 st.experimental_rerun()
             else:
-                st.warning("Vous devez cocher la case pour accepter les mentions légales.")
+                st.warning("Vous devez cocher la case pour accepter.")
     st.stop()
 
-# ===================== Section patient =====================
-st.header("🧍 Informations patient")
+# ===================== Onglets =====================
+tab_patient, tab_params = st.tabs(["🧍 Patient", "⚙️ Paramètres"])
 
-col_w, col_h, col_birth = st.columns([1,1,1])
-with col_w:
-    weight = st.select_slider("Poids (kg)", options=list(range(20,201)), value=70)
-with col_h:
-    height = st.select_slider("Taille (cm)", options=list(range(100,221)), value=170)
-with col_birth:
-    current_year = datetime.now().year
-    birth_year = st.select_slider("Année de naissance", options=list(range(current_year-120,current_year+1)), value=current_year-40)
+# ===================== Onglet Paramètres =====================
+with tab_params:
+    st.header("⚙️ Paramètres globaux")
+    with st.expander("💊 Configuration du calcul", expanded=True):
+        config["concentration_mg_ml"] = st.selectbox(
+            "Concentration (mg I/mL)",
+            [300,320,350,370,400],
+            index=[300,320,350,370,400].index(int(config.get("concentration_mg_ml",350)))
+        )
+        config["calc_mode"] = st.selectbox(
+            "Méthode de calcul",
+            ["Charge iodée","Surface corporelle","Charge iodée sauf IMC > 30 → Surface corporelle"],
+            index=["Charge iodée","Surface corporelle","Charge iodée sauf IMC > 30 → Surface corporelle"].index(config.get("calc_mode","Charge iodée"))
+        )
+        config["max_debit"] = st.number_input("Débit maximal autorisé (mL/s)", value=float(config.get("max_debit",6.0)), min_value=1.0, max_value=20.0, step=0.1)
 
-age = current_year - birth_year
-imc = weight / ((height / 100) ** 2)
+    with st.expander("⏱ Temps d'injection"):
+        config["portal_time"] = st.number_input("Portal (s)", value=float(config.get("portal_time",30.0)), min_value=5.0, max_value=120.0, step=1.0)
+        config["arterial_time"] = st.number_input("Artériel (s)", value=float(config.get("arterial_time",25.0)), min_value=5.0, max_value=120.0, step=1.0)
+        config["intermediate_enabled"] = st.checkbox("Activer temps intermédiaire", value=bool(config.get("intermediate_enabled",False)))
+        if config["intermediate_enabled"]:
+            config["intermediate_time"] = st.number_input("Intermédiaire (s)", value=float(config.get("intermediate_time",28.0)), min_value=5.0, max_value=120.0, step=1.0)
 
-col_kv, col_info = st.columns([2,3])
-with col_kv:
-    kv_scanner = st.radio("kV du scanner", [80,90,100,110,120], index=4, horizontal=True)
-with col_info:
-    acquisition_start = calculate_acquisition_start(age, config)
-    st.markdown("**Paramètres dérivés**")
-    c1, c2 = st.columns(2)
-    with c1:
-        st.markdown(f"<div class='small-note'><b>Concentration (mg I/mL)</b><br/>{int(config['concentration_mg_ml'])}</div>", unsafe_allow_html=True)
-    with c2:
-        st.markdown(f"<div class='small-note'><b>Départ d'acquisition (s)</b><br/>{float(acquisition_start):.1f}</div>", unsafe_allow_html=True)
+    with st.expander("🚀 Départ d’acquisition et charges"):
+        config["acquisition_start_param"] = st.number_input("Départ d’acquisition par défaut (s)", value=float(config.get("acquisition_start_param",70.0)), min_value=0.0, max_value=300.0, step=1.0)
+        config["auto_acquisition_by_age"] = st.checkbox("Calcul automatique selon l’âge", value=bool(config.get("auto_acquisition_by_age",True)))
+        st.markdown("**Charges en iode par kV (g I/kg)**")
+        df_charges = pd.DataFrame({
+            "kV":[80,90,100,110,120],
+            "Charge (g I/kg)":[float(config["charges"].get(str(kv),0.35)) for kv in [80,90,100,110,120]]
+        })
+        edited_df = st.data_editor(df_charges, num_rows="fixed", use_container_width=True)
+        if st.button("💾 Sauvegarder les paramètres"):
+            try:
+                config["charges"] = {str(int(row.kV)): float(row["Charge (g I/kg)"]) for _,row in edited_df.iterrows()}
+                save_config(config)
+                st.success("✅ Paramètres sauvegardés avec succès !")
+            except Exception as e:
+                st.error(f"Erreur lors de la sauvegarde : {e}")
 
-injection_modes = ["Portal", "Artériel"]
-if config.get("intermediate_enabled", False):
-    injection_modes.append("Intermédiaire")
+# ===================== Onglet Patient =====================
+with tab_patient:
+    st.header("🧍 Informations patient")
+    col_w, col_h, col_birth = st.columns([1,1,1])
+    with col_w:
+        weight = st.select_slider("Poids (kg)", options=list(range(20,201)), value=70)
+    with col_h:
+        height = st.select_slider("Taille (cm)", options=list(range(100,221)), value=170)
+    with col_birth:
+        current_year = datetime.now().year
+        birth_year = st.select_slider("Année de naissance", options=list(range(current_year-120,current_year+1)), value=current_year-40)
 
-col_mode, col_time = st.columns([2,2])
-with col_mode:
-    injection_mode = st.radio("Mode d’injection", injection_modes, horizontal=True)
-with col_time:
-    if injection_mode == "Portal":
-        base_time = float(config["portal_time"])
-        st.markdown(f"**Temps sélectionné :** {base_time:.0f} s")
-    elif injection_mode == "Artériel":
-        base_time = float(config["arterial_time"])
-        st.markdown(f"**Temps sélectionné :** {base_time:.0f} s")
-    else:
-        base_time = st.number_input("Temps intermédiaire (s)", value=float(config["intermediate_time"]), min_value=5.0, max_value=120.0, step=1.0)
+    age = current_year - birth_year
+    imc = weight / ((height/100)**2)
 
-concentration_mg_ml = float(config["concentration_mg_ml"])
-volume, bsa = calculate_volume(weight, height, kv_scanner, concentration_mg_ml, imc, config["calc_mode"], config["charges"])
-injection_rate, injection_time, time_adjusted = adjust_injection_rate(volume, float(base_time), float(config["max_debit"]))
+    # KV + Mode + Times
+    col_kv, col_mode_time = st.columns([1.2,2])
+    with col_kv:
+        kv_scanner = st.radio("kV du scanner", [80,90,100,110,120], index=4, horizontal=True)
+    with col_mode_time:
+        col_mode, col_times = st.columns([1.2,1])
+        with col_mode:
+            injection_modes = ["Portal","Artériel"]
+            if config.get("intermediate_enabled",False):
+                injection_modes.append("Intermédiaire")
+            injection_mode = st.radio("Mode d’injection", injection_modes, horizontal=True)
+        with col_times:
+            acquisition_start = calculate_acquisition_start(age, config)
+            if injection_mode=="Portal":
+                base_time=float(config.get("portal_time",30.0))
+            elif injection_mode=="Artériel":
+                base_time=float(config.get("arterial_time",25.0))
+            else:
+                base_time = st.number_input("Temps intermédiaire (s)", value=float(config.get("intermediate_time",28.0)), min_value=5.0, max_value=120.0, step=1.0)
+            st.markdown(f"**Temps sélectionné :** {base_time:.0f} s")
+            st.markdown(f"**Départ d'acquisition :** {acquisition_start:.1f} s")
+            st.markdown(f"**Concentration :** {int(config.get('concentration_mg_ml',350))} mg I/mL")
 
-res_col1, res_col2 = st.columns(2)
-with res_col1:
-    st.markdown(f"""<div class="result-card"><h3 style="color:{GUERBET_BLUE}; margin-bottom:6px;">💧 Volume appliqué</h3><h1 style="color:{GUERBET_DARK}; margin:0;">{volume:.1f} mL</h1><div class='small-note'>Limité à 200 mL</div></div>""", unsafe_allow_html=True)
-with res_col2:
-    st.markdown(f"""<div class="result-card"><h3 style="color:{GUERBET_BLUE}; margin-bottom:6px;">🚀 Débit recommandé</h3><h1 style="color:{GUERBET_DARK}; margin:0;">{injection_rate:.1f} mL/s</h1><div class='small-note'>Temps effectif : {injection_time:.1f} s</div></div>""", unsafe_allow_html=True)
+    # Calculs
+    volume, bsa = calculate_volume(weight,height,kv_scanner,float(config.get("concentration_mg_ml",350)),imc,config.get("calc_mode","Charge iodée"),config.get("charges",{}))
+    injection_rate, injection_time, time_adjusted = adjust_injection_rate(volume,float(base_time),float(config.get("max_debit",6.0)))
 
-if time_adjusted:
-    st.warning(f"⚠️ Le temps d’injection a été ajusté automatiquement à {injection_time:.1f}s pour respecter le débit maximal de {config['max_debit']} mL/s.")
+    # Affichage résultats
+    res_col1, res_col2 = st.columns(2)
+    with res_col1:
+        st.markdown(f"""<div class="result-card">
+        <h3 style="color:{GUERBET_BLUE}; margin-bottom:6px;">💧 Volume appliqué</h3>
+        <h1 style="color:{GUERBET_DARK}; margin:0;">{volume:.1f} mL</h1>
+        <div class='small-note'>Limité à 200 mL</div>
+        </div>""", unsafe_allow_html=True)
+    with res_col2:
+        st.markdown(f"""<div class="result-card">
+        <h3 style="color:{GUERBET_BLUE}; margin-bottom:6px;">🚀 Débit recommandé</h3>
+        <h1 style="color:{GUERBET_DARK}; margin:0;">{injection_rate:.1f} mL/s</h1>
+        </div>""", unsafe_allow_html=True)
 
-st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
+    if time_adjusted:
+        st.warning(f"⚠️ Le temps d’injection a été ajusté à {injection_time:.1f}s pour respecter le débit maximal de {config.get('max_debit',6.0)} mL/s.")
 
-st.markdown("""<div style='background-color:#FCE8E6; color:#6B1A00; padding:10px; border-radius:8px; margin-top:16px; font-size:0.9rem;'>⚠️ <b>Avertissement :</b> Ce logiciel est un outil d’aide à la décision. Les résultats sont <b>indicatifs</b> et doivent être validés par un professionnel de santé.</div>""", unsafe_allow_html=True)
+    st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
 
-st.markdown(f"""<div style='margin-top:14px; text-align:center; color:#666; font-size:0.9rem;'>© 2025 Guerbet | Développé par <b>Sébastien Partouche</b> — Version BETA TEST</div>""", unsafe_allow_html=True)
+    st.markdown("""<div style='background-color:#FCE8E6; color:#6B1A00; padding:10px; border-radius:8px; margin-top:15px; font-size:0.9rem;'>⚠️ <b>Avertissement :</b> Ce logiciel est un outil d’aide à la décision. Les résultats sont <b>indicatifs</b> et doivent être validés par un professionnel de santé. L’auteur, Sébastien Partouche, et Guerbet déclinent toute responsabilité en cas d’erreur ou de mauvaise utilisation.</div>""", unsafe_allow_html=True)
+
+# Footer
+st.markdown(f"""<div style='text-align:center; margin-top:20px; font-size:0.8rem; color:#666;'>
+© 2025 Guerbet | Développé par <b>Sébastien Partouche</b><br>
+Ce logiciel fournit des <b>propositions de valeurs</b> et ne remplace pas le jugement médical.<br>
+<div style='display:inline-block; background-color:#FCE8B2; border:1px solid #F5B800; padding:8px 15px; border-radius:10px; color:#5A4500; font-weight:600; margin-top:10px;'>🧪 Version BETA TEST – Usage interne / évaluation</div>
+</div>""", unsafe_allow_html=True)
