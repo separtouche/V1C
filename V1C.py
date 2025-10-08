@@ -24,18 +24,10 @@ h1, h2, h3 {{ font-weight: 600; letter-spacing: -0.5px; }}
   padding: 0.2rem 1rem;
   border-radius: 10px;
   margin-bottom: 1rem;
-  height: 120px;
+  height: 80px;  /* réduit */
 }}
-.header-logo {{ height: 100%; width: auto; object-fit: contain; }}
-.header-title {{
-  color: white;
-  font-size: 2rem;
-  text-align: center;
-  flex: 1;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
-}}
+.header-logo {{ height: 70%; width: auto; object-fit: contain; }}
+.header-title {{ font-size: 1.6rem; color: white; font-weight:700; text-align:center; text-shadow: 1px 1px 2px rgba(0,0,0,0.3); flex:1; }}
 .result-card {{
     background-color: {CARD_BG};
     border-radius: 12px;
@@ -238,11 +230,7 @@ with tab_params:
     config["rincage_delta_debit"] = st.number_input("Différence débit NaCl vs contraste (mL/s)", value=float(config.get("rincage_delta_debit",0.5)), min_value=0.1, max_value=5.0, step=0.1)
     
     # Vérification créatinine
-    st.subheader("🧪 Vérification créatinine")
-    config["check_creatinine"] = st.checkbox(
-        "Activer le contrôle de la créatinine",
-        value=config.get("check_creatinine", True)
-    )
+    config["check_creatinine"] = st.checkbox("Activer contrôle créatinine patient", value=config.get("check_creatinine", True))
 
     st.markdown("**Charges en iode par kV (g I/kg)**")
     df_charges = pd.DataFrame({"kV":[80,90,100,110,120],"Charge (g I/kg)":[float(config["charges"].get(str(kv),0.35)) for kv in [80,90,100,110,120]]})
@@ -258,7 +246,7 @@ with tab_params:
 # ===================== Onglet Patient =====================
 with tab_patient:
     st.header("🧍 Informations patient")
-    col_w, col_h, col_birth = st.columns([1,1,1])
+    col_w, col_h, col_birth, col_creat = st.columns([1,1,1,1])
     with col_w: weight = st.select_slider("Poids (kg)", options=list(range(20,201)), value=70)
     with col_h: height = st.select_slider("Taille (cm)", options=list(range(100,221)), value=170)
     with col_birth:
@@ -266,12 +254,19 @@ with tab_patient:
         birth_year = st.select_slider("Année de naissance", options=list(range(current_year-120,current_year+1)), value=current_year-40)
     age = current_year - birth_year
     imc = weight / ((height/100)**2)
-
-    # Créatinine
-    creatinine = st.number_input("Créatinine sérique (µmol/L)", value=80, min_value=10, max_value=500, step=1)
-    if config.get("check_creatinine", True):
-        if creatinine < 50 or creatinine > 120:
-            st.warning("⚠️ La créatinine du patient est en dehors de la plage normale (50‑120 µmol/L). Vérifiez les paramètres avant injection.")
+    
+    with col_creat:
+        if config.get("check_creatinine", True):
+            creatinine = st.number_input(
+                "Créatinine (µmol/L)", value=80, min_value=10, max_value=500, step=1, key="creatinine_input", format="%d"
+            )
+            if creatinine < 50 or creatinine > 120:
+                st.markdown(
+                    f"<div style='background-color:#FFF4E5; color:#A63D00; padding:6px 10px; border-radius:6px; font-size:0.85rem;'>⚠️ Créatinine hors plage normale (50‑120 µmol/L) : {creatinine} µmol/L.</div>",
+                    unsafe_allow_html=True
+                )
+        else:
+            creatinine = None
 
     col_kv, col_mode_time = st.columns([1.2,2])
     with col_kv: kv_scanner = st.radio("kV du scanner", [80,90,100,110,120], index=4, horizontal=True)
@@ -300,12 +295,9 @@ with tab_patient:
         vol_nacl_dilution = volume - vol_contrast
         perc_contrast = vol_contrast / volume * 100
         perc_nacl_dilution = vol_nacl_dilution / volume * 100
-
         contrast_text = f"{vol_contrast:.1f} mL ({perc_contrast:.0f}%)"
-
         nacl_rincage_volume = config.get("rincage_volume",35.0)
         nacl_rincage_debit = max(0.1, injection_rate - config.get("rincage_delta_debit",0.5))
-
         nacl_text = f"<div class='sub-item-large'>Dilution : {vol_nacl_dilution:.1f} mL ({perc_nacl_dilution:.0f}%)</div>"
         nacl_text += f"<div class='sub-item-large'>Rinçage : {nacl_rincage_volume:.1f} mL @ {nacl_rincage_debit:.1f} mL/s</div>"
     else:
