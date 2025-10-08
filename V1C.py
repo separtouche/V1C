@@ -277,22 +277,19 @@ with tab_patient:
             injection_mode = st.radio("Mode d’injection", injection_modes, horizontal=True)
 
         with col_times:
-            # --- Affichage des temps fixes Portal et Artériel ---
-            st.markdown(f"**Temps Portal :** {config.get('portal_time',30.0):.0f} s")
-            st.markdown(f"**Temps Artériel :** {config.get('arterial_time',25.0):.0f} s")
-
-            # --- Temps intermédiaire modifiable si sélectionné ---
-            if injection_mode == "Intermédiaire":
+            # --- Afficher uniquement le temps correspondant au mode sélectionné ---
+            if injection_mode == "Portal":
+                base_time = float(config.get("portal_time",30.0))
+            elif injection_mode == "Artériel":
+                base_time = float(config.get("arterial_time",25.0))
+            else:  # Intermédiaire
                 base_time = st.number_input(
                     "Temps Intermédiaire (s)", 
                     value=float(config.get("intermediate_time",28.0)),
                     min_value=5.0, max_value=120.0, step=1.0
                 )
-            elif injection_mode=="Portal":
-                base_time = float(config.get("portal_time",30.0))
-            else:
-                base_time = float(config.get("arterial_time",25.0))
 
+            st.markdown(f"**Temps {injection_mode} :** {base_time:.0f} s")
             acquisition_start = calculate_acquisition_start(age, config)
             st.markdown(f"**Départ d'acquisition :** {acquisition_start:.1f} s")
             st.markdown(f"**Concentration :** {int(config.get('concentration_mg_ml',350))} mg I/mL")
