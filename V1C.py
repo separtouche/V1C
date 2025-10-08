@@ -79,7 +79,9 @@ default_config = {
     "max_debit": 6.0,
     "rincage_volume": 35.0,
     "rincage_delta_debit": 0.5,
-    "calc_mode": "Charge iodée"
+    "calc_mode": "Charge iodée",
+    "simultaneous_enabled": False,
+    "target_concentration": 350
 }
 
 # ===================== Charger config et bibliothèque =====================
@@ -158,10 +160,9 @@ def img_to_base64(path):
         return base64.b64encode(f.read()).decode()
 
 # ===================== Session init =====================
-if "accepted_legal" not in st.session_state:
-    st.session_state["accepted_legal"] = False
-if "selected_program" not in st.session_state:
-    st.session_state["selected_program"] = "Aucun"
+for key in ["accepted_legal", "selected_program", "simultaneous_enabled", "target_concentration"]:
+    if key not in st.session_state:
+        st.session_state[key] = config.get(key)
 
 # ===================== Header =====================
 logo_path = "guerbet_logo.png"
@@ -201,15 +202,19 @@ tab_patient, tab_params = st.tabs(["🧍 Patient", "⚙️ Paramètres"])
 with tab_params:
     st.header("⚙️ Paramètres et Bibliothèque")
 
+    # --- Injection simultanée ---
+    st.subheader("💉 Injection simultanée")
+    st.session_state["simultaneous_enabled"] = st.checkbox("Activer l'injection simultanée", value=st.session_state.get("simultaneous_enabled", False))
+    if st.session_state["simultaneous_enabled"]:
+        st.session_state["target_concentration"] = st.number_input("Concentration cible (mg I/mL)", value=st.session_state.get("target_concentration", 300), min_value=50, max_value=400, step=10)
+
     # --- Bibliothèque ---
     st.subheader("📚 Bibliothèque de programmes")
     program_choice = st.selectbox("Programme", ["Aucun"] + list(libraries.get("programs", {}).keys()), index=0)
-    
-    # Mettre à jour config si programme sélectionné
-    if program_choice != "Aucun" and program_choice != st.session_state["selected_program"]:
+    if program_choice != "Aucun" and program_choice != st.session_state.get("selected_program"):
         st.session_state["selected_program"] = program_choice
         prog_conf = libraries.get("programs", {}).get(program_choice, {})
-        for key in ["charges", "concentration_mg_ml", "max_debit", "calc_mode", "rincage_volume", "rincage_delta_debit", "portal_time", "arterial_time", "intermediate_enabled", "intermediate_time"]:
+        for key in ["charges", "concentration_mg_ml", "max_debit", "calc_mode", "rincage_volume", "rincage_delta_debit", "portal_time", "arterial_time", "intermediate_enabled", "intermediate_time", "simultaneous_enabled", "target_concentration"]:
             if key in prog_conf:
                 st.session_state[key] = prog_conf[key]
 
@@ -258,7 +263,9 @@ with tab_params:
                     "portal_time": config.get("portal_time",30.0),
                     "arterial_time": config.get("arterial_time",25.0),
                     "intermediate_enabled": config.get("intermediate_enabled",False),
-                    "intermediate_time": config.get("intermediate_time",28.0)
+                    "intermediate_time": config.get("intermediate_time",28.0),
+                    "simultaneous_enabled": st.session_state.get("simultaneous_enabled", False),
+                    "target_concentration": st.session_state.get("target_concentration", None)
                 }
                 save_libraries(libraries)
                 st.success(f"Programme '{new_prog_name}' sauvegardé !")
@@ -299,14 +306,28 @@ with tab_patient:
     volume, bsa = calculate_volume(weight,height,kv_scanner,float(config.get("concentration_mg_ml",350)),imc,config.get("calc_mode","Charge iodée"),config.get("charges",{}))
     injection_rate, injection_time, time_adjusted = adjust_injection_rate(volume,float(base_time),float(config.get("max_debit",6.0)))
 
+    # ==== Trois cartes côte à côte ====
     col_contrast, col_nacl, col_rate = st.columns(3, gap="medium")
+    volume_affiche = volume
+
     with col_contrast:
-        st.markdown(f"""<div class="result-card"><h3>💧 Quantité de contraste conseillée</h3><h1>{volume:.1f} mL</h1></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="result-card"><h3>💧 Quantité de contraste conseillée</h3><h1>{volume_affiche:.1f} mL</h1></div>""", unsafe_allow_html=True)
+
     nacl_debit = max(0.1, injection_rate - config.get("rincage_delta_debit",0.5))
     with col_nacl:
         st.markdown(f"""<div class="result-card"><h3>💧 Volume NaCl conseillé</h3><h1>{config.get('rincage_volume',35.0):.0f} mL @ {nacl_debit:.1f} mL/s</h1></div>""", unsafe_allow_html=True)
+
     with col_rate:
         st.markdown(f"""<div class="result-card"><h3>🚀 Débit conseillé</h3><h1>{injection_rate:.1f} mL/s</h1></div>""", unsafe_allow_html=True)
+
+    # --- Injection simultanée ---
+    if config.get("simultaneous_enabled", False):
+        target = st.session_state.get("target_concentration", config.get("concentration_mg_ml", 350))
+        perc_contrast = min(100, target / config.get("concentration_mg_ml",350) * 100)
+        perc_nacl = 100 - perc_contrast
+        vol_contrast = volume * perc_contrast / 100
+        vol_nacl = volume * perc_nacl / 100
+        st.info(f"💧 Injection simultanée activée :\n- Contraste : {vol_contrast:.1f} mL ({perc_contrast:.0f}%)\n- NaCl : {vol_nacl:.1f} mL ({perc_nacl:.0f}%)")
 
     st.info(f"⚠️ Sans rinçage, il aurait fallu injecter {volume + 15:.0f} mL de contraste total.")
     if time_adjusted:
