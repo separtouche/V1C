@@ -237,7 +237,6 @@ with tab_patient:
             elif injection_mode=="Artériel":
                 base_time=float(config.get("arterial_time",25.0))
             else:
-                # Input pour temps intermédiaire directement dans l'onglet Patient
                 base_time = st.number_input(
                     "Temps intermédiaire (s)",
                     value=float(config.get("intermediate_time",28.0)),
@@ -258,14 +257,14 @@ with tab_patient:
     with col_vol:
         st.markdown(f"""
         <div class="result-card">
-            <h3>💧 Volume appliqué</h3>
+            <h3>💧 Quantité de contraste conseillée</h3>
             <h1>{volume:.1f} mL</h1>
         </div>
         """, unsafe_allow_html=True)
     with col_debit:
         st.markdown(f"""
         <div class="result-card">
-            <h3>🚀 Débit recommandé</h3>
+            <h3>🚀 Débit conseillé</h3>
             <h1>{injection_rate:.1f} mL/s</h1>
         </div>
         """, unsafe_allow_html=True)
