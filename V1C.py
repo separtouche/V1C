@@ -5,22 +5,16 @@ import pandas as pd
 import math
 from datetime import datetime
 
-# === 🎨 Couleurs Guerbet ===
+# === Couleurs Guerbet ===
 GUERBET_BLUE = "#124F7A"
 GUERBET_DARK = "#0D334F"
 CARD_BG = "#EAF1F8"
 
-# === 💅 CSS personnalisé ===
+# === CSS personnalisé ===
 st.markdown(f"""
 <style>
-    .stApp {{
-        background-color: #F7FAFC;
-        font-family: 'Segoe UI', sans-serif;
-    }}
-    h1, h2, h3 {{
-        font-weight: 600;
-        letter-spacing: -0.5px;
-    }}
+    .stApp {{ background-color: #F7FAFC; font-family: 'Segoe UI', sans-serif; }}
+    h1, h2, h3 {{ font-weight: 600; letter-spacing: -0.5px; }}
     div.stButton > button {{
         background-color: {GUERBET_BLUE};
         color: white;
@@ -42,15 +36,8 @@ st.markdown(f"""
         text-align: center;
         transition: 0.2s ease-in-out;
     }}
-    .result-card:hover {{
-        transform: scale(1.02);
-    }}
-    .footer {{
-        margin-top: 2em;
-        font-size: 0.8rem;
-        text-align: center;
-        color: #666;
-    }}
+    .result-card:hover {{ transform: scale(1.02); }}
+    .footer {{ margin-top: 2em; font-size: 0.8rem; text-align: center; color: #666; }}
     .beta-footer {{
         background-color: #FCE8B2;
         border: 1px solid #F5B800;
@@ -65,7 +52,7 @@ st.markdown(f"""
 </style>
 """, unsafe_allow_html=True)
 
-# === 🧾 Chargement / création du fichier de configuration ===
+# === Chargement ou création configuration ===
 CONFIG_FILE = "iodine_config.json"
 default_config = {
     "charges": {str(kv): val for kv, val in zip([80,90,100,110,120],[0.35,0.38,0.40,0.42,0.45])},
@@ -76,30 +63,28 @@ default_config = {
     "intermediate_time": 28.0,
     "acquisition_start_param": 70.0,
     "auto_acquisition_by_age": True,
-    "calc_mode": "Charge iodée sauf IMC > 30 → Surface corporelle"
+    "calc_mode": "Charge iodée sauf IMC > 30 → Surface corporelle",
+    "max_debit": 6.0  # mL/s
 }
-
 if os.path.exists(CONFIG_FILE):
     with open(CONFIG_FILE, "r") as f:
         config = json.load(f)
 else:
     config = default_config.copy()
 
-# === 💾 Sauvegarde de la configuration ===
+# === Sauvegarde JSON ===
 def save_config(data):
-    """Sauvegarde la configuration JSON."""
     with open(CONFIG_FILE, "w") as f:
         json.dump(data, f, indent=4)
 
-# === 🧮 Fonctions de calcul ===
+# === Fonctions de calcul ===
 def calculate_bsa(weight, height):
-    """Surface corporelle (m²) selon la formule de Mosteller."""
+    """Surface corporelle (m²) formule Mosteller"""
     return math.sqrt((height * weight) / 3600)
 
 def calculate_volume(weight, height, kv, concentration, imc, calc_mode, charges):
-    """Calcule le volume de contraste (mL) selon le mode choisi et le kV."""
+    """Calcule volume contraste (mL) selon mode et kV"""
     kv_factors = {80: 11, 90: 13, 100: 15, 110: 16.5, 120: 18.6}
-
     if calc_mode == "Surface corporelle" or (calc_mode.startswith("Charge iodée sauf") and imc >= 30):
         bsa = calculate_bsa(weight, height)
         factor = kv_factors.get(kv, None)
@@ -110,17 +95,15 @@ def calculate_volume(weight, height, kv, concentration, imc, calc_mode, charges)
         charge_iodine = float(charges.get(str(kv), 0.4))
         volume = weight * charge_iodine / (concentration / 1000)
         bsa = None
-
     return min(volume, 200), bsa
 
 def calculate_injection_rate(volume, time):
-    """Retourne le débit d'injection (mL/s)."""
     return volume / time if time > 0 else 0
 
-# === ⚙️ Page principale ===
+# === Page principale ===
 st.set_page_config(page_title="Calculette Contraste", page_icon="💉", layout="wide")
 
-# === 🏷️ En-tête ===
+# === En-tête ===
 col1, col2 = st.columns([1, 5])
 with col1:
     st.image("guerbet_logo.png", width=120)
@@ -133,18 +116,18 @@ with col2:
     </div>
     """, unsafe_allow_html=True)
 
-# === 🧭 Onglets ===
+# === Onglets ===
 tab_patient, tab_params = st.tabs(["🧍 Patient", "⚙️ Paramètres"])
 
 # -----------------------------------------------------
-# ⚙️ ONGLET PARAMÈTRES
+# Onglet Paramètres
 # -----------------------------------------------------
 with tab_params:
     st.header("⚙️ Paramètres globaux")
 
     with st.expander("💊 Configuration du calcul", expanded=True):
         config["concentration_mg_ml"] = st.selectbox(
-            "Concentration du produit (mg I/mL)",
+            "Concentration (mg I/mL)",
             [300,320,350,370,400],
             index=[300,320,350,370,400].index(config["concentration_mg_ml"])
         )
@@ -153,6 +136,7 @@ with tab_params:
             ["Charge iodée","Surface corporelle","Charge iodée sauf IMC > 30 → Surface corporelle"],
             index=["Charge iodée","Surface corporelle","Charge iodée sauf IMC > 30 → Surface corporelle"].index(config["calc_mode"])
         )
+        config["max_debit"] = st.number_input("Débit maximal autorisé (mL/s)", value=config.get("max_debit",6.0), min_value=1.0, max_value=20.0, step=0.1)
 
     with st.expander("⏱ Temps d'injection"):
         config["portal_time"] = st.number_input("Portal (s)", value=config["portal_time"], min_value=5.0, max_value=120.0, step=1.0)
@@ -185,7 +169,7 @@ with tab_params:
                 st.warning("⚠️ Paramètres réinitialisés.")
 
 # -----------------------------------------------------
-# 🧍 ONGLET PATIENT
+# Onglet Patient
 # -----------------------------------------------------
 with tab_patient:
     st.header("🧍 Informations patient")
@@ -193,12 +177,7 @@ with tab_patient:
     weight = st.select_slider("Poids (kg)", options=list(range(20,201)), value=70)
     height = st.select_slider("Taille (cm)", options=list(range(100,221)), value=170)
     current_year = datetime.now().year
-    # --- FORCÉ int pour supprimer tout risque de types mixtes ---
-    birth_year = int(st.select_slider(
-        "Année de naissance",
-        options=list(range(current_year-120,current_year+1)),
-        value=current_year-40
-    ))
+    birth_year = int(st.select_slider("Année de naissance", options=list(range(current_year-120,current_year+1)), value=current_year-40))
     age = current_year - birth_year
     imc = weight / ((height / 100) ** 2)
 
@@ -218,14 +197,20 @@ with tab_patient:
             acquisition_start = float(config["acquisition_start_param"])
         acquisition_start = float(st.number_input("Départ d’acquisition (modifiable) (s)", value=acquisition_start, min_value=0.0, max_value=300.0, step=1.0))
 
+    # --- Info calcul auto départ acquisition
+    if config.get("auto_acquisition_by_age", True):
+        st.info("ℹ️ Le départ d’acquisition est calculé automatiquement en fonction de l’âge du patient.")
+    else:
+        st.info("ℹ️ Le départ d’acquisition utilise la valeur par défaut/modifiable.")
+
     if age < 18:
         st.warning("⚠️ Patient mineur (<18 ans) : le calcul n'est pas autorisé.")
         st.stop()
 
+    # --- Mode d'injection
     injection_modes = ["Portal", "Artériel"]
     if config["intermediate_enabled"]:
         injection_modes.append("Intermédiaire")
-
     injection_mode = st.radio("Mode d’injection", injection_modes, horizontal=True)
     if injection_mode == "Portal":
         injection_time = config["portal_time"]
@@ -233,19 +218,26 @@ with tab_patient:
         injection_time = config["arterial_time"]
     else:
         injection_time = config["intermediate_time"]
-
     st.info(f"⏱ Temps d’injection sélectionné : {injection_time:.1f} s")
 
     kv_scanner = st.radio("kV du scanner", [80,90,100,110,120], index=4, horizontal=True)
 
-    # --- Mention légale obligatoire avant calcul
+    # --- Acceptation légale
     accepted = st.checkbox("✅ J’ai lu et j’accepte la mention légale et les conditions d’utilisation.")
     if not accepted:
         st.warning("Vous devez accepter la mention légale pour afficher le calcul.")
         st.stop()
 
+    # === Calcul du volume et du débit avec ajustement automatique selon débit max ===
     volume, bsa = calculate_volume(weight, height, kv_scanner, concentration_mg_ml, imc, config["calc_mode"], config["charges"])
     injection_rate = calculate_injection_rate(volume, injection_time)
+
+    MAX_DEBIT = config.get("max_debit", 6.0)  # mL/s configurable
+    time_adjusted = False
+    if injection_rate > MAX_DEBIT:
+        injection_time = volume / MAX_DEBIT
+        injection_rate = MAX_DEBIT
+        time_adjusted = True
 
     col1, col2 = st.columns(2)
     with col1:
@@ -263,9 +255,11 @@ with tab_patient:
         </div>
         """, unsafe_allow_html=True)
 
+    if time_adjusted:
+        st.warning(f"⚠️ Le temps d’injection a été automatiquement ajusté à {injection_time:.1f}s pour respecter le débit maximal de {MAX_DEBIT} mL/s.")
+
     st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
 
-    # --- Mention légale
     st.markdown("""
     <div style='background-color:#FCE8E6; color:#6B1A00; padding:10px; border-radius:8px; margin-top:15px; font-size:0.9rem;'>
     ⚠️ <b>Avertissement :</b> Ce logiciel est un outil d’aide à la décision.  
@@ -274,7 +268,7 @@ with tab_patient:
     </div>
     """, unsafe_allow_html=True)
 
-# --- 🧪 Pied de page (avec bandeau Beta Test) ---
+# --- Pied de page / Beta Test ---
 st.markdown(f"""
 <div class="footer">
     <p>© 2025 Guerbet | Développé par <b>Sébastien Partouche</b></p>
