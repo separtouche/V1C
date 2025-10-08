@@ -278,20 +278,25 @@ with tab_patient:
     volume, bsa = calculate_volume(weight,height,kv_scanner,float(config.get("concentration_mg_ml",350)),imc,config.get("calc_mode","Charge iodée"),config.get("charges",{}))
     injection_rate, injection_time, time_adjusted = adjust_injection_rate(volume,float(base_time),float(config.get("max_debit",6.0)))
 
-    # ==== Calcul contraste et NaCl ====
-    nacl_volume = config.get("rincage_volume",35.0)
     nacl_debit = max(0.1, injection_rate - config.get("rincage_delta_debit",0.5))
+    nacl_volume = config.get("rincage_volume",35.0)
 
+    # ==== Calcul contraste et NaCl pour injection simultanée ====
     if config.get("simultaneous_enabled", False):
         target = config.get("target_concentration", 350)
         vol_contrast = volume * target / config.get("concentration_mg_ml", 350)
         vol_nacl_dilution = vol_contrast * (config.get("concentration_mg_ml",350)/target - 1)
+        vol_total = vol_contrast + nacl_volume + vol_nacl_dilution
 
-        contrast_text = f"{vol_contrast:.1f} mL"
+        perc_contrast = (vol_contrast / vol_total) * 100
+        perc_nacl = ((nacl_volume + vol_nacl_dilution) / vol_total) * 100
+
+        contrast_text = f"{vol_contrast:.1f} mL ({perc_contrast:.0f}%)"
         nacl_text = (
             f"Rinçage : {nacl_volume:.0f} mL\n"
             f"Dilution : {vol_nacl_dilution:.1f} mL\n"
             f"Formule : V_NaCl = V_contrast × (C_contrast / C_target - 1)\n"
+            f"Total NaCl : {nacl_volume + vol_nacl_dilution:.1f} mL ({perc_nacl:.0f}%)\n"
             f"@ {nacl_debit:.1f} mL/s"
         )
     else:
