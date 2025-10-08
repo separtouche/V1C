@@ -201,14 +201,13 @@ tab_patient, tab_params = st.tabs(["🧍 Patient", "⚙️ Paramètres"])
 # ===================== Onglet Paramètres =====================
 with tab_params:
     st.header("⚙️ Paramètres et Bibliothèque")
-
-    # --- Injection simultanée ---
+    # Injection simultanée
     st.subheader("💉 Injection simultanée")
     config["simultaneous_enabled"] = st.checkbox("Activer l'injection simultanée", value=config.get("simultaneous_enabled", False))
     if config["simultaneous_enabled"]:
         config["target_concentration"] = st.number_input("Concentration cible (mg I/mL)", value=config.get("target_concentration",350), min_value=300, max_value=400, step=10)
 
-    # --- Bibliothèque ---
+    # Bibliothèque
     st.subheader("📚 Bibliothèque de programmes")
     program_choice = st.selectbox("Programme", ["Aucun"] + list(libraries.get("programs", {}).keys()))
     if program_choice != "Aucun":
@@ -216,13 +215,13 @@ with tab_params:
         for key in prog_conf:
             config[key] = prog_conf[key]
 
-    # --- Configuration calcul ---
+    # Configuration calcul
     with st.expander("💊 Configuration du calcul", expanded=True):
         config["concentration_mg_ml"] = st.selectbox("Concentration (mg I/mL)", [300,320,350,370,400], index=[300,320,350,370,400].index(config.get("concentration_mg_ml",350)))
         config["calc_mode"] = st.selectbox("Méthode de calcul", ["Charge iodée","Surface corporelle","Charge iodée sauf IMC > 30 → Surface corporelle"], index=["Charge iodée","Surface corporelle","Charge iodée sauf IMC > 30 → Surface corporelle"].index(config.get("calc_mode","Charge iodée")))
         config["max_debit"] = st.number_input("Débit maximal autorisé (mL/s)", value=float(config.get("max_debit",6.0)), min_value=1.0, max_value=20.0, step=0.1)
 
-    # --- Temps injection ---
+    # Temps injection
     with st.expander("⏱ Temps d'injection", expanded=True):
         config["portal_time"] = st.number_input("Portal (s)", value=float(config.get("portal_time",30.0)), min_value=5.0, max_value=120.0, step=1.0)
         config["arterial_time"] = st.number_input("Artériel (s)", value=float(config.get("arterial_time",25.0)), min_value=5.0, max_value=120.0, step=1.0)
@@ -230,12 +229,12 @@ with tab_params:
         if config["intermediate_enabled"]:
             config["intermediate_time"] = st.number_input("Intermédiaire (s)", value=float(config.get("intermediate_time",28.0)), min_value=5.0, max_value=120.0, step=1.0)
 
-    # --- Rinçage NaCl ---
+    # Rinçage NaCl
     with st.expander("🚰 Rinçage au NaCl", expanded=True):
         config["rincage_volume"] = st.number_input("Volume de rinçage (mL)", value=float(config.get("rincage_volume",35.0)), min_value=10.0, max_value=100.0, step=1.0)
         config["rincage_delta_debit"] = st.number_input("Différence débit NaCl vs contraste (mL/s)", value=float(config.get("rincage_delta_debit",0.5)), min_value=0.1, max_value=5.0, step=0.1)
 
-    # --- Charges ---
+    # Charges
     st.markdown("**Charges en iode par kV (g I/kg)**")
     df_charges = pd.DataFrame({"kV":[80,90,100,110,120],"Charge (g I/kg)":[float(config.get("charges",{}).get(str(kv),0.35)) for kv in [80,90,100,110,120]]})
     edited_df = st.data_editor(df_charges, num_rows="fixed", use_container_width=True)
@@ -292,25 +291,27 @@ with tab_patient:
     volume, bsa = calculate_volume(weight,height,kv_scanner,float(config.get("concentration_mg_ml",350)),imc,config.get("calc_mode","Charge iodée"),config.get("charges",{}))
     injection_rate, injection_time, time_adjusted = adjust_injection_rate(volume,float(base_time),float(config.get("max_debit",6.0)))
 
-    # Injection simultanée
+    # Injection simultanée avec ou sans pourcentage
     if config.get("simultaneous_enabled", False):
         target = config.get("target_concentration",350)
         perc_contrast = min(100, target / config.get("concentration_mg_ml",350) * 100)
         perc_nacl = 100 - perc_contrast
         vol_contrast = volume * perc_contrast / 100
         vol_nacl = volume * perc_nacl / 100
+        contrast_text = f"{vol_contrast:.1f} mL ({perc_contrast:.0f}%)"
+        nacl_text = f"{vol_nacl:.1f} mL ({perc_nacl:.0f}%)"
     else:
         vol_contrast = volume
         vol_nacl = config.get("rincage_volume",35.0)
-        perc_contrast = 100
-        perc_nacl = 0
+        contrast_text = f"{vol_contrast:.1f} mL"
+        nacl_text = f"{vol_nacl:.1f} mL"
 
     # ==== Trois cartes côte à côte ====
     col_contrast, col_nacl, col_rate = st.columns(3, gap="medium")
     with col_contrast:
-        st.markdown(f"""<div class="result-card"><h3>💧 Volume contraste</h3><h1>{vol_contrast:.1f} mL ({perc_contrast:.0f}%)</h1></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="result-card"><h3>💧 Volume contraste</h3><h1>{contrast_text}</h1></div>""", unsafe_allow_html=True)
     with col_nacl:
-        st.markdown(f"""<div class="result-card"><h3>💧 Volume NaCl</h3><h1>{vol_nacl:.1f} mL ({perc_nacl:.0f}%)</h1></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="result-card"><h3>💧 Volume NaCl</h3><h1>{nacl_text}</h1></div>""", unsafe_allow_html=True)
     with col_rate:
         st.markdown(f"""<div class="result-card"><h3>🚀 Débit conseillé</h3><h1>{injection_rate:.1f} mL/s</h1></div>""", unsafe_allow_html=True)
 
@@ -319,7 +320,7 @@ with tab_patient:
 
     st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
 
-    st.markdown("""<div style='background-color:#FCE8E6; color:#6B1A00; padding:10px; border-radius:8px; margin-top:15px; font-size:0.9rem;'>⚠️ <b>Avertissement :</b> Ce logiciel est un outil d’aide à la décision. Les résultats sont <b>indicatifs</b> et doivent être validés par un professionnel de santé.</div>""", unsafe_allow_html=True)
+    st.markdown("""<div style='background-color:#FCE8E6; color:#6B1A00; padding:10px; border-radius:8px; margin-top:15px; font-size:0.9rem;'>⚠️ <b>Avertissement :</b> Ce logiciel est un outil d’aide à la décision. Les résultats sont <b>indicatifs</b> et doivent être validés par un professionnel de santé. L’auteur, Sébastien Partouche, et Guerbet déclinent toute responsabilité en cas d’erreur ou de mauvaise utilisation.</div>""", unsafe_allow_html=True)
 
 # ===================== Footer =====================
 st.markdown(f"""<div style='text-align:center; margin-top:20px; font-size:0.8rem; color:#666;'>
