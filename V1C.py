@@ -89,7 +89,7 @@ def calculate_volume(weight, height, kv, concentration, imc, calc_mode, charges)
     kv_factors = {80: 11, 90: 13, 100: 15, 110: 16.5, 120: 18.6}
     if calc_mode == "Surface corporelle" or (calc_mode.startswith("Charge iodée sauf") and imc >= 30):
         bsa = calculate_bsa(weight, height)
-        factor = kv_factors.get(kv, 15)  # fallback 15 si kv non défini
+        factor = kv_factors.get(kv, 15)
         volume = bsa * factor / (concentration / 1000)
     else:
         charge_iodine = float(charges.get(str(kv), 0.4))
@@ -106,9 +106,13 @@ def calculate_acquisition_start(age, config):
     if age < 70:
         return float(config["acquisition_start_param"])
     elif 70 <= age <= 90:
-        return 70 + (age - 70)  # simple approximation linéaire
+        return float(70 + (age - 70))  # approximation linéaire
     else:
         return 90.0
+
+# Initialiser session_state pour éviter les conflits de type
+if "patient_acquisition_start" not in st.session_state:
+    st.session_state["patient_acquisition_start"] = float(config.get("acquisition_start_param", 70.0))
 
 # =========================================
 # Page Streamlit
@@ -138,22 +142,25 @@ with tab_params:
     st.header("⚙️ Paramètres globaux")
 
     with st.expander("💊 Configuration du calcul", expanded=True):
-        config["concentration_mg_ml"] = st.selectbox("Concentration (mg I/mL)",[300,320,350,370,400], index=[300,320,350,370,400].index(config["concentration_mg_ml"]), key="param_concentration")
-        config["calc_mode"] = st.selectbox("Méthode de calcul",["Charge iodée","Surface corporelle","Charge iodée sauf IMC > 30 → Surface corporelle"], index=["Charge iodée","Surface corporelle","Charge iodée sauf IMC > 30 → Surface corporelle"].index(config["calc_mode"]), key="param_calc_mode")
-        config["max_debit"] = st.number_input("Débit maximal autorisé (mL/s)", value=config.get("max_debit",6.0), min_value=1.0, max_value=20.0, step=0.1, key="param_max_debit")
+        config["concentration_mg_ml"] = st.selectbox("Concentration (mg I/mL)",[300,320,350,370,400],
+                                                      index=[300,320,350,370,400].index(config["concentration_mg_ml"]), key="param_concentration")
+        config["calc_mode"] = st.selectbox("Méthode de calcul",["Charge iodée","Surface corporelle","Charge iodée sauf IMC > 30 → Surface corporelle"],
+                                           index=["Charge iodée","Surface corporelle","Charge iodée sauf IMC > 30 → Surface corporelle"].index(config["calc_mode"]), key="param_calc_mode")
+        config["max_debit"] = st.number_input("Débit maximal autorisé (mL/s)", value=float(config.get("max_debit",6.0)), min_value=1.0, max_value=20.0, step=0.1, key="param_max_debit")
 
     with st.expander("⏱ Temps d'injection"):
-        config["portal_time"] = st.number_input("Portal (s)", value=config["portal_time"], min_value=5.0, max_value=120.0, step=1.0, key="param_portal_time")
-        config["arterial_time"] = st.number_input("Artériel (s)", value=config["arterial_time"], min_value=5.0, max_value=120.0, step=1.0, key="param_arterial_time")
+        config["portal_time"] = st.number_input("Portal (s)", value=float(config["portal_time"]), min_value=5.0, max_value=120.0, step=1.0, key="param_portal_time")
+        config["arterial_time"] = st.number_input("Artériel (s)", value=float(config["arterial_time"]), min_value=5.0, max_value=120.0, step=1.0, key="param_arterial_time")
         config["intermediate_enabled"] = st.checkbox("Activer temps intermédiaire", value=config["intermediate_enabled"], key="param_intermediate_enabled")
         if config["intermediate_enabled"]:
-            config["intermediate_time"] = st.number_input("Intermédiaire (s)", value=config["intermediate_time"], min_value=5.0, max_value=120.0, step=1.0, key="param_intermediate_time")
+            config["intermediate_time"] = st.number_input("Intermédiaire (s)", value=float(config["intermediate_time"]), min_value=5.0, max_value=120.0, step=1.0, key="param_intermediate_time")
 
     with st.expander("🚀 Départ d’acquisition et charges"):
-        config["acquisition_start_param"] = st.number_input("Départ d’acquisition par défaut (s)", value=config["acquisition_start_param"], min_value=0.0, max_value=300.0, step=1.0, key="param_acquisition_start")
+        config["acquisition_start_param"] = st.number_input("Départ d’acquisition par défaut (s)", value=float(config["acquisition_start_param"]), min_value=0.0, max_value=300.0, step=1.0, key="param_acquisition_start")
         config["auto_acquisition_by_age"] = st.checkbox("Calcul automatique selon l’âge", value=config.get("auto_acquisition_by_age", True), key="param_auto_acq_age")
         st.markdown("**Charges en iode par kV (g I/kg)**")
-        df_charges = pd.DataFrame({"kV": [80,90,100,110,120],"Charge (g I/kg)": [config["charges"].get(str(kv),0.35) for kv in [80,90,100,110,120]]})
+        df_charges = pd.DataFrame({"kV": [80,90,100,110,120],
+                                   "Charge (g I/kg)": [float(config["charges"].get(str(kv),0.35)) for kv in [80,90,100,110,120]]})
         edited_df = st.data_editor(df_charges, num_rows="fixed", use_container_width=True, key="param_charges_editor")
         if st.button("💾 Sauvegarder les paramètres", key="param_save_button"):
             config["charges"] = {str(int(row.kV)): float(row["Charge (g I/kg)"]) for _,row in edited_df.iterrows()}
@@ -173,17 +180,18 @@ with tab_patient:
     imc = weight / ((height / 100) ** 2)
 
     # Calcul automatique du départ d'acquisition
-    auto_acquisition_start = calculate_acquisition_start(age, config)
+    auto_acquisition_start = float(calculate_acquisition_start(age, config))
     if config.get("auto_acquisition_by_age", True):
         st.session_state["patient_acquisition_start"] = auto_acquisition_start
 
     col1, col2 = st.columns(2)
     with col1:
-        concentration_mg_ml = st.selectbox("Concentration (mg I/mL)", [300,320,350,370,400], index=[300,320,350,370,400].index(config["concentration_mg_ml"]), key="patient_concentration")
+        concentration_mg_ml = st.selectbox("Concentration (mg I/mL)", [300,320,350,370,400],
+                                           index=[300,320,350,370,400].index(config["concentration_mg_ml"]), key="patient_concentration")
     with col2:
         acquisition_start = st.number_input(
             "Départ d’acquisition (modifiable) (s)",
-            value=st.session_state.get("patient_acquisition_start", auto_acquisition_start),
+            value=float(st.session_state.get("patient_acquisition_start", auto_acquisition_start)),
             min_value=0.0,
             max_value=300.0,
             step=1.0,
@@ -204,11 +212,11 @@ with tab_patient:
         injection_modes.append("Intermédiaire")
     injection_mode = st.radio("Mode d’injection", injection_modes, horizontal=True, key="patient_injection_mode")
     if injection_mode == "Portal":
-        injection_time = config["portal_time"]
+        injection_time = float(config["portal_time"])
     elif injection_mode == "Artériel":
-        injection_time = config["arterial_time"]
+        injection_time = float(config["arterial_time"])
     else:
-        injection_time = config["intermediate_time"]
+        injection_time = float(config["intermediate_time"])
     st.info(f"⏱ Temps d’injection sélectionné : {injection_time:.1f} s")
 
     kv_scanner = st.radio("kV du scanner", [80,90,100,110,120], index=4, horizontal=True, key="patient_kv")
@@ -221,7 +229,7 @@ with tab_patient:
     volume, bsa = calculate_volume(weight, height, kv_scanner, concentration_mg_ml, imc, config["calc_mode"], config["charges"])
     injection_rate = calculate_injection_rate(volume, injection_time)
 
-    MAX_DEBIT = config.get("max_debit", 6.0)
+    MAX_DEBIT = float(config.get("max_debit", 6.0))
     time_adjusted = False
     if injection_rate > MAX_DEBIT:
         injection_time = volume / MAX_DEBIT
