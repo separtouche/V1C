@@ -149,15 +149,14 @@ else:
 if not st.session_state["accepted_legal"]:
     st.markdown("### Mentions légales — acceptation requise")
     st.markdown("Avant d'utiliser cet outil, vous devez accepter la mention légale et les conditions d'utilisation. Ce logiciel est un outil d'aide à la décision ; il ne remplace pas le jugement d'un professionnel de santé.")
-    col_a, col_b, col_c = st.columns([1,2,1])
-    with col_b:
-        accept = st.checkbox("✅ J’accepte les mentions légales.", key="accept_checkbox")
+    
+    accept = st.checkbox("✅ J’accepte les mentions légales.", key="accept_checkbox")
+    if accept:
         if st.button("Accepter et continuer"):
-            if accept:
-                st.session_state["accepted_legal"] = True
-                st.experimental_rerun()
-            else:
-                st.warning("Vous devez cocher la case pour accepter.")
+            st.session_state["accepted_legal"] = True
+    else:
+        st.warning("Vous devez cocher la case pour accepter.")
+    
     st.stop()
 
 # ===================== Onglets =====================
@@ -236,7 +235,7 @@ with tab_patient:
             elif injection_mode=="Artériel":
                 base_time=float(config.get("arterial_time",25.0))
             else:
-                base_time = st.number_input("Temps intermédiaire (s)", value=float(config.get("intermediate_time",28.0)), min_value=5.0, max_value=120.0, step=1.0)
+                base_time = float(config.get("intermediate_time",28.0))
             st.markdown(f"**Temps sélectionné :** {base_time:.0f} s")
             st.markdown(f"**Départ d'acquisition :** {acquisition_start:.1f} s")
             st.markdown(f"**Concentration :** {int(config.get('concentration_mg_ml',350))} mg I/mL")
