@@ -45,7 +45,11 @@ with tab_params:
     st.session_state["concentration_mg_ml"] = concentration_mg_ml
 
     # Méthode de calcul
-    calc_mode = st.selectbox("Méthode de calcul", ["Charge iodée","Surface corporelle","Charge iodée sauf IMC > 35 → Surface corporelle"])
+    calc_mode = st.selectbox("Méthode de calcul", [
+        "Charge iodée",
+        "Surface corporelle",
+        "Charge iodée sauf IMC > 30 → Surface corporelle"
+    ])
     st.session_state["calc_mode"] = calc_mode
 
     # --- Temps d'injection configurables ---
@@ -115,40 +119,50 @@ with tab_patient:
         # --- Départ d'acquisition dynamique selon âge ---
         acquisition_start_param = st.session_state.get("acquisition_start_param", 70.0)
         if 70 <= age <= 90:
-            acquisition_start = 70 + (age - 70)  # 70 ans = 70s, 90 ans = 90s
+            acquisition_start = 70 + (age - 70)
         elif age > 90:
             acquisition_start = 90
         else:
-            acquisition_start = acquisition_start_param  # valeur par défaut ou modifiée dans Paramètres
+            acquisition_start = acquisition_start_param
         st.info(f"🚀 Départ d'acquisition utilisé : {acquisition_start:.1f} s")
 
         # --- Calcul du volume ---
         concentration_mg_ml = st.session_state.get("concentration_mg_ml", 350)
-        calc_mode = st.session_state.get("calc_mode", "Charge iodée sauf IMC > 35 → Surface corporelle")
+        calc_mode = st.session_state.get("calc_mode", "Charge iodée sauf IMC > 30 → Surface corporelle")
         kv_scanner = st.radio("kV du scanner", [80,90,100,110,120], index=4, horizontal=True)
         charge_iodine = float(saved_charges.get(str(kv_scanner),0.40))
 
-        if calc_mode == "Surface corporelle" or (calc_mode == "Charge iodée sauf IMC > 30 → Surface corporelle" and imc >= 30):
-            bsa = 0.007184 * (weight**0.425) * (height**0.725)
-            applied_volume = bsa * 15 / (concentration_mg_ml / 1000)
+        # Facteurs pour surface corporelle
+        bsa_factors = {80: 11, 100: 15, 120: 18.6}
+
+        if calc_mode == "Surface corporelle" or (calc_mode == "Charge iodée sauf IMC > 30 → Surface corporelle" and imc > 30):
+            if kv_scanner in bsa_factors:
+                factor = bsa_factors[kv_scanner]
+                bsa = 0.007184 * (weight**0.425) * (height**0.725)
+                applied_volume = bsa * factor / (concentration_mg_ml / 1000)
+                st.info(f"⚖️ Calcul basé sur la surface corporelle (BSA = {bsa:.2f} m², facteur = {factor})")
+            else:
+                applied_volume = None
+                st.warning("⚠️ Facteur non défini pour ce kV (N/A)")
         else:
             applied_volume = weight * charge_iodine / (concentration_mg_ml / 1000)
+            st.info(f"⚖️ Calcul basé sur la charge iodée ({charge_iodine:.2f} g I/kg)")
 
-        applied_volume = min(applied_volume,200)
-        injection_rate = applied_volume / injection_time
-
-        # --- Affichage résultats ---
-        st.subheader("💡 Résultats")
-        col1, col2 = st.columns(2)
-        col1.markdown(f"""
-            <div style="background-color:{CARD_BG}; border-radius:10px; padding:20px; text-align:center;">
-                <h3 style="color:{GUERBET_BLUE};">Volume appliqué</h3>
-                <h2 style="color:{GUERBET_DARK};">{applied_volume:.1f} mL</h2>
-            </div>
-            """, unsafe_allow_html=True)
-        col2.markdown(f"""
-            <div style="background-color:{CARD_BG}; border-radius:10px; padding:20px; text-align:center;">
-                <h3 style="color:{GUERBET_BLUE};">Débit recommandé</h3>
-                <h2 style="color:{GUERBET_DARK};">{injection_rate:.1f} mL/s</h2>
-            </div>
-            """, unsafe_allow_html=True)
+        # Plafonner le volume et calculer le débit si volume défini
+        if applied_volume is not None:
+            applied_volume = min(applied_volume, 200)
+            injection_rate = applied_volume / injection_time
+            st.subheader("💡 Résultats")
+            col1, col2 = st.columns(2)
+            col1.markdown(f"""
+                <div style="background-color:{CARD_BG}; border-radius:10px; padding:20px; text-align:center;">
+                    <h3 style="color:{GUERBET_BLUE};">Volume appliqué</h3>
+                    <h2 style="color:{GUERBET_DARK};">{applied_volume:.1f} mL</h2>
+                </div>
+                """, unsafe_allow_html=True)
+            col2.markdown(f"""
+                <div style="background-color:{CARD_BG}; border-radius:10px; padding:20px; text-align:center;">
+                    <h3 style="color:{GUERBET_BLUE};">Débit recommandé</h3>
+                    <h2 style="color:{GUERBET_DARK};">{injection_rate:.1f} mL/s</h2>
+                </div>
+                """, unsafe_allow_html=True)
