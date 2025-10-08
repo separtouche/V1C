@@ -87,6 +87,14 @@ def adjust_rate(vol,time,maxd):
     if rate>maxd: time=vol/maxd; rate=maxd; adj=True
     return float(rate),float(time),adj
 
+def safe_number_input(label, value, min_val, max_val, step):
+    """Forcer value, min_val, max_val au même type float"""
+    value = float(value)
+    min_val = float(min_val)
+    max_val = float(max_val)
+    step = float(step)
+    return st.number_input(label, value=value, min_value=min_val, max_value=max_val, step=step)
+
 # ===================== Session =====================
 if "accepted_legal" not in st.session_state: st.session_state["accepted_legal"]=False
 
@@ -125,22 +133,22 @@ tab_patient, tab_params=st.tabs(["🧍 Patient","⚙️ Paramètres"])
 # ===================== Paramètres =====================
 with tab_params:
     st.header("⚙️ Paramètres globaux")
-    st.number_input("Débit max (mL/s)",value=config["max_debit"],min_value=1.0,max_value=20.0,step=0.1)
-    st.number_input("Portal (s)",value=config["portal_time"],min_value=5,max_value=120,step=1.0)
-    st.number_input("Artériel (s)",value=config["arterial_time"],min_value=5,max_value=120,step=1.0)
+    safe_number_input("Débit max (mL/s)", config["max_debit"], 1.0, 20.0, 0.1)
+    safe_number_input("Portal (s)", config["portal_time"], 5, 120, 1)
+    safe_number_input("Artériel (s)", config["arterial_time"], 5, 120, 1)
     config["intermediate_enabled"]=st.checkbox("Activer temps intermédiaire",value=config.get("intermediate_enabled",False))
-    if config["intermediate_enabled"]: st.number_input("Intermédiaire (s)",value=config.get("intermediate_time",28.0),min_value=5,max_value=120,step=1.0)
+    if config["intermediate_enabled"]: safe_number_input("Intermédiaire (s)", config.get("intermediate_time",28.0), 5, 120, 1)
     st.markdown("**Charges en iode par kV (g I/kg)**")
     for kv in [80,90,100,110,120]:
-        val=st.number_input(f"{kv} kV",value=config["charges"].get(str(kv),0.4),min_value=0.1,max_value=2.0,step=0.01)
+        val=safe_number_input(f"{kv} kV", config["charges"].get(str(kv),0.4),0.1,2.0,0.01)
         config["charges"][str(kv)]=val
 
 # ===================== Patient =====================
 with tab_patient:
     st.header("🧍 Informations patient")
-    weight=st.select_slider("Poids (kg)",options=list(range(20,201)),value=70)
-    height=st.select_slider("Taille (cm)",options=list(range(100,221)),value=170)
-    birth_year=st.select_slider("Année de naissance",options=list(range(datetime.now().year-120,datetime.now().year+1)),value=datetime.now().year-40)
+    weight=st.select_slider("Poids (kg)", options=list(range(20,201)), value=int(70))
+    height=st.select_slider("Taille (cm)", options=list(range(100,221)), value=int(170))
+    birth_year=st.select_slider("Année de naissance", options=list(range(datetime.now().year-120,datetime.now().year+1)), value=int(datetime.now().year-40))
     age=datetime.now().year-birth_year
     imc=weight/((height/100)**2)
     if age<18: st.warning("⚠️ Patient mineur (<18 ans) : calcul non autorisé."); st.stop()
@@ -156,7 +164,7 @@ with tab_patient:
         injection_mode=st.radio("Mode d’injection",modes,horizontal=True)
         if injection_mode=="Portal": base_time=config.get("portal_time",30.0)
         elif injection_mode=="Artériel": base_time=config.get("arterial_time",25.0)
-        else: base_time=st.number_input("Temps intermédiaire (s)",value=config.get("intermediate_time",28.0),min_value=5,max_value=120,step=1.0)
+        else: base_time=safe_number_input("Temps intermédiaire (s)", config.get("intermediate_time",28.0), 5, 120, 1)
 
     volume,bsa=calculate_volume(weight,height,kv_scanner,float(config.get("concentration_mg_ml",350)),imc,config.get("calc_mode","Charge iodée"),config.get("charges",{}))
     injection_rate, injection_time, time_adjusted=adjust_rate(volume,float(base_time),config.get("max_debit",6.0))
