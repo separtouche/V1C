@@ -157,11 +157,15 @@ else:
 # ===================== Mentions légales =====================
 if not st.session_state["accepted_legal"]:
     st.markdown("### Mentions légales — acceptation requise")
-    st.markdown("Avant d'utiliser cet outil, vous devez accepter la mention légale et les conditions d'utilisation. Ce logiciel est un outil d'aide à la décision ; il ne remplace pas le jugement d'un professionnel de santé.")
+    st.markdown("Avant d'utiliser cet outil, vous devez accepter la mention légale et les conditions d'utilisation.")
     accept = st.checkbox("✅ J’accepte les mentions légales.", key="accept_checkbox")
-    if accept and st.button("Accepter et continuer"):
-        st.session_state["accepted_legal"] = True
-        st.experimental_rerun()
+    
+    if st.button("Accepter et continuer"):
+        if accept:
+            st.session_state["accepted_legal"] = True
+            st.experimental_rerun()
+        else:
+            st.warning("Vous devez cocher la case pour accepter.")
     st.stop()
 
 # ===================== Onglets =====================
