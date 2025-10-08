@@ -55,6 +55,7 @@ h1, h2, h3 {{ font-weight: 600; letter-spacing: -0.5px; }}
 .result-card h3 {{ margin-bottom:4px; font-size:0.95rem; }}
 .result-card h1 {{ margin:0; font-size:1.5rem; }}
 .result-card div.sub-item {{ margin-top:4px; font-size:0.9rem; }}
+.result-card div.sub-item-large {{ margin-top:6px; font-size:1.1rem; font-weight:600; }}
 .param-section {{
     background: #ffffff;
     border-radius: 10px;
@@ -291,8 +292,8 @@ with tab_patient:
         nacl_rincage_volume = config.get("rincage_volume",35.0)
         nacl_rincage_debit = max(0.1, injection_rate - config.get("rincage_delta_debit",0.5))
 
-        nacl_text = f"<div class='sub-item'>Dilution : {vol_nacl_dilution:.1f} mL ({perc_nacl_dilution:.0f}%)</div>"
-        nacl_text += f"<div class='sub-item'>Rinçage : {nacl_rincage_volume:.1f} mL @ {nacl_rincage_debit:.1f} mL/s</div>"
+        nacl_text = f"<div class='sub-item-large'>Dilution : {vol_nacl_dilution:.1f} mL ({perc_nacl_dilution:.0f}%)</div>"
+        nacl_text += f"<div class='sub-item-large'>Rinçage : {nacl_rincage_volume:.1f} mL @ {nacl_rincage_debit:.1f} mL/s</div>"
     else:
         vol_contrast = volume
         contrast_text = f"{vol_contrast:.1f} mL"
