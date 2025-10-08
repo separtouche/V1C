@@ -212,52 +212,42 @@ with tab_params:
     program_choice = st.selectbox("Programme", ["Aucun"] + list(libraries.get("programs", {}).keys()))
     if program_choice != "Aucun":
         prog_conf = libraries["programs"].get(program_choice, {})
-        for key in prog_conf:
-            config[key] = prog_conf[key]
-
-    # Configuration calcul
-    with st.expander("💊 Configuration du calcul", expanded=True):
-        config["concentration_mg_ml"] = st.selectbox("Concentration (mg I/mL)", [300,320,350,370,400], index=[300,320,350,370,400].index(config.get("concentration_mg_ml",350)))
-        config["calc_mode"] = st.selectbox("Méthode de calcul", ["Charge iodée","Surface corporelle","Charge iodée sauf IMC > 30 → Surface corporelle"], index=["Charge iodée","Surface corporelle","Charge iodée sauf IMC > 30 → Surface corporelle"].index(config.get("calc_mode","Charge iodée")))
-        config["max_debit"] = st.number_input("Débit maximal autorisé (mL/s)", value=float(config.get("max_debit",6.0)), min_value=1.0, max_value=20.0, step=0.1)
-
-    # Temps injection
-    with st.expander("⏱ Temps d'injection", expanded=True):
-        config["portal_time"] = st.number_input("Portal (s)", value=float(config.get("portal_time",30.0)), min_value=5.0, max_value=120.0, step=1.0)
-        config["arterial_time"] = st.number_input("Artériel (s)", value=float(config.get("arterial_time",25.0)), min_value=5.0, max_value=120.0, step=1.0)
-        config["intermediate_enabled"] = st.checkbox("Activer temps intermédiaire", value=config.get("intermediate_enabled",False))
-        if config["intermediate_enabled"]:
-            config["intermediate_time"] = st.number_input("Intermédiaire (s)", value=float(config.get("intermediate_time",28.0)), min_value=5.0, max_value=120.0, step=1.0)
-
-    # Rinçage NaCl
-    with st.expander("🚰 Rinçage au NaCl", expanded=True):
-        config["rincage_volume"] = st.number_input("Volume de rinçage (mL)", value=float(config.get("rincage_volume",35.0)), min_value=10.0, max_value=100.0, step=1.0)
-        config["rincage_delta_debit"] = st.number_input("Différence débit NaCl vs contraste (mL/s)", value=float(config.get("rincage_delta_debit",0.5)), min_value=0.1, max_value=5.0, step=0.1)
-
-    # Charges
-    st.markdown("**Charges en iode par kV (g I/kg)**")
-    df_charges = pd.DataFrame({"kV":[80,90,100,110,120],"Charge (g I/kg)":[float(config.get("charges",{}).get(str(kv),0.35)) for kv in [80,90,100,110,120]]})
-    edited_df = st.data_editor(df_charges, num_rows="fixed", use_container_width=True)
-
-    col_save, col_add, col_del = st.columns(3)
-    with col_save:
-        if st.button("💾 Sauvegarder les paramètres"):
-            try:
-                config["charges"] = {str(int(row.kV)): float(row["Charge (g I/kg)"]) for _,row in edited_df.iterrows()}
-                save_config(config)
-                st.success("✅ Paramètres sauvegardés !")
-            except Exception as e:
-                st.error(f"Erreur : {e}")
-    with col_add:
-        new_prog_name = st.text_input("Nom du nouveau programme")
-        if st.button("➕ Ajouter programme") and new_prog_name:
-            libraries["programs"][new_prog_name] = config.copy()
+        for key, val in prog_conf.items():
+            config[key] = val
+    new_prog_name = st.text_input("Nom du nouveau programme")
+    if st.button("💾 Ajouter/Mise à jour programme"):
+        if new_prog_name.strip():
+            libraries["programs"][new_prog_name.strip()] = {k: config[k] for k in config if k not in ["simultaneous_enabled", "target_concentration"]}
             save_libraries(libraries)
-            st.success(f"Programme '{new_prog_name}' ajouté !")
-    with col_del:
-        del_prog_name = st.selectbox("Supprimer programme", [""] + list(libraries.get("programs", {}).keys()))
-        if st.button("🗑 Supprimer programme") and del_prog_name:
-            delete_program(del_prog_name)
+            st.success(f"Programme '{new_prog_name}' ajouté/mis à jour !")
+    if libraries.get("programs"):
+        del_prog = st.selectbox("Supprimer un programme", [""] + list(libraries["programs"].keys()))
+        if st.button("🗑 Supprimer programme"):
+            if del_prog:
+                delete_program(del_prog)
+
+    # Paramètres classiques
+    st.subheader("⚙️ Paramètres globaux")
+    config["concentration_mg_ml"] = st.selectbox("Concentration (mg I/mL)", [300,320,350,370,400], index=[300,320,350,370,400].index(int(config.get("concentration_mg_ml",350))))
+    config["calc_mode"] = st.selectbox("Méthode de calcul", ["Charge iodée","Surface corporelle","Charge iodée sauf IMC > 30 → Surface corporelle"], index=["Charge iodée","Surface corporelle","Charge iodée sauf IMC > 30 → Surface corporelle"].index(config.get("calc_mode","Charge iodée")))
+    config["max_debit"] = st.number_input("Débit maximal autorisé (mL/s)", value=float(config.get("max_debit",6.0)), min_value=1.0, max_value=20.0, step=0.1)
+    config["portal_time"] = st.number_input("Portal (s)", value=float(config.get("portal_time",30.0)), min_value=5.0, max_value=120.0, step=1.0)
+    config["arterial_time"] = st.number_input("Artériel (s)", value=float(config.get("arterial_time",25.0)), min_value=5.0, max_value=120.0, step=1.0)
+    config["intermediate_enabled"] = st.checkbox("Activer temps intermédiaire", value=bool(config.get("intermediate_enabled",False)))
+    if config["intermediate_enabled"]:
+        config["intermediate_time"] = st.number_input("Intermédiaire (s)", value=float(config.get("intermediate_time",28.0)), min_value=5.0, max_value=120.0, step=1.0)
+    config["rincage_volume"] = st.number_input("Volume de rinçage (mL)", value=float(config.get("rincage_volume",35.0)), min_value=10.0, max_value=100.0, step=1.0)
+    config["rincage_delta_debit"] = st.number_input("Différence débit NaCl vs contraste (mL/s)", value=float(config.get("rincage_delta_debit",0.5)), min_value=0.1, max_value=5.0, step=0.1)
+    st.markdown("**Charges en iode par kV (g I/kg)**")
+    df_charges = pd.DataFrame({"kV":[80,90,100,110,120],"Charge (g I/kg)":[float(config["charges"].get(str(kv),0.35)) for kv in [80,90,100,110,120]]})
+    edited_df = st.data_editor(df_charges, num_rows="fixed", use_container_width=True)
+    if st.button("💾 Sauvegarder les paramètres"):
+        try:
+            config["charges"] = {str(int(row.kV)): float(row["Charge (g I/kg)"]) for _,row in edited_df.iterrows()}
+            save_config(config)
+            st.success("✅ Paramètres sauvegardés !")
+        except Exception as e:
+            st.error(f"Erreur lors de la sauvegarde : {e}")
 
 # ===================== Onglet Patient =====================
 with tab_patient:
@@ -291,22 +281,20 @@ with tab_patient:
     volume, bsa = calculate_volume(weight,height,kv_scanner,float(config.get("concentration_mg_ml",350)),imc,config.get("calc_mode","Charge iodée"),config.get("charges",{}))
     injection_rate, injection_time, time_adjusted = adjust_injection_rate(volume,float(base_time),float(config.get("max_debit",6.0)))
 
-    # Injection simultanée avec ou sans pourcentage
+    # ==== Calcul contraste et NaCl ====
     if config.get("simultaneous_enabled", False):
-        target = config.get("target_concentration",350)
+        target = config.get("target_concentration", 350)
+        vol_contrast = volume * target / config.get("concentration_mg_ml",350)
         perc_contrast = min(100, target / config.get("concentration_mg_ml",350) * 100)
-        perc_nacl = 100 - perc_contrast
-        vol_contrast = volume * perc_contrast / 100
-        vol_nacl = volume * perc_nacl / 100
         contrast_text = f"{vol_contrast:.1f} mL ({perc_contrast:.0f}%)"
-        nacl_text = f"{vol_nacl:.1f} mL ({perc_nacl:.0f}%)"
     else:
         vol_contrast = volume
-        vol_nacl = config.get("rincage_volume",35.0)
         contrast_text = f"{vol_contrast:.1f} mL"
-        nacl_text = f"{vol_nacl:.1f} mL"
 
-    # ==== Trois cartes côte à côte ====
+    nacl_debit = max(0.1, injection_rate - config.get("rincage_delta_debit",0.5))
+    nacl_volume = config.get("rincage_volume",35.0)
+    nacl_text = f"{nacl_volume:.0f} mL @ {nacl_debit:.1f} mL/s"
+
     col_contrast, col_nacl, col_rate = st.columns(3, gap="medium")
     with col_contrast:
         st.markdown(f"""<div class="result-card"><h3>💧 Volume contraste</h3><h1>{contrast_text}</h1></div>""", unsafe_allow_html=True)
