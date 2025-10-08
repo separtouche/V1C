@@ -269,36 +269,31 @@ with tab_patient:
         kv_scanner = st.radio("kV du scanner", [80,90,100,110,120], index=4, horizontal=True)
 
     with col_mode_time:
-        col_mode, col_times = st.columns([1.2,1])
-        with col_mode:
-            injection_modes = ["Portal","Artériel"]
-            if config.get("intermediate_enabled",False):
-                injection_modes.append("Intermédiaire")
-            injection_mode = st.radio("Mode d’injection", injection_modes, horizontal=True)
+        injection_modes = ["Portal","Artériel"]
+        if config.get("intermediate_enabled",False):
+            injection_modes.append("Intermédiaire")
+        injection_mode = st.radio("Mode d’injection", injection_modes, horizontal=True)
 
-        with col_times:
-            # --- Affichage des temps fixes Portal et Artériel ---
-            st.markdown(f"**Temps Portal :** {config.get('portal_time',30.0):.0f} s")
-            st.markdown(f"**Temps Artériel :** {config.get('arterial_time',25.0):.0f} s")
+        # Temps sélectionné (modifiable uniquement si Intermédiaire)
+        if injection_mode == "Intermédiaire":
+            selected_time = st.number_input(
+                "Temps Intermédiaire (s)", 
+                value=float(config.get("intermediate_time",28.0)),
+                min_value=5.0, max_value=120.0, step=1.0
+            )
+        elif injection_mode=="Portal":
+            selected_time = float(config.get("portal_time",30.0))
+        else:
+            selected_time = float(config.get("arterial_time",25.0))
 
-            # --- Temps intermédiaire modifiable si sélectionné ---
-            if injection_mode == "Intermédiaire":
-                base_time = st.number_input(
-                    "Temps Intermédiaire (s)", 
-                    value=float(config.get("intermediate_time",28.0)),
-                    min_value=5.0, max_value=120.0, step=1.0
-                )
-            elif injection_mode=="Portal":
-                base_time = float(config.get("portal_time",30.0))
-            else:
-                base_time = float(config.get("arterial_time",25.0))
+        st.markdown(f"**Temps sélectionné :** {selected_time:.0f} s")
 
-            acquisition_start = calculate_acquisition_start(age, config)
-            st.markdown(f"**Départ d'acquisition :** {acquisition_start:.1f} s")
-            st.markdown(f"**Concentration :** {int(config.get('concentration_mg_ml',350))} mg I/mL")
+    acquisition_start = calculate_acquisition_start(age, config)
+    st.markdown(f"**Départ d'acquisition :** {acquisition_start:.1f} s")
+    st.markdown(f"**Concentration :** {int(config.get('concentration_mg_ml',350))} mg I/mL")
 
     volume, bsa = calculate_volume(weight, height, kv_scanner, float(config.get("concentration_mg_ml",350)), imc, config.get("calc_mode","Charge iodée"), config.get("charges",{}))
-    injection_rate, injection_time, time_adjusted = adjust_injection_rate(volume,float(base_time),float(config.get("max_debit",6.0)))
+    injection_rate, injection_time, time_adjusted = adjust_injection_rate(volume,float(selected_time),float(config.get("max_debit",6.0)))
 
     if config.get("simultaneous_enabled", False):
         target = config.get("target_concentration", 350)
