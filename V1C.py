@@ -38,15 +38,31 @@ h1, h2, h3 {{ font-weight: 600; letter-spacing: -0.5px; }}
   text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
 }}
 .header-right {{ width: 120px; }}
+
+.result-card-container {{
+    display: flex;
+    gap: 20px;
+    align-items: stretch;
+}}
 .result-card {{
     background-color: {CARD_BG};
-    border-radius: 14px;
-    box-shadow: 0 6px 14px rgba(0,0,0,0.1);
-    padding: 24px;
+    border-radius: 12px;          
+    box-shadow: 0 4px 8px rgba(0,0,0,0.07);
+    padding: 18px;                
     text-align: center;
-    transition: 0.2s ease-in-out;
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 160px;
 }}
-.result-card:hover {{ transform: scale(1.03); }}
+.result-card:hover {{
+    transform: scale(1.02);
+    box-shadow: 0 6px 14px rgba(0,0,0,0.12);
+}}
+.result-card h3 {{ margin-bottom:4px; font-size:1.1rem; }}
+.result-card h1 {{ margin:0; font-size:2rem; }}
 .small-note {{ font-size:0.85rem; color:#333; margin-top:6px; }}
 .param-section {{
     background: #ffffff;
@@ -217,7 +233,6 @@ with tab_patient:
     age = current_year - birth_year
     imc = weight / ((height/100)**2)
 
-    # KV + Mode + Times
     col_kv, col_mode_time = st.columns([1.2,2])
     with col_kv:
         kv_scanner = st.radio("kV du scanner", [80,90,100,110,120], index=4, horizontal=True)
@@ -240,23 +255,21 @@ with tab_patient:
             st.markdown(f"**Départ d'acquisition :** {acquisition_start:.1f} s")
             st.markdown(f"**Concentration :** {int(config.get('concentration_mg_ml',350))} mg I/mL")
 
-    # Calculs
     volume, bsa = calculate_volume(weight,height,kv_scanner,float(config.get("concentration_mg_ml",350)),imc,config.get("calc_mode","Charge iodée"),config.get("charges",{}))
     injection_rate, injection_time, time_adjusted = adjust_injection_rate(volume,float(base_time),float(config.get("max_debit",6.0)))
 
-    # Affichage résultats
-    res_col1, res_col2 = st.columns(2)
-    with res_col1:
-        st.markdown(f"""<div class="result-card">
-        <h3 style="color:{GUERBET_BLUE}; margin-bottom:6px;">💧 Volume appliqué</h3>
-        <h1 style="color:{GUERBET_DARK}; margin:0;">{volume:.1f} mL</h1>
+    # Affichage cartes
+    st.markdown('<div class="result-card-container">', unsafe_allow_html=True)
+    st.markdown(f"""<div class="result-card">
+        <h3>💧 Volume appliqué</h3>
+        <h1>{volume:.1f} mL</h1>
         <div class='small-note'>Limité à 200 mL</div>
-        </div>""", unsafe_allow_html=True)
-    with res_col2:
-        st.markdown(f"""<div class="result-card">
-        <h3 style="color:{GUERBET_BLUE}; margin-bottom:6px;">🚀 Débit recommandé</h3>
-        <h1 style="color:{GUERBET_DARK}; margin:0;">{injection_rate:.1f} mL/s</h1>
-        </div>""", unsafe_allow_html=True)
+    </div>""", unsafe_allow_html=True)
+    st.markdown(f"""<div class="result-card">
+        <h3>🚀 Débit recommandé</h3>
+        <h1>{injection_rate:.1f} mL/s</h1>
+    </div>""", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
     if time_adjusted:
         st.warning(f"⚠️ Le temps d’injection a été ajusté à {injection_time:.1f}s pour respecter le débit maximal de {config.get('max_debit',6.0)} mL/s.")
