@@ -97,18 +97,28 @@ def calculate_volume(weight, height, kv, concentration, imc, calc_mode, charges)
         bsa = None
     return min(volume, 200), bsa
 
-def calculate_injection_rate(volume, time):
-    return volume / time if time > 0 else 0
-
 def calculate_acquisition_start(age, config):
     if not config.get("auto_acquisition_by_age", True):
         return float(config["acquisition_start_param"])
     if age < 70:
         return float(config["acquisition_start_param"])
     elif 70 <= age <= 90:
-        return float(70 + (age - 70))  # approximation linéaire
+        return float(70 + (age - 70))
     else:
         return 90.0
+
+def adjust_injection_rate(volume, injection_time, max_debit):
+    """
+    Ajuste le débit et le temps d'injection pour ne pas dépasser max_debit.
+    Retourne (injection_rate, injection_time, time_adjusted)
+    """
+    injection_rate = volume / injection_time
+    time_adjusted = False
+    if injection_rate > max_debit:
+        injection_time = volume / max_debit
+        injection_rate = max_debit
+        time_adjusted = True
+    return injection_rate, injection_time, time_adjusted
 
 # Initialiser session_state pour éviter les conflits de type
 if "patient_acquisition_start" not in st.session_state:
@@ -211,30 +221,18 @@ with tab_patient:
     if config["intermediate_enabled"]:
         injection_modes.append("Intermédiaire")
     injection_mode = st.radio("Mode d’injection", injection_modes, horizontal=True, key="patient_injection_mode")
+
+    # Choix du temps de base selon le mode
     if injection_mode == "Portal":
-        injection_time = float(config["portal_time"])
+        base_time = float(config["portal_time"])
     elif injection_mode == "Artériel":
-        injection_time = float(config["arterial_time"])
+        base_time = float(config["arterial_time"])
     else:
-        injection_time = float(config["intermediate_time"])
-    st.info(f"⏱ Temps d’injection sélectionné : {injection_time:.1f} s")
+        base_time = float(config["intermediate_time"])
 
-    kv_scanner = st.radio("kV du scanner", [80,90,100,110,120], index=4, horizontal=True, key="patient_kv")
-
-    accepted = st.checkbox("✅ J’ai lu et j’accepte la mention légale et les conditions d’utilisation.", key="patient_accept_legal")
-    if not accepted:
-        st.warning("Vous devez accepter la mention légale pour afficher le calcul.")
-        st.stop()
-
-    volume, bsa = calculate_volume(weight, height, kv_scanner, concentration_mg_ml, imc, config["calc_mode"], config["charges"])
-    injection_rate = calculate_injection_rate(volume, injection_time)
-
-    MAX_DEBIT = float(config.get("max_debit", 6.0))
-    time_adjusted = False
-    if injection_rate > MAX_DEBIT:
-        injection_time = volume / MAX_DEBIT
-        injection_rate = MAX_DEBIT
-        time_adjusted = True
+    # Calcul du volume et ajustement du débit
+    volume, bsa = calculate_volume(weight, height, st.session_state.get("patient_kv", 120), concentration_mg_ml, imc, config["calc_mode"], config["charges"])
+    injection_rate, injection_time, time_adjusted = adjust_injection_rate(volume, base_time, float(config["max_debit"]))
 
     col1, col2 = st.columns(2)
     with col1:
@@ -243,7 +241,7 @@ with tab_patient:
         st.markdown(f"""<div class="result-card"><h3 style="color:{GUERBET_BLUE};">🚀 Débit recommandé</h3><h1 style="color:{GUERBET_DARK};">{injection_rate:.1f} mL/s</h1></div>""", unsafe_allow_html=True)
 
     if time_adjusted:
-        st.warning(f"⚠️ Le temps d’injection a été automatiquement ajusté à {injection_time:.1f}s pour respecter le débit maximal de {MAX_DEBIT} mL/s.")
+        st.warning(f"⚠️ Le temps d’injection a été automatiquement ajusté à {injection_time:.1f}s pour respecter le débit maximal de {config['max_debit']} mL/s.")
 
     st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
 
