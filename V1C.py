@@ -237,7 +237,16 @@ with tab_patient:
             elif injection_mode=="Artériel":
                 base_time=float(config.get("arterial_time",25.0))
             else:
-                base_time = float(config.get("intermediate_time",28.0))
+                # Input pour temps intermédiaire directement dans l'onglet Patient
+                base_time = st.number_input(
+                    "Temps intermédiaire (s)",
+                    value=float(config.get("intermediate_time",28.0)),
+                    min_value=5.0,
+                    max_value=120.0,
+                    step=1.0
+                )
+                config["intermediate_time"] = base_time
+
             st.markdown(f"**Temps sélectionné :** {base_time:.0f} s")
             st.markdown(f"**Départ d'acquisition :** {acquisition_start:.1f} s")
             st.markdown(f"**Concentration :** {int(config.get('concentration_mg_ml',350))} mg I/mL")
@@ -268,6 +277,7 @@ with tab_patient:
 
     st.markdown("""<div style='background-color:#FCE8E6; color:#6B1A00; padding:10px; border-radius:8px; margin-top:15px; font-size:0.9rem;'>⚠️ <b>Avertissement :</b> Ce logiciel est un outil d’aide à la décision. Les résultats sont <b>indicatifs</b> et doivent être validés par un professionnel de santé. L’auteur, Sébastien Partouche, et Guerbet déclinent toute responsabilité en cas d’erreur ou de mauvaise utilisation.</div>""", unsafe_allow_html=True)
 
+# Footer
 st.markdown(f"""<div style='text-align:center; margin-top:20px; font-size:0.8rem; color:#666;'>
 © 2025 Guerbet | Développé par <b>Sébastien Partouche</b><br>
 Ce logiciel fournit des <b>propositions de valeurs</b> et ne remplace pas le jugement médical.<br>
