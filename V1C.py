@@ -8,7 +8,6 @@ from datetime import datetime
 
 # ===================== Styles =====================
 GUERBET_BLUE = "#124F7A"
-GUERBET_DARK = "#0D334F"
 CARD_BG = "#EAF1F8"
 
 st.set_page_config(page_title="Calculette Contraste", page_icon="💉", layout="wide")
@@ -64,7 +63,7 @@ h1, h2, h3 {{ font-weight: 600; letter-spacing: -0.5px; }}
 </style>
 """, unsafe_allow_html=True)
 
-# ===================== Config =====================
+# ===================== Fichiers =====================
 CONFIG_FILE = "iodine_config.json"
 LIB_FILE = "libraries.json"
 
@@ -83,7 +82,7 @@ default_config = {
     "calc_mode": "Charge iodée"
 }
 
-# Charger configuration
+# ===================== Charger config et bibliothèque =====================
 if os.path.exists(CONFIG_FILE):
     try:
         with open(CONFIG_FILE, "r") as f:
@@ -93,7 +92,6 @@ if os.path.exists(CONFIG_FILE):
 else:
     config = default_config.copy()
 
-# Charger bibliothèque
 if os.path.exists(LIB_FILE):
     try:
         with open(LIB_FILE, "r") as f:
@@ -103,10 +101,10 @@ if os.path.exists(LIB_FILE):
 else:
     libraries = {"programs": {}}
 
-# S'assurer que "programs" existe
 if "programs" not in libraries:
     libraries["programs"] = {}
 
+# ===================== Fonctions =====================
 def save_config(data):
     with open(CONFIG_FILE, "w") as f:
         json.dump(data, f, indent=4)
@@ -123,7 +121,6 @@ def delete_program(name):
     else:
         st.warning(f"Programme '{name}' introuvable.")
 
-# ===================== Fonctions =====================
 def calculate_bsa(weight, height):
     return math.sqrt((height * weight) / 3600)
 
@@ -158,6 +155,10 @@ def adjust_injection_rate(volume, injection_time, max_debit):
         time_adjusted = True
     return float(injection_rate), float(injection_time), bool(time_adjusted)
 
+def img_to_base64(path):
+    with open(path, "rb") as f:
+        return base64.b64encode(f.read()).decode()
+
 # ===================== Session init =====================
 if "accepted_legal" not in st.session_state:
     st.session_state["accepted_legal"] = False
@@ -165,10 +166,6 @@ if "selected_program" not in st.session_state:
     st.session_state["selected_program"] = None
 
 # ===================== Header =====================
-def img_to_base64(path):
-    with open(path, "rb") as f:
-        return base64.b64encode(f.read()).decode()
-
 logo_path = "guerbet_logo.png"
 if os.path.exists(logo_path):
     try:
@@ -177,7 +174,6 @@ if os.path.exists(logo_path):
         <div class="header-banner">
           <img src="data:image/png;base64,{img_b64}" class="header-logo" alt="Guerbet logo" />
           <div class="header-title">Calculette de dose de produit de contraste</div>
-          <div class="header-right"></div>
         </div>
         """, unsafe_allow_html=True)
     except:
@@ -192,15 +188,12 @@ if not st.session_state["accepted_legal"]:
         "Avant d'utiliser cet outil, vous devez accepter la mention légale et les conditions d'utilisation. "
         "Les données et résultats proposés par cette calculette sont à titre indicatif et doivent être validés par un professionnel de santé."
     )
-    
     accept = st.checkbox("✅ J’accepte les mentions légales.", key="accept_checkbox")
-    
     if st.button("Accepter et continuer"):
         if accept:
             st.session_state["accepted_legal"] = True
         else:
             st.warning("Vous devez cocher la case pour accepter.")
-    
     st.stop()
 
 # ===================== Onglets =====================
@@ -208,45 +201,34 @@ tab_patient, tab_params = st.tabs(["🧍 Patient", "⚙️ Paramètres"])
 
 # ===================== Onglet Paramètres =====================
 with tab_params:
-    st.header("⚙️ Paramètres globaux")
-    # --- Bibliothèque de programmes ---
+    st.header("⚙️ Paramètres et Bibliothèque")
+    
+    # --- Bibliothèque ---
     st.subheader("📚 Bibliothèque de programmes")
     program_choice = st.selectbox("Programme", ["Aucun"] + list(libraries.get("programs", {}).keys()), index=0)
-    if program_choice != "Aucun" and program_choice != st.session_state["selected_program"]:
-        prog_conf = libraries["programs"][program_choice]
-        config["charges"] = prog_conf.get("charges", config.get("charges"))
-        config["concentration_mg_ml"] = prog_conf.get("concentration_mg_ml", config.get("concentration_mg_ml"))
-        config["max_debit"] = prog_conf.get("max_debit", config.get("max_debit"))
-        config["calc_mode"] = prog_conf.get("calc_mode", config.get("calc_mode"))
-        config["rinçage_volume"] = prog_conf.get("rinçage_volume", config.get("rinçage_volume"))
-        st.session_state["selected_program"] = program_choice
-        st.experimental_rerun()  # Rafraîchissement automatique
+    if program_choice != "Aucun":
+        if program_choice != st.session_state.get("selected_program", None):
+            st.session_state["selected_program"] = program_choice
+            prog_conf = libraries["programs"][program_choice]
+            config["charges"] = prog_conf.get("charges", config.get("charges"))
+            config["concentration_mg_ml"] = prog_conf.get("concentration_mg_ml", config.get("concentration_mg_ml"))
+            config["max_debit"] = prog_conf.get("max_debit", config.get("max_debit"))
+            config["calc_mode"] = prog_conf.get("calc_mode", config.get("calc_mode"))
+            config["rinçage_volume"] = prog_conf.get("rinçage_volume", config.get("rinçage_volume"))
+            st.experimental_rerun()
 
-    # --- Configuration du calcul ---
+    # --- Configuration ---
     with st.expander("💊 Configuration du calcul", expanded=True):
         config["concentration_mg_ml"] = st.selectbox("Concentration (mg I/mL)", [300,320,350,370,400], index=[300,320,350,370,400].index(int(config.get("concentration_mg_ml",350))))
         config["calc_mode"] = st.selectbox("Méthode de calcul", ["Charge iodée","Surface corporelle","Charge iodée sauf IMC > 30 → Surface corporelle"], index=["Charge iodée","Surface corporelle","Charge iodée sauf IMC > 30 → Surface corporelle"].index(config.get("calc_mode","Charge iodée")))
         config["max_debit"] = st.number_input("Débit maximal autorisé (mL/s)", value=float(config.get("max_debit",6.0)), min_value=1.0, max_value=20.0, step=0.1)
 
-    # --- Temps d'injection ---
-    with st.expander("⏱ Temps d'injection"):
-        config["portal_time"] = st.number_input("Portal (s)", value=float(config.get("portal_time",30.0)), min_value=5.0, max_value=120.0, step=1.0)
-        config["arterial_time"] = st.number_input("Artériel (s)", value=float(config.get("arterial_time",25.0)), min_value=5.0, max_value=120.0, step=1.0)
-        config["intermediate_enabled"] = st.checkbox("Activer temps intermédiaire", value=bool(config.get("intermediate_enabled",False)))
-        if config["intermediate_enabled"]:
-            config["intermediate_time"] = st.number_input("Intermédiaire (s)", value=float(config.get("intermediate_time",28.0)), min_value=5.0, max_value=120.0, step=1.0)
-
-    # --- Rinçage ---
-    with st.expander("🚰 Rinçage au NaCl"):
-        config["rinçage_volume"] = st.number_input("Volume de rinçage (mL)", value=float(config.get("rinçage_volume",35.0)), min_value=10.0, max_value=100.0, step=1.0)
-        config["rinçage_delta_debit"] = st.number_input("Différence débit NaCl vs contraste (mL/s)", value=float(config.get("rinçage_delta_debit",0.5)), min_value=0.1, max_value=5.0, step=0.1)
-
-    # --- Charges par kV ---
+    # --- Charges ---
     st.markdown("**Charges en iode par kV (g I/kg)**")
     df_charges = pd.DataFrame({"kV":[80,90,100,110,120],"Charge (g I/kg)":[float(config["charges"].get(str(kv),0.35)) for kv in [80,90,100,110,120]]})
     edited_df = st.data_editor(df_charges, num_rows="fixed", use_container_width=True)
 
-    # --- Sauvegarde et gestion programmes ---
+    # --- Sauvegarde & Gestion programmes ---
     col_save, col_add, col_del = st.columns(3)
     with col_save:
         if st.button("💾 Sauvegarder les paramètres"):
@@ -257,12 +239,9 @@ with tab_params:
             except Exception as e:
                 st.error(f"Erreur : {e}")
     with col_add:
-        st.markdown("### Ajouter / Modifier Programme")
         new_prog_name = st.text_input("Nom du programme à ajouter/modifier", key="new_program")
         if st.button("➕ Ajouter/Modifier Programme"):
             if new_prog_name:
-                if "programs" not in libraries:
-                    libraries["programs"] = {}
                 libraries["programs"][new_prog_name] = {
                     "charges": {str(int(row.kV)): float(row["Charge (g I/kg)"]) for _, row in edited_df.iterrows()},
                     "concentration_mg_ml": config["concentration_mg_ml"],
@@ -273,7 +252,6 @@ with tab_params:
                 save_libraries(libraries)
                 st.success(f"Programme '{new_prog_name}' sauvegardé !")
     with col_del:
-        st.markdown("### Supprimer Programme")
         del_prog_name = st.selectbox("Programme à supprimer", ["Aucun"] + list(libraries.get("programs", {}).keys()), key="del_program")
         if st.button("🗑️ Supprimer Programme"):
             if del_prog_name != "Aucun":
@@ -311,17 +289,12 @@ with tab_patient:
     volume, bsa = calculate_volume(weight,height,kv_scanner,float(config.get("concentration_mg_ml",350)),imc,config.get("calc_mode","Charge iodée"),config.get("charges",{}))
     injection_rate, injection_time, time_adjusted = adjust_injection_rate(volume,float(base_time),float(config.get("max_debit",6.0)))
 
-    # ==== Trois cartes côte à côte ====
     col_contrast, col_nacl, col_rate = st.columns(3, gap="medium")
-    volume_affiche = volume
-
     with col_contrast:
-        st.markdown(f"""<div class="result-card"><h3>💧 Quantité de contraste conseillée</h3><h1>{volume_affiche:.1f} mL</h1></div>""", unsafe_allow_html=True)
-
+        st.markdown(f"""<div class="result-card"><h3>💧 Quantité de contraste conseillée</h3><h1>{volume:.1f} mL</h1></div>""", unsafe_allow_html=True)
     nacl_debit = max(0.1, injection_rate - config.get("rinçage_delta_debit",0.5))
     with col_nacl:
         st.markdown(f"""<div class="result-card"><h3>💧 Volume NaCl conseillé</h3><h1>{config.get('rinçage_volume',35.0):.0f} mL @ {nacl_debit:.1f} mL/s</h1></div>""", unsafe_allow_html=True)
-
     with col_rate:
         st.markdown(f"""<div class="result-card"><h3>🚀 Débit conseillé</h3><h1>{injection_rate:.1f} mL/s</h1></div>""", unsafe_allow_html=True)
 
@@ -329,8 +302,6 @@ with tab_patient:
     if time_adjusted:
         st.warning(f"⚠️ Le temps d’injection a été ajusté à {injection_time:.1f}s pour respecter le débit maximal de {config.get('max_debit',6.0)} mL/s.")
     st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
-
-    st.markdown("""<div style='background-color:#FCE8E6; color:#6B1A00; padding:10px; border-radius:8px; margin-top:15px; font-size:0.9rem;'>⚠️ <b>Avertissement :</b> Ce logiciel est un outil d’aide à la décision. Les résultats sont <b>indicatifs</b> et doivent être validés par un professionnel de santé. L’auteur, Sébastien Partouche, et Guerbet déclinent toute responsabilité en cas d’erreur ou de mauvaise utilisation.</div>""", unsafe_allow_html=True)
 
 # ===================== Footer =====================
 st.markdown(f"""<div style='text-align:center; margin-top:20px; font-size:0.8rem; color:#666;'>
