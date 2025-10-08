@@ -12,7 +12,6 @@ GUERBET_BLUE = "#124F7A"
 GUERBET_DARK = "#0D334F"
 CARD_BG = "#EAF1F8"
 
-# CSS personnalisé
 st.markdown(f"""
 <style>
     .stApp {{ background-color: #F7FAFC; font-family: 'Segoe UI', sans-serif; }}
@@ -90,9 +89,7 @@ def calculate_volume(weight, height, kv, concentration, imc, calc_mode, charges)
     kv_factors = {80: 11, 90: 13, 100: 15, 110: 16.5, 120: 18.6}
     if calc_mode == "Surface corporelle" or (calc_mode.startswith("Charge iodée sauf") and imc >= 30):
         bsa = calculate_bsa(weight, height)
-        factor = kv_factors.get(kv, None)
-        if factor is None:
-            return None, bsa
+        factor = kv_factors.get(kv, 15)  # fallback 15 si kv non défini
         volume = bsa * factor / (concentration / 1000)
     else:
         charge_iodine = float(charges.get(str(kv), 0.4))
@@ -102,6 +99,17 @@ def calculate_volume(weight, height, kv, concentration, imc, calc_mode, charges)
 
 def calculate_injection_rate(volume, time):
     return volume / time if time > 0 else 0
+
+def calculate_acquisition_start(age, config):
+    if not config.get("auto_acquisition_by_age", True):
+        return float(config["acquisition_start_param"])
+    if age < 70:
+        return float(config["acquisition_start_param"])
+    elif 70 <= age <= 90:
+        # linéaire de 70 → 90 ans : 70 → 90 s
+        return 70 + (age - 70) * (90 - 70) / (90 - 70)  # simplifie à age
+    else:
+        return 90.0
 
 # =========================================
 # Page Streamlit
@@ -169,16 +177,14 @@ with tab_patient:
     with col1:
         concentration_mg_ml = st.selectbox("Concentration (mg I/mL)", [300,320,350,370,400], index=[300,320,350,370,400].index(config["concentration_mg_ml"]), key="patient_concentration")
     with col2:
-        if config.get("auto_acquisition_by_age", True):
-            if 70 <= age <= 90:
-                acquisition_start = float(70 + (age - 70))
-            elif age > 90:
-                acquisition_start = 90.0
-            else:
-                acquisition_start = float(config["acquisition_start_param"])
-        else:
-            acquisition_start = float(config["acquisition_start_param"])
-        acquisition_start = st.number_input("Départ d’acquisition (modifiable) (s)", value=acquisition_start, min_value=0.0, max_value=300.0, step=1.0, key="patient_acquisition_start")
+        acquisition_start = st.number_input(
+            "Départ d’acquisition (modifiable) (s)",
+            value=calculate_acquisition_start(age, config),
+            min_value=0.0,
+            max_value=300.0,
+            step=1.0,
+            key="patient_acquisition_start"
+        )
 
     if config.get("auto_acquisition_by_age", True):
         st.info("ℹ️ Le départ d’acquisition est calculé automatiquement en fonction de l’âge du patient.")
