@@ -44,7 +44,10 @@ h1, h2, h3 {{ font-weight: 600; letter-spacing: -0.5px; }}
     padding: 12px;
     text-align: center;
     transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-    min-height: 120px;
+    min-height: 130px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }}
 .result-card:hover {{
     transform: scale(1.02);
@@ -82,7 +85,7 @@ if os.path.exists(CONFIG_FILE):
     try:
         with open(CONFIG_FILE, "r") as f:
             config = json.load(f)
-    except Exception:
+    except:
         config = default_config.copy()
 else:
     config = default_config.copy()
@@ -159,8 +162,7 @@ if not st.session_state["accepted_legal"]:
     if accept and st.button("Accepter et continuer"):
         st.session_state["accepted_legal"] = True
         st.experimental_rerun()
-    else:
-        st.stop()
+    st.stop()
 
 # ===================== Onglets =====================
 tab_patient, tab_params = st.tabs(["🧍 Patient", "⚙️ Paramètres"])
@@ -211,8 +213,7 @@ with tab_patient:
         col_mode, col_times = st.columns([1.2,1])
         with col_mode:
             injection_modes = ["Portal","Artériel"]
-            if config.get("intermediate_enabled",False):
-                injection_modes.append("Intermédiaire")
+            if config.get("intermediate_enabled",False): injection_modes.append("Intermédiaire")
             injection_mode = st.radio("Mode d’injection", injection_modes, horizontal=True)
         with col_times:
             acquisition_start = calculate_acquisition_start(age, config)
@@ -230,29 +231,23 @@ with tab_patient:
 
     # ==== Trois cartes côte à côte ====
     col_contrast, col_nacl, col_rate = st.columns(3, gap="medium")
-    # Quantité de contraste
     with col_contrast:
         st.markdown(f"""<div class="result-card"><h3>💧 Quantité de contraste conseillée</h3><h1>{volume:.1f} mL</h1></div>""", unsafe_allow_html=True)
-    # Volume NaCl
     nacl_debit = max(0.1, injection_rate - config.get("rinçage_delta_debit",0.5))
     with col_nacl:
         if config.get("rinçage_enabled", True):
             st.markdown(f"""<div class="result-card"><h3>💧 Volume NaCl conseillé</h3><h1>{config.get('rinçage_volume',35.0):.0f} mL @ {nacl_debit:.1f} mL/s</h1></div>""", unsafe_allow_html=True)
         else:
             st.markdown(f"""<div class="result-card"><h3>💧 Volume NaCl conseillé</h3><h1>—</h1></div>""", unsafe_allow_html=True)
-    # Débit conseillé
     with col_rate:
         st.markdown(f"""<div class="result-card"><h3>🚀 Débit conseillé</h3><h1>{injection_rate:.1f} mL/s</h1></div>""", unsafe_allow_html=True)
 
-    # Info supplémentaire sur absence de rinçage
     if config.get("rinçage_enabled", True):
         st.info(f"⚠️ Sans rinçage, il aurait fallu injecter {volume + config.get('rinçage_volume',35.0):.0f} mL de contraste total.")
-
     if time_adjusted:
         st.warning(f"⚠️ Le temps d’injection a été ajusté à {injection_time:.1f}s pour respecter le débit maximal de {config.get('max_debit',6.0)} mL/s.")
 
     st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
-
     st.markdown("""<div style='background-color:#FCE8E6; color:#6B1A00; padding:10px; border-radius:8px; margin-top:15px; font-size:0.9rem;'>⚠️ <b>Avertissement :</b> Ce logiciel est un outil d’aide à la décision. Les résultats sont <b>indicatifs</b> et doivent être validés par un professionnel de santé. L’auteur, Sébastien Partouche, et Guerbet déclinent toute responsabilité en cas d’erreur ou de mauvaise utilisation.</div>""", unsafe_allow_html=True)
 
 # Footer
