@@ -42,12 +42,8 @@ h1, h2, h3 {{ font-weight: 600; letter-spacing: -0.5px; }}
     background-color: {CARD_BG};
     border-radius: 14px;
     box-shadow: 0 6px 14px rgba(0,0,0,0.1);
-    padding: 20px;
+    padding: 24px;
     text-align: center;
-    height: 140px;
-    display:flex;
-    flex-direction:column;
-    justify-content:center;
     transition: 0.2s ease-in-out;
 }}
 .result-card:hover {{ transform: scale(1.03); }}
@@ -204,63 +200,66 @@ with tab_params:
                 config["charges"] = {str(int(row.kV)): float(row["Charge (g I/kg)"]) for _,row in edited_df.iterrows()}
                 save_config(config)
                 st.success("✅ Paramètres sauvegardés avec succès !")
-            except:
-                st.error("Erreur lors de la sauvegarde des paramètres.")
+            except Exception as e:
+                st.error(f"Erreur lors de la sauvegarde : {e}")
 
 # ===================== Onglet Patient =====================
 with tab_patient:
     st.header("🧍 Informations patient")
-    weight = st.select_slider("Poids (kg)", options=list(range(20,201)), value=70)
-    height = st.select_slider("Taille (cm)", options=list(range(100,221)), value=170)
-    current_year = datetime.now().year
-    birth_year = st.select_slider("Année de naissance", options=list(range(current_year-120,current_year+1)), value=current_year-40)
+    col_w, col_h, col_birth = st.columns([1,1,1])
+    with col_w:
+        weight = st.select_slider("Poids (kg)", options=list(range(20,201)), value=70)
+    with col_h:
+        height = st.select_slider("Taille (cm)", options=list(range(100,221)), value=170)
+    with col_birth:
+        current_year = datetime.now().year
+        birth_year = st.select_slider("Année de naissance", options=list(range(current_year-120,current_year+1)), value=current_year-40)
+
     age = current_year - birth_year
     imc = weight / ((height/100)**2)
 
-    # KV et mode d’injection
-    col1, col2 = st.columns([1,2])
-    with col1:
+    # KV + Mode + Times
+    col_kv, col_mode_time = st.columns([1.2,2])
+    with col_kv:
         kv_scanner = st.radio("kV du scanner", [80,90,100,110,120], index=4, horizontal=True)
-    with col2:
+    with col_mode_time:
         injection_modes = ["Portal","Artériel"]
         if config.get("intermediate_enabled",False):
             injection_modes.append("Intermédiaire")
         injection_mode = st.radio("Mode d’injection", injection_modes, horizontal=True)
-        # Temps correspondant
-        if injection_mode=="Portal":
-            base_time = config.get("portal_time",30.0)
-        elif injection_mode=="Artériel":
-            base_time = config.get("arterial_time",25.0)
-        else:
-            base_time = st.number_input("Temps intermédiaire (s)", value=float(config.get("intermediate_time",28.0)), min_value=5.0, max_value=120.0, step=1.0)
-        # Départ acquisition & concentration affichés
+
+        # Temps sélectionné juste en dessous du mode si Intermédiaire
+        if injection_mode == "Intermédiaire":
+            base_time = st.number_input("Temps intermédiaire (s)", 
+                                        value=float(config.get("intermediate_time",28.0)), 
+                                        min_value=5.0, max_value=120.0, step=1.0)
+        elif injection_mode=="Portal":
+            base_time=float(config.get("portal_time",30.0))
+        else:  # Artériel
+            base_time=float(config.get("arterial_time",25.0))
+
         acquisition_start = calculate_acquisition_start(age, config)
-        st.markdown(f"**Départ d’acquisition (s)** : {acquisition_start:.1f}")
-        st.markdown(f"**Concentration (mg I/mL)** : {int(config.get('concentration_mg_ml',350))}")
+        st.markdown(f"**Temps sélectionné :** {base_time:.0f} s")
+        st.markdown(f"**Départ d'acquisition :** {acquisition_start:.1f} s")
+        st.markdown(f"**Concentration :** {int(config.get('concentration_mg_ml',350))} mg I/mL")
 
-    if age < 18:
-        st.warning("⚠️ Patient mineur (<18 ans) : le calcul n'est pas autorisé.")
-        st.stop()
-
-    # Calcul volume / débit
+    # Calculs
     volume, bsa = calculate_volume(weight,height,kv_scanner,float(config.get("concentration_mg_ml",350)),imc,config.get("calc_mode","Charge iodée"),config.get("charges",{}))
     injection_rate, injection_time, time_adjusted = adjust_injection_rate(volume,float(base_time),float(config.get("max_debit",6.0)))
 
-    # Résultats
-    res_col1, res_col2 = st.columns(2, gap="medium")
-    for col, title, value, note in zip(
-        [res_col1,res_col2],
-        ["💧 Volume appliqué","🚀 Débit recommandé"],
-        [volume,injection_rate],
-        ["Limité à 200 mL",""]
-    ):
-        col.markdown(f"""
-        <div class="result-card">
-            <h3 style="color:{GUERBET_BLUE}; margin-bottom:6px;">{title}</h3>
-            <h1 style="color:{GUERBET_DARK}; margin:0;">{value:.1f} { 'mL' if title=='💧 Volume appliqué' else 'mL/s'}</h1>
-            <div class='small-note'>{note}</div>
-        </div>
-        """, unsafe_allow_html=True)
+    # Affichage résultats
+    res_col1, res_col2 = st.columns(2)
+    with res_col1:
+        st.markdown(f"""<div class="result-card">
+        <h3 style="color:{GUERBET_BLUE}; margin-bottom:6px;">💧 Volume appliqué</h3>
+        <h1 style="color:{GUERBET_DARK}; margin:0;">{volume:.1f} mL</h1>
+        <div class='small-note'>Limité à 200 mL</div>
+        </div>""", unsafe_allow_html=True)
+    with res_col2:
+        st.markdown(f"""<div class="result-card">
+        <h3 style="color:{GUERBET_BLUE}; margin-bottom:6px;">🚀 Débit recommandé</h3>
+        <h1 style="color:{GUERBET_DARK}; margin:0;">{injection_rate:.1f} mL/s</h1>
+        </div>""", unsafe_allow_html=True)
 
     if time_adjusted:
         st.warning(f"⚠️ Le temps d’injection a été ajusté à {injection_time:.1f}s pour respecter le débit maximal de {config.get('max_debit',6.0)} mL/s.")
@@ -269,7 +268,7 @@ with tab_patient:
 
     st.markdown("""<div style='background-color:#FCE8E6; color:#6B1A00; padding:10px; border-radius:8px; margin-top:15px; font-size:0.9rem;'>⚠️ <b>Avertissement :</b> Ce logiciel est un outil d’aide à la décision. Les résultats sont <b>indicatifs</b> et doivent être validés par un professionnel de santé. L’auteur, Sébastien Partouche, et Guerbet déclinent toute responsabilité en cas d’erreur ou de mauvaise utilisation.</div>""", unsafe_allow_html=True)
 
-# ===================== Footer =====================
+# Footer
 st.markdown(f"""<div style='text-align:center; margin-top:20px; font-size:0.8rem; color:#666;'>
 © 2025 Guerbet | Développé par <b>Sébastien Partouche</b><br>
 Ce logiciel fournit des <b>propositions de valeurs</b> et ne remplace pas le jugement médical.<br>
