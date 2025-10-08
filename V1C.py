@@ -53,6 +53,7 @@ h1, h2, h3 {{ font-weight: 600; letter-spacing: -0.5px; }}
 }}
 .result-card h3 {{ margin-bottom:4px; font-size:0.95rem; }}
 .result-card h1 {{ margin:0; font-size:1.5rem; }}
+.result-card div.sub-item {{ margin-top:4px; font-size:0.9rem; }}
 .param-section {{
     background: #ffffff;
     border-radius: 10px;
@@ -284,23 +285,19 @@ with tab_patient:
         perc_contrast = vol_contrast / volume * 100
         perc_nacl_dilution = vol_nacl_dilution / volume * 100
         contrast_text = f"{vol_contrast:.1f} mL ({perc_contrast:.0f}%)"
-        nacl_text = f"{vol_nacl_dilution:.1f} mL ({perc_nacl_dilution:.0f}%)"
+        nacl_rincage_volume = config.get("rincage_volume",35.0)
+        nacl_rincage_debit = max(0.1, injection_rate - config.get("rincage_delta_debit",0.5))
+        nacl_text = f"{vol_nacl_dilution:.1f} mL ({perc_nacl_dilution:.0f}%)<div class='sub-item'>Rinçage : {nacl_rincage_volume:.0f} mL @ {nacl_rincage_debit:.1f} mL/s</div>"
     else:
         vol_contrast = volume
         contrast_text = f"{vol_contrast:.1f} mL"
         nacl_text = f"{config.get('rincage_volume',35.0):.0f} mL"
 
-    nacl_debit = max(0.1, injection_rate - config.get("rincage_delta_debit",0.5))
-    nacl_volume = config.get("rincage_volume",35.0)
-    nacl_rincage_text = f"{nacl_volume:.0f} mL @ {nacl_debit:.1f} mL/s"
-
     col_contrast, col_nacl, col_rate = st.columns(3, gap="medium")
     with col_contrast:
         st.markdown(f"""<div class="result-card"><h3>💧 Volume contraste</h3><h1>{contrast_text}</h1></div>""", unsafe_allow_html=True)
     with col_nacl:
-        st.markdown(f"""<div class="result-card"><h3>💧 Volume NaCl</h3><h1>{nacl_text}</h1></div>""", unsafe_allow_html=True)
-        if config.get("simultaneous_enabled", False):
-            st.markdown(f"<div style='margin-top:8px; font-size:0.9rem;'>💧 Rinçage : {nacl_rincage_text}</div>", unsafe_allow_html=True)
+        st.markdown(f"""<div class="result-card"><h3>💧 Volume NaCl + dilution</h3><h1>{nacl_text}</h1></div>""", unsafe_allow_html=True)
     with col_rate:
         st.markdown(f"""<div class="result-card"><h3>🚀 Débit conseillé</h3><h1>{injection_rate:.1f} mL/s</h1></div>""", unsafe_allow_html=True)
 
