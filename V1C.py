@@ -128,7 +128,7 @@ with tab_patient:
         kv_scanner = st.radio("kV du scanner", [80,90,100,110,120], index=4, horizontal=True)
         charge_iodine = float(saved_charges.get(str(kv_scanner),0.40))
 
-        if calc_mode == "Surface corporelle" or (calc_mode == "Charge iodée sauf IMC > 35 → Surface corporelle" and imc >= 35):
+        if calc_mode == "Surface corporelle" or (calc_mode == "Charge iodée sauf IMC > 30 → Surface corporelle" and imc >= 30):
             bsa = 0.007184 * (weight**0.425) * (height**0.725)
             applied_volume = bsa * 15 / (concentration_mg_ml / 1000)
         else:
