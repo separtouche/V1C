@@ -38,23 +38,13 @@ h1, h2, h3 {{ font-weight: 600; letter-spacing: -0.5px; }}
   text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
 }}
 .header-right {{ width: 120px; }}
-
-.result-card-container {{
-    display: flex;
-    gap: 20px;
-    align-items: stretch;
-}}
 .result-card {{
     background-color: {CARD_BG};
-    border-radius: 12px;          
+    border-radius: 12px;
     box-shadow: 0 4px 8px rgba(0,0,0,0.07);
-    padding: 18px;                
+    padding: 18px;
     text-align: center;
     transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
     min-height: 160px;
 }}
 .result-card:hover {{
@@ -161,19 +151,17 @@ if os.path.exists(logo_path):
 else:
     st.markdown(f"<div class='header-banner'><div class='header-title'>Calculette de dose de produit de contraste</div></div>", unsafe_allow_html=True)
 
-# ===================== Acceptation légale =====================
+# ===================== Mentions légales =====================
 if not st.session_state["accepted_legal"]:
     st.markdown("### Mentions légales — acceptation requise")
     st.markdown("Avant d'utiliser cet outil, vous devez accepter la mention légale et les conditions d'utilisation. Ce logiciel est un outil d'aide à la décision ; il ne remplace pas le jugement d'un professionnel de santé.")
     
     accept = st.checkbox("✅ J’accepte les mentions légales.", key="accept_checkbox")
-    if accept:
-        if st.button("Accepter et continuer"):
-            st.session_state["accepted_legal"] = True
+    if accept and st.button("Accepter et continuer"):
+        st.session_state["accepted_legal"] = True
+        st.experimental_rerun()
     else:
-        st.warning("Vous devez cocher la case pour accepter.")
-    
-    st.stop()
+        st.stop()
 
 # ===================== Onglets =====================
 tab_patient, tab_params = st.tabs(["🧍 Patient", "⚙️ Paramètres"])
@@ -258,18 +246,23 @@ with tab_patient:
     volume, bsa = calculate_volume(weight,height,kv_scanner,float(config.get("concentration_mg_ml",350)),imc,config.get("calc_mode","Charge iodée"),config.get("charges",{}))
     injection_rate, injection_time, time_adjusted = adjust_injection_rate(volume,float(base_time),float(config.get("max_debit",6.0)))
 
-    # Affichage cartes
-    st.markdown('<div class="result-card-container">', unsafe_allow_html=True)
-    st.markdown(f"""<div class="result-card">
-        <h3>💧 Volume appliqué</h3>
-        <h1>{volume:.1f} mL</h1>
-        <div class='small-note'>Limité à 200 mL</div>
-    </div>""", unsafe_allow_html=True)
-    st.markdown(f"""<div class="result-card">
-        <h3>🚀 Débit recommandé</h3>
-        <h1>{injection_rate:.1f} mL/s</h1>
-    </div>""", unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+    # ===================== Cartes côte à côte =====================
+    col_vol, col_debit = st.columns(2, gap="large")
+    with col_vol:
+        st.markdown(f"""
+        <div class="result-card">
+            <h3>💧 Volume appliqué</h3>
+            <h1>{volume:.1f} mL</h1>
+            <div class='small-note'>Limité à 200 mL</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with col_debit:
+        st.markdown(f"""
+        <div class="result-card">
+            <h3>🚀 Débit recommandé</h3>
+            <h1>{injection_rate:.1f} mL/s</h1>
+        </div>
+        """, unsafe_allow_html=True)
 
     if time_adjusted:
         st.warning(f"⚠️ Le temps d’injection a été ajusté à {injection_time:.1f}s pour respecter le débit maximal de {config.get('max_debit',6.0)} mL/s.")
@@ -278,7 +271,7 @@ with tab_patient:
 
     st.markdown("""<div style='background-color:#FCE8E6; color:#6B1A00; padding:10px; border-radius:8px; margin-top:15px; font-size:0.9rem;'>⚠️ <b>Avertissement :</b> Ce logiciel est un outil d’aide à la décision. Les résultats sont <b>indicatifs</b> et doivent être validés par un professionnel de santé. L’auteur, Sébastien Partouche, et Guerbet déclinent toute responsabilité en cas d’erreur ou de mauvaise utilisation.</div>""", unsafe_allow_html=True)
 
-# Footer
+# ===================== Footer =====================
 st.markdown(f"""<div style='text-align:center; margin-top:20px; font-size:0.8rem; color:#666;'>
 © 2025 Guerbet | Développé par <b>Sébastien Partouche</b><br>
 Ce logiciel fournit des <b>propositions de valeurs</b> et ne remplace pas le jugement médical.<br>
