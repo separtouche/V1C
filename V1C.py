@@ -223,9 +223,7 @@ with tab_patient:
             acquisition_start = calculate_acquisition_start(age, config)
             if injection_mode=="Portal": base_time=float(config.get("portal_time",30.0))
             elif injection_mode=="Artériel": base_time=float(config.get("arterial_time",25.0))
-            else:
-                base_time = st.number_input("Temps intermédiaire (s)", value=float(config.get("intermediate_time",28.0)), min_value=5.0, max_value=120.0, step=1.0)
-                config["intermediate_time"] = base_time
+            else: base_time = st.number_input("Temps intermédiaire (s)", value=float(config.get("intermediate_time",28.0)), min_value=5.0, max_value=120.0, step=1.0)
             st.markdown(f"**Temps sélectionné :** {base_time:.0f} s")
             st.markdown(f"**Départ d'acquisition :** {acquisition_start:.1f} s")
             st.markdown(f"**Concentration :** {int(config.get('concentration_mg_ml',350))} mg I/mL")
@@ -235,26 +233,35 @@ with tab_patient:
 
     # ==== Trois cartes côte à côte ====
     col_contrast, col_nacl, col_rate = st.columns(3, gap="medium")
+    volume_affiche = volume if config.get("rinçage_enabled", True) else volume + 15
+
     with col_contrast:
-        st.markdown(f"""<div class="result-card"><h3>💧 Quantité de contraste conseillée</h3><h1>{volume:.1f} mL</h1></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="result-card"><h3>💧 Quantité de contraste conseillée</h3><h1>{volume_affiche:.1f} mL</h1></div>""", unsafe_allow_html=True)
+
     nacl_debit = max(0.1, injection_rate - config.get("rinçage_delta_debit",0.5))
     with col_nacl:
         if config.get("rinçage_enabled", True):
             st.markdown(f"""<div class="result-card"><h3>💧 Volume NaCl conseillé</h3><h1>{config.get('rinçage_volume',35.0):.0f} mL @ {nacl_debit:.1f} mL/s</h1></div>""", unsafe_allow_html=True)
         else:
             st.markdown(f"""<div class="result-card"><h3>💧 Volume NaCl conseillé</h3><h1>—</h1></div>""", unsafe_allow_html=True)
+
     with col_rate:
         st.markdown(f"""<div class="result-card"><h3>🚀 Débit conseillé</h3><h1>{injection_rate:.1f} mL/s</h1></div>""", unsafe_allow_html=True)
 
+    # Message sur rinçage dynamique
     if config.get("rinçage_enabled", True):
-        st.info(f"⚠️ Sans rinçage, il aurait fallu injecter {volume + config.get('rinçage_volume',35.0):.0f} mL de contraste total.")
+        st.info(f"💧 Rinçage activé : Volume NaCl de {config.get('rinçage_volume',35.0):.0f} mL pour pousser le PdC résiduel.")
+    else:
+        st.info(f"⚠️ Sans rinçage, il aurait fallu injecter {volume + 15:.0f} mL de contraste total.")
+
     if time_adjusted:
         st.warning(f"⚠️ Le temps d’injection a été ajusté à {injection_time:.1f}s pour respecter le débit maximal de {config.get('max_debit',6.0)} mL/s.")
 
     st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
+
     st.markdown("""<div style='background-color:#FCE8E6; color:#6B1A00; padding:10px; border-radius:8px; margin-top:15px; font-size:0.9rem;'>⚠️ <b>Avertissement :</b> Ce logiciel est un outil d’aide à la décision. Les résultats sont <b>indicatifs</b> et doivent être validés par un professionnel de santé. L’auteur, Sébastien Partouche, et Guerbet déclinent toute responsabilité en cas d’erreur ou de mauvaise utilisation.</div>""", unsafe_allow_html=True)
 
-# Footer
+# ===================== Footer =====================
 st.markdown(f"""<div style='text-align:center; margin-top:20px; font-size:0.8rem; color:#666;'>
 © 2025 Guerbet | Développé par <b>Sébastien Partouche</b><br>
 Ce logiciel fournit des <b>propositions de valeurs</b> et ne remplace pas le jugement médical.<br>
