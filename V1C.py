@@ -12,7 +12,6 @@ GUERBET_DARK = "#0D334F"
 CARD_BG = "#EAF1F8"
 
 st.set_page_config(page_title="Calculette Contraste", page_icon="💉", layout="wide")
-
 st.markdown(f"""
 <style>
 .stApp {{ background-color: #F7FAFC; font-family: 'Segoe UI', sans-serif; }}
@@ -74,8 +73,10 @@ default_config = {
     "intermediate_time": 28.0,
     "acquisition_start_param": 70.0,
     "auto_acquisition_by_age": True,
-    "calc_mode": "Charge iodée sauf IMC > 30 → Surface corporelle",
-    "max_debit": 6.0
+    "max_debit": 6.0,
+    "rinçage_enabled": True,
+    "rinçage_volume": 35.0,
+    "rinçage_delta_debit": 0.5
 }
 if os.path.exists(CONFIG_FILE):
     try:
@@ -145,7 +146,7 @@ if os.path.exists(logo_path):
           <div class="header-right"></div>
         </div>
         """, unsafe_allow_html=True)
-    except Exception:
+    except:
         st.markdown(f"<div class='header-banner'><div class='header-title'>Calculette de dose de produit de contraste</div></div>", unsafe_allow_html=True)
 else:
     st.markdown(f"<div class='header-banner'><div class='header-title'>Calculette de dose de produit de contraste</div></div>", unsafe_allow_html=True)
@@ -154,7 +155,6 @@ else:
 if not st.session_state["accepted_legal"]:
     st.markdown("### Mentions légales — acceptation requise")
     st.markdown("Avant d'utiliser cet outil, vous devez accepter la mention légale et les conditions d'utilisation. Ce logiciel est un outil d'aide à la décision ; il ne remplace pas le jugement d'un professionnel de santé.")
-    
     accept = st.checkbox("✅ J’accepte les mentions légales.", key="accept_checkbox")
     if accept and st.button("Accepter et continuer"):
         st.session_state["accepted_legal"] = True
@@ -169,83 +169,57 @@ tab_patient, tab_params = st.tabs(["🧍 Patient", "⚙️ Paramètres"])
 with tab_params:
     st.header("⚙️ Paramètres globaux")
     with st.expander("💊 Configuration du calcul", expanded=True):
-        config["concentration_mg_ml"] = st.selectbox(
-            "Concentration (mg I/mL)",
-            [300,320,350,370,400],
-            index=[300,320,350,370,400].index(int(config.get("concentration_mg_ml",350)))
-        )
-        config["calc_mode"] = st.selectbox(
-            "Méthode de calcul",
-            ["Charge iodée","Surface corporelle","Charge iodée sauf IMC > 30 → Surface corporelle"],
-            index=["Charge iodée","Surface corporelle","Charge iodée sauf IMC > 30 → Surface corporelle"].index(config.get("calc_mode","Charge iodée"))
-        )
+        config["concentration_mg_ml"] = st.selectbox("Concentration (mg I/mL)", [300,320,350,370,400], index=[300,320,350,370,400].index(int(config.get("concentration_mg_ml",350))))
+        config["calc_mode"] = st.selectbox("Méthode de calcul", ["Charge iodée","Surface corporelle","Charge iodée sauf IMC > 30 → Surface corporelle"], index=["Charge iodée","Surface corporelle","Charge iodée sauf IMC > 30 → Surface corporelle"].index(config.get("calc_mode","Charge iodée")))
         config["max_debit"] = st.number_input("Débit maximal autorisé (mL/s)", value=float(config.get("max_debit",6.0)), min_value=1.0, max_value=20.0, step=0.1)
-
     with st.expander("⏱ Temps d'injection"):
         config["portal_time"] = st.number_input("Portal (s)", value=float(config.get("portal_time",30.0)), min_value=5.0, max_value=120.0, step=1.0)
         config["arterial_time"] = st.number_input("Artériel (s)", value=float(config.get("arterial_time",25.0)), min_value=5.0, max_value=120.0, step=1.0)
         config["intermediate_enabled"] = st.checkbox("Activer temps intermédiaire", value=bool(config.get("intermediate_enabled",False)))
         if config["intermediate_enabled"]:
             config["intermediate_time"] = st.number_input("Intermédiaire (s)", value=float(config.get("intermediate_time",28.0)), min_value=5.0, max_value=120.0, step=1.0)
-
-    with st.expander("🚀 Départ d’acquisition et charges"):
-        config["acquisition_start_param"] = st.number_input("Départ d’acquisition par défaut (s)", value=float(config.get("acquisition_start_param",70.0)), min_value=0.0, max_value=300.0, step=1.0)
-        config["auto_acquisition_by_age"] = st.checkbox("Calcul automatique selon l’âge", value=bool(config.get("auto_acquisition_by_age",True)))
-        st.markdown("**Charges en iode par kV (g I/kg)**")
-        df_charges = pd.DataFrame({
-            "kV":[80,90,100,110,120],
-            "Charge (g I/kg)":[float(config["charges"].get(str(kv),0.35)) for kv in [80,90,100,110,120]]
-        })
-        edited_df = st.data_editor(df_charges, num_rows="fixed", use_container_width=True)
-        if st.button("💾 Sauvegarder les paramètres"):
-            try:
-                config["charges"] = {str(int(row.kV)): float(row["Charge (g I/kg)"]) for _,row in edited_df.iterrows()}
-                save_config(config)
-                st.success("✅ Paramètres sauvegardés avec succès !")
-            except Exception as e:
-                st.error(f"Erreur lors de la sauvegarde : {e}")
+    with st.expander("🚰 Rinçage au NaCl"):
+        config["rinçage_enabled"] = st.checkbox("Activer rinçage", value=config.get("rinçage_enabled",True))
+        config["rinçage_volume"] = st.number_input("Volume de rinçage (mL)", value=float(config.get("rinçage_volume",35.0)), min_value=10.0, max_value=100.0, step=1.0)
+        config["rinçage_delta_debit"] = st.number_input("Différence débit NaCl vs contraste (mL/s)", value=float(config.get("rinçage_delta_debit",0.5)), min_value=0.1, max_value=5.0, step=0.1)
+    st.markdown("**Charges en iode par kV (g I/kg)**")
+    df_charges = pd.DataFrame({"kV":[80,90,100,110,120],"Charge (g I/kg)":[float(config["charges"].get(str(kv),0.35)) for kv in [80,90,100,110,120]]})
+    edited_df = st.data_editor(df_charges, num_rows="fixed", use_container_width=True)
+    if st.button("💾 Sauvegarder les paramètres"):
+        try:
+            config["charges"] = {str(int(row.kV)): float(row["Charge (g I/kg)"]) for _,row in edited_df.iterrows()}
+            save_config(config)
+            st.success("✅ Paramètres sauvegardés avec succès !")
+        except Exception as e:
+            st.error(f"Erreur lors de la sauvegarde : {e}")
 
 # ===================== Onglet Patient =====================
 with tab_patient:
     st.header("🧍 Informations patient")
     col_w, col_h, col_birth = st.columns([1,1,1])
-    with col_w:
-        weight = st.select_slider("Poids (kg)", options=list(range(20,201)), value=70)
-    with col_h:
-        height = st.select_slider("Taille (cm)", options=list(range(100,221)), value=170)
+    with col_w: weight = st.select_slider("Poids (kg)", options=list(range(20,201)), value=70)
+    with col_h: height = st.select_slider("Taille (cm)", options=list(range(100,221)), value=170)
     with col_birth:
         current_year = datetime.now().year
         birth_year = st.select_slider("Année de naissance", options=list(range(current_year-120,current_year+1)), value=current_year-40)
-
     age = current_year - birth_year
     imc = weight / ((height/100)**2)
 
     col_kv, col_mode_time = st.columns([1.2,2])
-    with col_kv:
-        kv_scanner = st.radio("kV du scanner", [80,90,100,110,120], index=4, horizontal=True)
+    with col_kv: kv_scanner = st.radio("kV du scanner", [80,90,100,110,120], index=4, horizontal=True)
     with col_mode_time:
         col_mode, col_times = st.columns([1.2,1])
         with col_mode:
             injection_modes = ["Portal","Artériel"]
-            if config.get("intermediate_enabled",False):
-                injection_modes.append("Intermédiaire")
+            if config.get("intermediate_enabled",False): injection_modes.append("Intermédiaire")
             injection_mode = st.radio("Mode d’injection", injection_modes, horizontal=True)
         with col_times:
             acquisition_start = calculate_acquisition_start(age, config)
-            if injection_mode=="Portal":
-                base_time=float(config.get("portal_time",30.0))
-            elif injection_mode=="Artériel":
-                base_time=float(config.get("arterial_time",25.0))
+            if injection_mode=="Portal": base_time=float(config.get("portal_time",30.0))
+            elif injection_mode=="Artériel": base_time=float(config.get("arterial_time",25.0))
             else:
-                base_time = st.number_input(
-                    "Temps intermédiaire (s)",
-                    value=float(config.get("intermediate_time",28.0)),
-                    min_value=5.0,
-                    max_value=120.0,
-                    step=1.0
-                )
+                base_time = st.number_input("Temps intermédiaire (s)", value=float(config.get("intermediate_time",28.0)), min_value=5.0, max_value=120.0, step=1.0)
                 config["intermediate_time"] = base_time
-
             st.markdown(f"**Temps sélectionné :** {base_time:.0f} s")
             st.markdown(f"**Départ d'acquisition :** {acquisition_start:.1f} s")
             st.markdown(f"**Concentration :** {int(config.get('concentration_mg_ml',350))} mg I/mL")
@@ -254,24 +228,17 @@ with tab_patient:
     injection_rate, injection_time, time_adjusted = adjust_injection_rate(volume,float(base_time),float(config.get("max_debit",6.0)))
 
     col_vol, col_debit = st.columns(2, gap="medium")
-    with col_vol:
-        st.markdown(f"""
-        <div class="result-card">
-            <h3>💧 Quantité de contraste conseillée</h3>
-            <h1>{volume:.1f} mL</h1>
-        </div>
-        """, unsafe_allow_html=True)
-    with col_debit:
-        st.markdown(f"""
-        <div class="result-card">
-            <h3>🚀 Débit conseillé</h3>
-            <h1>{injection_rate:.1f} mL/s</h1>
-        </div>
-        """, unsafe_allow_html=True)
+    with col_vol: st.markdown(f"""<div class="result-card"><h3>💧 Quantité de contraste conseillée</h3><h1>{volume:.1f} mL</h1></div>""", unsafe_allow_html=True)
+    with col_debit: st.markdown(f"""<div class="result-card"><h3>🚀 Débit conseillé</h3><h1>{injection_rate:.1f} mL/s</h1></div>""", unsafe_allow_html=True)
+
+    # Rinçage
+    if config.get("rinçage_enabled",True):
+        nacl_debit = max(0.1, injection_rate - config.get("rinçage_delta_debit",0.5))
+        st.markdown(f"""<div class="result-card"><h3>💧 Rinçage NaCl</h3><h1>{config.get("rinçage_volume",35.0):.0f} mL @ {nacl_debit:.1f} mL/s</h1></div>""", unsafe_allow_html=True)
+        st.info(f"⚠️ Sans rinçage, il aurait fallu injecter {volume + config.get('rinçage_volume',35.0):.0f} mL de contraste total.")
 
     if time_adjusted:
         st.warning(f"⚠️ Le temps d’injection a été ajusté à {injection_time:.1f}s pour respecter le débit maximal de {config.get('max_debit',6.0)} mL/s.")
-
     st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
 
     st.markdown("""<div style='background-color:#FCE8E6; color:#6B1A00; padding:10px; border-radius:8px; margin-top:15px; font-size:0.9rem;'>⚠️ <b>Avertissement :</b> Ce logiciel est un outil d’aide à la décision. Les résultats sont <b>indicatifs</b> et doivent être validés par un professionnel de santé. L’auteur, Sébastien Partouche, et Guerbet déclinent toute responsabilité en cas d’erreur ou de mauvaise utilisation.</div>""", unsafe_allow_html=True)
