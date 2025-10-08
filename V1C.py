@@ -3,6 +3,7 @@ import json
 import os
 import pandas as pd
 from datetime import datetime
+from math import sqrt
 
 # --- Couleurs Guerbet ---
 GUERBET_BLUE = "#124F7A"
@@ -138,7 +139,8 @@ with tab_patient:
         if calc_mode == "Surface corporelle" or (calc_mode == "Charge iodée sauf IMC > 30 → Surface corporelle" and imc > 30):
             if kv_scanner in bsa_factors:
                 factor = bsa_factors[kv_scanner]
-                bsa = 0.007184 * (weight**0.425) * (height**0.725)
+                # Formule Mosteller
+                bsa = sqrt((height * weight) / 3600)
                 applied_volume = bsa * factor / (concentration_mg_ml / 1000)
                 st.info(f"⚖️ Calcul basé sur la surface corporelle (BSA = {bsa:.2f} m², facteur = {factor})")
             else:
