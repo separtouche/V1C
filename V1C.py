@@ -9,6 +9,7 @@ from datetime import datetime
 # ===================== Styles =====================
 GUERBET_BLUE = "#124F7A"
 CARD_BG = "#EAF1F8"
+CARD_HEIGHT = "150px"  # même taille pour les cartes
 
 st.set_page_config(page_title="Calculette Contraste", page_icon="💉", layout="wide")
 st.markdown(f"""
@@ -42,7 +43,7 @@ h1, h2, h3 {{ font-weight: 600; letter-spacing: -0.5px; }}
     padding: 12px;
     text-align: center;
     transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-    min-height: 130px;
+    min-height: {CARD_HEIGHT};
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -295,9 +296,9 @@ with tab_patient:
 
     col_contrast, col_nacl, col_rate = st.columns(3, gap="medium")
     with col_contrast:
-        st.markdown(f"""<div class="result-card"><h3>💧 Volume contraste</h3><h1>{contrast_text}</h1></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="result-card"><h3>💧 Volume contraste conseillé</h3><h1>{contrast_text}</h1></div>""", unsafe_allow_html=True)
     with col_nacl:
-        st.markdown(f"""<div class="result-card"><h3>💧 Volume NaCl + dilution</h3><h1>{nacl_text}</h1></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="result-card"><h3>💧 Volume NaCl conseillé</h3><h1>{nacl_text}</h1></div>""", unsafe_allow_html=True)
     with col_rate:
         st.markdown(f"""<div class="result-card"><h3>🚀 Débit conseillé</h3><h1>{injection_rate:.1f} mL/s</h1></div>""", unsafe_allow_html=True)
 
