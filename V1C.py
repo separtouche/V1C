@@ -286,19 +286,12 @@ with tab_patient:
         target = config.get("target_concentration", 350)
         vol_contrast = volume * target / config.get("concentration_mg_ml", 350)
         vol_nacl_dilution = vol_contrast * (config.get("concentration_mg_ml",350)/target - 1)
-        vol_total = vol_contrast + nacl_volume + vol_nacl_dilution
-
-        perc_contrast = (vol_contrast / vol_total) * 100
-        perc_nacl = ((nacl_volume + vol_nacl_dilution) / vol_total) * 100
+        vol_total_injection = vol_contrast + vol_nacl_dilution
+        perc_contrast = (vol_contrast / vol_total_injection) * 100
+        perc_dilution = (vol_nacl_dilution / vol_total_injection) * 100
 
         contrast_text = f"{vol_contrast:.1f} mL ({perc_contrast:.0f}%)"
-        nacl_text = (
-            f"Rinçage : {nacl_volume:.0f} mL\n"
-            f"Dilution : {vol_nacl_dilution:.1f} mL\n"
-            f"Formule : V_NaCl = V_contrast × (C_contrast / C_target - 1)\n"
-            f"Total NaCl : {nacl_volume + vol_nacl_dilution:.1f} mL ({perc_nacl:.0f}%)\n"
-            f"@ {nacl_debit:.1f} mL/s"
-        )
+        nacl_text = f"Rinçage : {nacl_volume:.0f} mL @ {nacl_debit:.1f} mL/s\nDilution : {vol_nacl_dilution:.1f} mL ({perc_dilution:.0f}%)"
     else:
         vol_contrast = volume
         contrast_text = f"{vol_contrast:.1f} mL"
@@ -307,20 +300,11 @@ with tab_patient:
     # ==== Affichage résultats ====
     col_contrast, col_nacl, col_rate = st.columns(3, gap="medium")
     with col_contrast:
-        st.markdown(
-            f"""<div class="result-card"><h3>💧 Volume contraste</h3><h1>{contrast_text}</h1></div>""",
-            unsafe_allow_html=True
-        )
+        st.markdown(f"""<div class="result-card"><h3>💧 Volume contraste</h3><h1>{contrast_text}</h1></div>""", unsafe_allow_html=True)
     with col_nacl:
-        st.markdown(
-            f"""<div class="result-card"><h3>💧 Volume NaCl</h3><h1 style="white-space: pre-line;">{nacl_text}</h1></div>""",
-            unsafe_allow_html=True
-        )
+        st.markdown(f"""<div class="result-card"><h3>💧 Volume NaCl</h3><h1 style="white-space: pre-line;">{nacl_text}</h1></div>""", unsafe_allow_html=True)
     with col_rate:
-        st.markdown(
-            f"""<div class="result-card"><h3>🚀 Débit conseillé</h3><h1>{injection_rate:.1f} mL/s</h1></div>""",
-            unsafe_allow_html=True
-        )
+        st.markdown(f"""<div class="result-card"><h3>🚀 Débit conseillé</h3><h1>{injection_rate:.1f} mL/s</h1></div>""", unsafe_allow_html=True)
 
     if time_adjusted:
         st.warning(f"⚠️ Le temps d’injection a été ajusté à {injection_time:.1f}s pour respecter le débit maximal de {config.get('max_debit',6.0)} mL/s.")
