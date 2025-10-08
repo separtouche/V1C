@@ -118,8 +118,6 @@ def delete_program(name):
         del libraries["programs"][name]
         save_libraries(libraries)
         st.success(f"Programme '{name}' supprimé !")
-    else:
-        st.warning(f"Programme '{name}' introuvable.")
 
 def calculate_bsa(weight, height):
     return math.sqrt((height * weight) / 3600)
@@ -162,6 +160,8 @@ def img_to_base64(path):
 # ===================== Session init =====================
 if "accepted_legal" not in st.session_state:
     st.session_state["accepted_legal"] = False
+if "selected_program" not in st.session_state:
+    st.session_state["selected_program"] = "Aucun"
 
 # ===================== Header =====================
 logo_path = "guerbet_logo.png"
@@ -204,16 +204,18 @@ with tab_params:
     # --- Bibliothèque ---
     st.subheader("📚 Bibliothèque de programmes")
     program_choice = st.selectbox("Programme", ["Aucun"] + list(libraries.get("programs", {}).keys()), index=0)
-    if program_choice != "Aucun":
-        prog_conf = libraries["programs"][program_choice]
-        # Pré-remplissage automatique
-        config["charges"] = prog_conf.get("charges", config["charges"])
-        config["concentration_mg_ml"] = prog_conf.get("concentration_mg_ml", config["concentration_mg_ml"])
-        config["max_debit"] = prog_conf.get("max_debit", config["max_debit"])
-        config["calc_mode"] = prog_conf.get("calc_mode", config["calc_mode"])
-        config["rincage_volume"] = prog_conf.get("rincage_volume", config["rincage_volume"])
-        config["rincage_delta_debit"] = prog_conf.get("rincage_delta_debit", config["rincage_delta_debit"])
     
+    if program_choice != st.session_state["selected_program"]:
+        st.session_state["selected_program"] = program_choice
+        if program_choice != "Aucun":
+            prog_conf = libraries.get("programs", {}).get(program_choice, {})
+            config["charges"] = prog_conf.get("charges", config.get("charges", default_config["charges"]))
+            config["concentration_mg_ml"] = prog_conf.get("concentration_mg_ml", config.get("concentration_mg_ml", 350))
+            config["max_debit"] = prog_conf.get("max_debit", config.get("max_debit", 6.0))
+            config["calc_mode"] = prog_conf.get("calc_mode", config.get("calc_mode", "Charge iodée"))
+            config["rincage_volume"] = prog_conf.get("rincage_volume", config.get("rincage_volume", 35.0))
+            config["rincage_delta_debit"] = prog_conf.get("rincage_delta_debit", config.get("rincage_delta_debit", 0.5))
+
     # --- Configuration ---
     with st.expander("💊 Configuration du calcul", expanded=True):
         config["concentration_mg_ml"] = st.selectbox("Concentration (mg I/mL)", [300,320,350,370,400], index=[300,320,350,370,400].index(int(config.get("concentration_mg_ml",350))))
@@ -229,31 +231,27 @@ with tab_params:
     col_save, col_add, col_del = st.columns(3)
     with col_save:
         if st.button("💾 Sauvegarder les paramètres"):
-            try:
-                config["charges"] = {str(int(row.kV)): float(row["Charge (g I/kg)"]) for _,row in edited_df.iterrows()}
-                save_config(config)
-                st.success("✅ Paramètres sauvegardés !")
-            except Exception as e:
-                st.error(f"Erreur : {e}")
+            config["charges"] = {str(int(row.kV)): float(row["Charge (g I/kg)"]) for _,row in edited_df.iterrows()}
+            save_config(config)
+            st.success("✅ Paramètres sauvegardés !")
     with col_add:
         new_prog_name = st.text_input("Nom du programme à ajouter/modifier", key="new_program")
         if st.button("➕ Ajouter/Modifier Programme"):
             if new_prog_name:
                 libraries["programs"][new_prog_name] = {
                     "charges": {str(int(row.kV)): float(row["Charge (g I/kg)"]) for _, row in edited_df.iterrows()},
-                    "concentration_mg_ml": config["concentration_mg_ml"],
-                    "max_debit": config["max_debit"],
-                    "calc_mode": config["calc_mode"],
-                    "rincage_volume": config["rincage_volume"],
-                    "rincage_delta_debit": config["rincage_delta_debit"]
+                    "concentration_mg_ml": config.get("concentration_mg_ml", 350),
+                    "max_debit": config.get("max_debit", 6.0),
+                    "calc_mode": config.get("calc_mode", "Charge iodée"),
+                    "rincage_volume": config.get("rincage_volume", 35.0),
+                    "rincage_delta_debit": config.get("rincage_delta_debit", 0.5)
                 }
                 save_libraries(libraries)
                 st.success(f"Programme '{new_prog_name}' sauvegardé !")
     with col_del:
         del_prog_name = st.selectbox("Programme à supprimer", ["Aucun"] + list(libraries.get("programs", {}).keys()), key="del_program")
-        if st.button("🗑️ Supprimer Programme"):
-            if del_prog_name != "Aucun":
-                delete_program(del_prog_name)
+        if st.button("🗑️ Supprimer Programme") and del_prog_name != "Aucun":
+            delete_program(del_prog_name)
 
 # ===================== Onglet Patient =====================
 with tab_patient:
