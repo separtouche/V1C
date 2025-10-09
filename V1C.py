@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 # ============================================================
-# 🩺 Calculette de dose de produit de contraste en oncologie (CIRTACI)
+# 🩺 Calculette de dose de produit de contraste en oncologie
 # Auteur : adapté pour Sébastien Partouche
 # Version : BETA - Usage interne / évaluation
 # Objectif : Calculer le volume et le débit d’injection optimaux pour un examen
-# scanner en oncologie hépatique selon les recommandations et principes CIRTACI.
+# scanner en oncologie hépatique selon les recommandations et principes.
 # ============================================================
 
 # ===================== Imports =====================
@@ -23,7 +23,7 @@ CARD_BG = "#EAF1F8"                # fond des cartes de résultat
 CARD_HEIGHT = "150px"              # hauteur minimum des cartes
 
 # Configuration de la page Streamlit (titre onglet + icône + mise en page)
-st.set_page_config(page_title="Calculette Contraste Oncologie (CIRTACI)", page_icon="💉", layout="wide")
+st.set_page_config(page_title="Calculette Contraste Oncologie ", page_icon="💉", layout="wide")
 
 # Injection de CSS inline pour personnaliser l'apparence de l'application
 # Le CSS gère l'en-tête, les cartes de résultat, sections de paramètres, etc.
@@ -246,12 +246,12 @@ if os.path.exists(logo_path):
     st.markdown(f"""
     <div class="header-banner">
       <img src="data:image/png;base64,{img_b64}" class="header-logo" alt="Guerbet logo" />
-      <div class="header-title">Calculette de dose de produit de contraste — Oncologie (CIRTACI)</div>
+      <div class="header-title">Calculette de dose de produit de contraste — Oncologie </div>
     </div>
     """, unsafe_allow_html=True)
 else:
     # Si pas de logo, afficher seulement le titre dans l'en-tête
-    st.markdown(f"<div class='header-banner'><div class='header-title'>Calculette de dose de produit de contraste — Oncologie (CIRTACI)</div></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='header-banner'><div class='header-title'>Calculette de dose de produit de contraste — Oncologie </div></div>", unsafe_allow_html=True)
 
 # ===================== Mentions légales =====================
 # Afficher et forcer l'acceptation des mentions légales avant d'utiliser l'outil
@@ -275,7 +275,7 @@ if not st.session_state["accepted_legal"]:
 
 # ===================== Onglets =====================
 # Créer trois onglets : Patient, Paramètres, Tutoriel (mixte)
-tab_patient, tab_params, tab_tutorial = st.tabs(["🧍 Patient", "⚙️ Paramètres", "📘 Tutoriel CIRTACI"])
+tab_patient, tab_params, tab_tutorial = st.tabs(["🧍 Patient", "⚙️ Paramètres", "📘 Tutoriel "])
 
 # ===================== Onglet Paramètres =====================
 with tab_params:
@@ -488,10 +488,10 @@ with tab_patient:
     # Avertissement légal / usage clinique (rappel important)
     st.markdown("""<div style='background-color:#FCE8E6; color:#6B1A00; padding:10px; border-radius:8px; margin-top:15px; font-size:0.9rem;'>⚠️ <b>Avertissement :</b> Ce logiciel est un outil d’aide à la décision. Les résultats sont <b>indicatifs</b> et doivent être validés par un professionnel de santé. Destiné uniquement aux patients adultes en oncologie.</div>""", unsafe_allow_html=True)
 
-# ===================== Onglet Tutoriel CIRTACI (mixte) =====================
+# ===================== Onglet Tutoriel (mixte) =====================
 with tab_tutorial:
-    st.title("📘 Tutoriel CIRTACI — Mode d'emploi et principes cliniques")
-    st.markdown("Bienvenue dans le tutoriel CIRTACI. Cette section explique **comment utiliser** la calculette (pas-à-pas) et **pourquoi** chaque calcul est effectué (explication technique et clinique).")
+    st.title("📘 Tutoriel — Mode d'emploi et principes cliniques")
+    st.markdown("Bienvenue dans le tutoriel. Cette section explique **comment utiliser** la calculette (pas-à-pas) et **pourquoi** chaque calcul est effectué (explication technique et clinique).")
 
     # Section 1 : Guide pas à pas (utilisation)
     st.header("🔧 Guide pas à pas — Utilisation")
@@ -541,14 +541,14 @@ with tab_tutorial:
     - Cette calculette ne remplace pas le jugement clinique : les résultats sont **indicatifs**.
     """)
 
-    # Section 3 : Bases CIRTACI spécifiques (demandées)
-    st.header("🔬 Bases CIRTACI — recommandations spécifiques en oncologie hépatique")
+    # Section 3 : Bases spécifiques (demandées)
+    st.header("🔬 Bases — recommandations spécifiques en oncologie hépatique")
     st.markdown("""
-    Le protocole **CIRTACI** (Critères d’Intensité du Rehaussement Tumoral en Imagerie du foie) vise à standardiser le rehaussement hépatique pour une interprétation fiable.
+    Le protocole (Critères d’Intensité du Rehaussement Tumoral en Imagerie du foie) vise à standardiser le rehaussement hépatique pour une interprétation fiable.
 
     **Valeurs de référence (indiquées)** :
     - **Foie sain (objectif)** : ≈ **110 UH** (unités Hounsfield) au pic de rehaussement.
-    - **Critère de réussite** : ≥ **120 UH** pour considérer le rehaussement optimal dans certains protocoles de CIRTACI.
+    - **Critère de réussite** : ≥ **120 UH** pour considérer le rehaussement optimal dans certains protocoles (foie stéatosique).
     
     **Interprétation** :
     - Si le foie sain atteint **~110 UH**, on obtient un bon contraste tumeur/foie.  
@@ -570,8 +570,8 @@ with tab_tutorial:
     1. Saisir poids/taille/année de naissance.  
     2. Choisir kV = 120 et mode Portal (temps 30 s par défaut).  
     3. Vérifier volume contraste et débit proposé.  
-    4. Si l'objectif CIRTACI est 110–120 UH, vérifier que le protocole (charge iodée / débit) est compatible pour atteindre cette plage ; sinon ajuster via charges/kV/débit selon protocole local.  
-    5. Documenter la valeur UH obtenue après examen pour audit qualité (CIRTACI).
+    4. Si l'objectif est 110–120 UH, vérifier que le protocole (charge iodée / débit) est compatible pour atteindre cette plage ; sinon ajuster via charges/kV/débit selon protocole local.  
+    5. Documenter la valeur UH obtenue après examen pour audit qualité.
     """)
 
     # Section 5 : Résumé des fonctions du code (pour développeurs)
@@ -591,6 +591,6 @@ with tab_tutorial:
 # Footer global avec copyright et info version
 st.markdown(f"""<div style='text-align:center; margin-top:20px; font-size:0.8rem; color:#666;'>
 © 2025 Guerbet | Développé par <b>Sébastien Partouche</b><br>
-Calculette de dose de produit de contraste en oncologie — usage adulte (CIRTACI).<br>
+Calculette de dose de produit de contraste en oncologie — usage adulte.<br>
 <div style='display:inline-block; background-color:#FCE8B2; border:1px solid #F5B800; padding:8px 15px; border-radius:10px; color:#5A4500; font-weight:600; margin-top:10px;'>🧪 Version BETA TEST – Usage interne / évaluation</div>
 </div>""", unsafe_allow_html=True)
