@@ -11,7 +11,7 @@ GUERBET_BLUE = "#124F7A"
 CARD_BG = "#EAF1F8"
 CARD_HEIGHT = "150px"
 
-st.set_page_config(page_title="Calculette Contraste", page_icon="💉", layout="wide")
+st.set_page_config(page_title="Calculette de dose de produit de contraste en oncologie (adulte)", page_icon="💉", layout="wide")
 
 st.markdown(f"""
 <style>
@@ -175,18 +175,19 @@ if os.path.exists(logo_path):
     st.markdown(f"""
     <div class="header-banner">
       <img src="data:image/png;base64,{img_b64}" class="header-logo" alt="Guerbet logo" />
-      <div class="header-title">Calculette de dose de produit de contraste</div>
+      <div class="header-title">Calculette de dose de produit de contraste en oncologie chez l'adulte</div>
     </div>
     """, unsafe_allow_html=True)
 else:
-    st.markdown(f"<div class='header-banner'><div class='header-title'>Calculette de dose de produit de contraste</div></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='header-banner'><div class='header-title'>Calculette de dose de produit de contraste en oncologie chez l'adulte</div></div>", unsafe_allow_html=True)
 
 # ===================== Mentions légales =====================
 if not st.session_state["accepted_legal"]:
     st.markdown("### Mentions légales — acceptation requise")
     st.markdown(
         "Avant d'utiliser cet outil, vous devez accepter la mention légale et les conditions d'utilisation. "
-        "Les données et résultats proposés par cette calculette sont à titre indicatif et doivent être validés par un professionnel de santé."
+        "Les données et résultats proposés par cette calculette sont à titre indicatif et doivent être validés par un professionnel de santé. "
+        "Cet outil est spécifiquement destiné à un usage en oncologie adulte ; il ne s'applique pas aux enfants ou aux situations pédiatriques."
     )
     accept = st.checkbox("✅ J’accepte les mentions légales.", key="accept_checkbox")
     if st.button("Accepter et continuer"):
@@ -250,7 +251,7 @@ with tab_params:
 
 # ===================== Onglet Patient =====================
 with tab_patient:
-    st.header("🧍 Informations patient")
+    st.header("🧍 Informations patient (adulte en oncologie)")
     
     col_w, col_h, col_birth = st.columns([1,1,1])
     with col_w:
@@ -327,11 +328,11 @@ with tab_patient:
 
     st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
 
-    st.markdown("""<div style='background-color:#FCE8E6; color:#6B1A00; padding:10px; border-radius:8px; margin-top:15px; font-size:0.9rem;'>⚠️ <b>Avertissement :</b> Ce logiciel est un outil d’aide à la décision. Les résultats sont <b>indicatifs</b> et doivent être validés par un professionnel de santé.</div>""", unsafe_allow_html=True)
+    st.markdown("""<div style='background-color:#FCE8E6; color:#6B1A00; padding:10px; border-radius:8px; margin-top:15px; font-size:0.9rem;'>⚠️ <b>Avertissement :</b> Ce logiciel est un outil d’aide à la décision. Les résultats sont <b>indicatifs</b> et doivent être validés par un professionnel de santé. Destiné uniquement aux patients adultes en oncologie.</div>""", unsafe_allow_html=True)
 
 # ===================== Footer =====================
 st.markdown(f"""<div style='text-align:center; margin-top:20px; font-size:0.8rem; color:#666;'>
 © 2025 Guerbet | Développé par <b>Sébastien Partouche</b><br>
-Ce logiciel fournit des <b>propositions de valeurs</b> et ne remplace pas le jugement médical.<br>
+Calculette de dose de produit de contraste en oncologie — usage adulte uniquement.<br>
 <div style='display:inline-block; background-color:#FCE8B2; border:1px solid #F5B800; padding:8px 15px; border-radius:10px; color:#5A4500; font-weight:600; margin-top:10px;'>🧪 Version BETA TEST – Usage interne / évaluation</div>
 </div>""", unsafe_allow_html=True)
