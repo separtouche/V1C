@@ -547,18 +547,9 @@ with tab_tutorial:
     Le protocole (Critères d’Intensité du Rehaussement Tumoral en Imagerie du foie) vise à standardiser le rehaussement hépatique pour une interprétation fiable.
 
     **Valeurs de référence (indiquées)** :
-    - **Foie sain (objectif)** : ≈ **110 UH** (unités Hounsfield) au pic de rehaussement.
-    - **Critère de réussite** : ≥ **120 UH** pour considérer le rehaussement optimal dans certains protocoles (foie stéatosique).
+    - **Foie sain (objectif)** : ≥ **110 UH en périphérie du foie** (unités Hounsfield) au pic de rehaussement.
+    - **Foie non sain (stéatosique)** : ≥ **120 UH dans la rate **.
     
-    **Interprétation** :
-    - Si le foie sain atteint **~110 UH**, on obtient un bon contraste tumeur/foie.  
-    - L'atteinte de **120 UH** est souvent utilisée comme critère de réussite stricte (meilleure différenciation des lésions hypovasculaires).
-    - Une valeur de rehaussement excessive n'est pas forcément souhaitable (risques & artéfacts), l'objectif est une plage ciblée (110–120 UH).
-
-    **Critères de réussite complémentaires** :
-    - **Ratio tumeur/foie** : un ratio ≥ 1,3 indique généralement une bonne différenciation.  
-    - **Temps d'acquisition** : adapter le timing (portal vs artériel / intermédiaire) pour capturer le pic hépatique.  
-    - **Débit et volume** : calibrer pour atteindre la concentration d'iode nécessaire au pic UH attendu.
 
     ⚠️ Ces valeurs et seuils sont proposées à titre indicatif — adaptez-les selon les protocoles locaux, dispositifs et recommandations nationales.
     """)
