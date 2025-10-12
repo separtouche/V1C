@@ -1,3 +1,4 @@
+
 # -*- coding: utf-8 -*-
 """
 Calculette complète (une page) de dose de produit de contraste - Oncologie adulte
@@ -16,6 +17,8 @@ import pandas as pd
 # ------------------------
 # Fichiers de config
 # ------------------------
+CONFIG_FILE = "iodine_config.json"
+LIB_FILE = "libraries.json"
 LOG_FILE = "calc_audit.log"
 
 # ------------------------
@@ -39,8 +42,6 @@ default_config = {
     "volume_max_limit": 200.0
 }
 
-default_libraries = {"programs": {}}
-
 # ------------------------
 # Utils I/O sécurisées
 # ------------------------
@@ -49,7 +50,8 @@ def load_json_safe(path, default):
         try:
             with open(path, "r", encoding="utf-8") as f:
                 return json.load(f)
-        except Exception:
+        except Exception as e:
+            st.warning(f"⚠️ Erreur de lecture '{path}' — valeurs par défaut utilisées. Détail: {e}")
             return default.copy()
     return default.copy()
 
@@ -60,6 +62,7 @@ def save_json_atomic(path, data):
     os.replace(tmp, path)
 
 def audit_log(msg):
+    """Ajoute une ligne d'audit (anonymisé) localement."""
     try:
         ts = datetime.utcnow().isoformat()
         with open(LOG_FILE, "a", encoding="utf-8") as f:
@@ -136,46 +139,53 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ------------------------
-# Session utilisateur
+# Sessions par utilisateur
 # ------------------------
-if "session_active" not in st.session_state:
-    st.session_state["session_active"] = False
-
-if not st.session_state["session_active"]:
-    st.header("💾 Sélection ou création de session utilisateur")
-    user_id = st.text_input("Identifiant utilisateur", help="Créez ou sélectionnez votre session")
-    if not user_id:
-        st.warning("Veuillez saisir un identifiant pour continuer")
-        st.stop()
-    safe_id = user_id.replace(" ", "_")
-    user_config_file = f"user_config_{safe_id}.json"
-    user_libs_file = f"user_libs_{safe_id}.json"
-
-    st.session_state["user_config"] = load_json_safe(user_config_file, default_config)
-    st.session_state["user_libraries"] = load_json_safe(user_libs_file, default_libraries)
-    config = st.session_state["user_config"]
-    libraries = st.session_state["user_libraries"]
-
+if "accepted_legal" not in st.session_state:
     st.session_state["accepted_legal"] = False
+if "user_id" not in st.session_state:
+    st.session_state["user_id"] = None
+if "user_config_file" not in st.session_state:
+    st.session_state["user_config_file"] = None
+if "user_libs_file" not in st.session_state:
+    st.session_state["user_libs_file"] = None
 
-# Mentions légales
-if not st.session_state.get("accepted_legal", False):
-    st.markdown("### Mentions légales — acceptation requise")
+if not st.session_state["accepted_legal"]:
+    st.header("Mentions légales — acceptation requise")
     st.markdown("Avant utilisation, acceptez la mention légale. Résultats indicatifs à valider par un professionnel de santé.")
     accept = st.checkbox("✅ J’accepte les mentions légales.", key="accept_checkbox")
-    if st.button("Accepter et continuer"):
-        if accept:
+
+    st.markdown("### Sélection ou création de session utilisateur")
+    user_id_input = st.text_input("Identifiant utilisateur (ex: vos initiales)", key="user_id_input").strip()
+    create_session = st.button("✅ Créer / Restaurer session")
+
+    if create_session:
+        if accept and user_id_input:
+            safe_id = "".join(c for c in user_id_input if c.isalnum())
+            st.session_state["user_id"] = safe_id
+            st.session_state["user_config_file"] = f"user_config_{safe_id}.json"
+            st.session_state["user_libs_file"] = f"user_libs_{safe_id}.json"
+
+            # Charger ou créer fichiers user
+            config = load_json_safe(st.session_state["user_config_file"], default_config)
+            libraries = load_json_safe(st.session_state["user_libs_file"], {"programs": {}})
             st.session_state["accepted_legal"] = True
-            st.session_state["session_active"] = True
+            st.experimental_rerun()
         else:
-            st.warning("Vous devez cocher la case pour accepter.")
+            st.warning("⚠️ Vous devez accepter les mentions légales et entrer un identifiant utilisateur.")
     st.stop()
 
-# Charger les configs et librairies
-config = st.session_state["user_config"]
-libraries = st.session_state["user_libraries"]
+# ------------------------
+# Charger config & libs pour session
+# ------------------------
+config = load_json_safe(st.session_state["user_config_file"], default_config)
+libraries = load_json_safe(st.session_state["user_libs_file"], {"programs": {}})
+if "programs" not in libraries:
+    libraries["programs"] = {}
 
+# ------------------------
 # Header réduit
+# ------------------------
 logo_path = "guerbet_logo.png"
 if os.path.exists(logo_path):
     try:
@@ -191,7 +201,9 @@ if os.path.exists(logo_path):
 else:
     st.title("Calculette de dose de produit de contraste — Oncologie adulte")
 
+# ------------------------
 # Tabs
+# ------------------------
 tab_patient, tab_params, tab_tutorial = st.tabs(["🧍 Patient", "⚙️ Paramètres", "📘 Tutoriel"])
 
 # ------------------------
@@ -203,27 +215,29 @@ with tab_params:
     if config["simultaneous_enabled"]:
         config["target_concentration"] = st.number_input("Concentration cible (mg I/mL)", value=int(config.get("target_concentration", 350)), min_value=200, max_value=500, step=10)
     st.subheader("📚 Bibliothèque de programmes")
-    program_choice = st.selectbox("Programme", ["Aucun"] + list(libraries.get("programs", {}).keys()), key="prog_params")
-    if program_choice != "Aucun":
+    program_choice = st.selectbox("Programme", ["Sélection d'un programme"] + list(libraries.get("programs", {}).keys()), key="prog_params")
+    if program_choice != "Sélection d'un programme":
         prog_conf = libraries["programs"].get(program_choice, {})
         for key, val in prog_conf.items():
             config[key] = val
+
     new_prog_name = st.text_input("Nom du nouveau programme")
     if st.button("💾 Ajouter/Mise à jour programme"):
         if new_prog_name.strip():
             to_save = {k: config[k] for k in config}
             libraries["programs"][new_prog_name.strip()] = to_save
             try:
-                save_libraries(libraries, user_libs_file)
+                save_libraries(libraries, st.session_state["user_libs_file"])
                 st.success(f"Programme '{new_prog_name}' ajouté/mis à jour !")
             except Exception as e:
                 st.error(f"Erreur sauvegarde bibliothèque : {e}")
+
     if libraries.get("programs"):
         del_prog = st.selectbox("Supprimer un programme", [""] + list(libraries["programs"].keys()))
         if st.button("🗑 Supprimer programme"):
             if del_prog in libraries["programs"]:
                 del libraries["programs"][del_prog]
-                save_libraries(libraries, user_libs_file)
+                save_libraries(libraries, st.session_state["user_libs_file"])
                 st.success(f"Programme '{del_prog}' supprimé !")
             else:
                 st.error("Programme introuvable.")
@@ -250,7 +264,7 @@ with tab_params:
     if st.button("💾 Sauvegarder les paramètres"):
         try:
             config["charges"] = {str(int(row.kV)): float(row["Charge (g I/kg)"]) for _, row in edited_df.iterrows()}
-            save_config(config, user_config_file)
+            save_config(config, st.session_state["user_config_file"])
             st.success("✅ Paramètres sauvegardés !")
         except Exception as e:
             st.error(f"Erreur lors de la sauvegarde : {e}")
@@ -260,6 +274,7 @@ with tab_params:
 # ------------------------
 with tab_patient:
     st.header("🧍 Informations patient (adulte en oncologie)")
+    # Ligne unique avec programme
     col_w, col_h, col_birth, col_prog = st.columns([1,1,1,1.2])
     with col_w: weight = st.select_slider("Poids (kg)", options=list(range(20,201)), value=70, key="weight_patient")
     with col_h: height = st.select_slider("Taille (cm)", options=list(range(100,221)), value=170, key="height_patient")
@@ -270,7 +285,7 @@ with tab_patient:
         if prog_choice_patient != "Sélection d'un programme":
             prog_conf = libraries["programs"].get(prog_choice_patient, {})
             for key, val in prog_conf.items(): config[key] = val
-
+            
     age = current_year - birth_year
     imc = weight / ((height / 100)**2)
     col_kv, col_mode_time = st.columns([1.2,2])
