@@ -273,19 +273,25 @@ with tab_params:
     # ------------------------
     # Gestion des sessions
     # ------------------------
-    st.subheader("👤 Gestion des sessions utilisateurs")
-    existing_sessions = list(user_sessions.keys())
-    session_to_delete = st.selectbox("Sélectionner une session à supprimer", [""] + existing_sessions)
+st.subheader("👤 Gestion des sessions utilisateurs")
+existing_sessions = list(user_sessions.keys())
+
+# Sélection d’une session à supprimer
+session_to_delete = st.selectbox("Sélectionner une session à supprimer", [""] + existing_sessions)
+
+if session_to_delete:
+    confirm_delete = st.checkbox(f"Confirmer la suppression de la session '{session_to_delete}'", key="confirm_delete")
     if st.button("🗑 Supprimer la session"):
-        if session_to_delete in user_sessions:
-            confirm = st.checkbox(f"Confirmer la suppression de la session '{session_to_delete}'")
-            if confirm:
+        if confirm_delete:
+            if session_to_delete in user_sessions:
                 del user_sessions[session_to_delete]
                 save_user_sessions(user_sessions)
                 st.success(f"Session '{session_to_delete}' supprimée !")
-                st.experimental_rerun()
+                st.experimental_rerun()  # rafraîchit la page pour mettre à jour la liste
+            else:
+                st.warning("Session introuvable.")
         else:
-            st.warning("Veuillez sélectionner une session existante à supprimer.")
+            st.warning("Veuillez cocher la case de confirmation avant de supprimer.")
 
 # ------------------------
 # Onglet Patient
