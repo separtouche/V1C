@@ -1,17 +1,17 @@
+
 # -*- coding: utf-8 -*-
 """
 Calculette complète (une page) de dose de produit de contraste - Oncologie adulte
-Adaptée pour Sébastien Partouche — version consolidée optimisée avec sessions utilisateur
-Usage : streamlit run calculatrice_contraste_oncologie.py
+Version consolidée optimisée avec sessions utilisateurs
 """
 
 import streamlit as st
 import json
 import os
 import math
-import base64
 from datetime import datetime
 import pandas as pd
+import base64
 
 # ------------------------
 # Fichiers de config
@@ -19,7 +19,7 @@ import pandas as pd
 CONFIG_FILE = "iodine_config.json"
 LIB_FILE = "libraries.json"
 LOG_FILE = "calc_audit.log"
-SESSIONS_DIR = "sessions"
+SESSIONS_DIR = "user_sessions"
 
 os.makedirs(SESSIONS_DIR, exist_ok=True)
 
@@ -52,8 +52,7 @@ def load_json_safe(path, default):
         try:
             with open(path, "r", encoding="utf-8") as f:
                 return json.load(f)
-        except Exception as e:
-            st.warning(f"⚠️ Erreur de lecture '{path}' — valeurs par défaut utilisées. Détail: {e}")
+        except Exception:
             return default.copy()
     return default.copy()
 
@@ -64,7 +63,6 @@ def save_json_atomic(path, data):
     os.replace(tmp, path)
 
 def audit_log(msg):
-    """Ajoute une ligne d'audit (anonymisé) localement."""
     try:
         ts = datetime.utcnow().isoformat()
         with open(LOG_FILE, "a", encoding="utf-8") as f:
@@ -73,16 +71,35 @@ def audit_log(msg):
         pass
 
 # ------------------------
-# Charger config globale
+# Charger config & libs
 # ------------------------
 config = load_json_safe(CONFIG_FILE, default_config)
+libraries = load_json_safe(LIB_FILE, {"programs": {}})
+if "programs" not in libraries:
+    libraries["programs"] = {}
 
 # ------------------------
-# Fonctions métier
+# Streamlit init
 # ------------------------
-def save_config(cfg):
-    save_json_atomic(CONFIG_FILE, cfg)
+st.set_page_config(page_title="Calculette Contraste Oncologie adulte", page_icon="💉", layout="wide")
+st.markdown("""
+<style>
+.stApp { background-color: #F7FAFC; font-family: 'Segoe UI', sans-serif; }
+</style>
+""", unsafe_allow_html=True)
 
+if "accepted_legal" not in st.session_state:
+    st.session_state["accepted_legal"] = False
+if "user_id" not in st.session_state:
+    st.session_state["user_id"] = None
+if "user_config" not in st.session_state:
+    st.session_state["user_config"] = default_config.copy()
+if "user_libs" not in st.session_state:
+    st.session_state["user_libs"] = libraries.copy()
+
+# ------------------------
+# Helper fonctions
+# ------------------------
 def calculate_bsa(weight, height):
     try:
         return math.sqrt((height * weight) / 3600.0)
@@ -133,65 +150,42 @@ def img_to_base64(path):
         return base64.b64encode(f.read()).decode()
 
 # ------------------------
-# Streamlit UI init
+# --- Sélection / Création Session ---
 # ------------------------
-st.set_page_config(page_title="Calculette Contraste Oncologie adulte", page_icon="💉", layout="wide")
-st.markdown("""
-<style>
-.stApp { background-color: #F7FAFC; font-family: 'Segoe UI', sans-serif; }
-</style>
-""", unsafe_allow_html=True)
-
-# ------------------------
-# Session et acceptation légale
-# ------------------------
-if "accepted_legal" not in st.session_state:
-    st.session_state["accepted_legal"] = False
-if "user_id" not in st.session_state:
-    st.session_state["user_id"] = None
-if "user_libraries" not in st.session_state:
-    st.session_state["user_libraries"] = {}
-
 if not st.session_state["accepted_legal"]:
-    st.markdown("<h2>Mentions légales et sélection de session utilisateur</h2>", unsafe_allow_html=True)
-    accept = st.checkbox("✅ J’accepte les mentions légales.", key="accept_checkbox")
-
-    st.markdown("### 🧑 Sélection ou création de session utilisateur")
-    os.makedirs(SESSIONS_DIR, exist_ok=True)
-    session_dirs = [d for d in os.listdir(SESSIONS_DIR) if os.path.isdir(os.path.join(SESSIONS_DIR, d))]
-    col_new, col_exist = st.columns(2)
+    st.header("⚠️ Mentions légales & session utilisateur")
+    st.markdown("Avant utilisation, acceptez la mention légale et choisissez ou créez votre session.")
+    
+    col1, col2 = st.columns([1,1])
+    with col1:
+        user_id_input = st.text_input("Identifiant utilisateur", key="user_id_input")
+    with col2:
+        existing_sessions = [f.replace(".json","") for f in os.listdir(SESSIONS_DIR) if f.endswith(".json")]
+        selected_session = st.selectbox("Ou charger une session existante", [""] + existing_sessions, key="select_session")
+    
     session_set = False
-
-    with col_new:
-        new_user = st.text_input("Créer nouvelle session (identifiant unique)")
-        if st.button("➕ Créer session"):
-            if accept and new_user.strip():
-                st.session_state["user_id"] = new_user.strip()
-                os.makedirs(os.path.join(SESSIONS_DIR, st.session_state["user_id"]), exist_ok=True)
-                st.session_state["user_libraries"] = {}
-                session_set = True
+    if st.button("✅ Créer / Charger session"):
+        if user_id_input.strip() != "":
+            st.session_state["user_id"] = user_id_input.strip()
+            session_file = os.path.join(SESSIONS_DIR, f"{st.session_state['user_id']}.json")
+            if os.path.exists(session_file):
+                data = load_json_safe(session_file, {})
+                st.session_state["user_config"] = data.get("config", default_config.copy())
+                st.session_state["user_libs"] = data.get("programs", libraries.copy())
             else:
-                st.warning("Veuillez accepter les mentions légales et entrer un identifiant valide.")
-
-    with col_exist:
-        selected_user = st.selectbox("Sessions existantes", [""] + session_dirs)
-        if st.button("➡️ Charger session"):
-            if accept and selected_user:
-                st.session_state["user_id"] = selected_user
-                lib_file = os.path.join(SESSIONS_DIR, selected_user, "libraries.json")
-                if os.path.exists(lib_file):
-                    st.session_state["user_libraries"] = load_json_safe(lib_file, {})
-                else:
-                    st.session_state["user_libraries"] = {}
-                session_set = True
-            else:
-                st.warning("Veuillez accepter les mentions légales et sélectionner une session.")
-
-    if session_set:
-        st.session_state["accepted_legal"] = True
-        st.experimental_rerun()
-    else:
+                st.session_state["user_config"] = default_config.copy()
+                st.session_state["user_libs"] = libraries.copy()
+                save_json_atomic(session_file, {"config": st.session_state["user_config"], "programs": st.session_state["user_libs"]})
+            st.session_state["accepted_legal"] = True
+            session_set = True
+    if not session_set:
         st.stop()
+
+# ------------------------
+# Charger session dans config
+# ------------------------
+config = st.session_state["user_config"]
+libraries_user = st.session_state["user_libs"]
 
 # ------------------------
 # Header
@@ -212,7 +206,7 @@ else:
     st.title("Calculette de dose de produit de contraste — Oncologie adulte")
 
 # ------------------------
-# Onglets
+# Tabs
 # ------------------------
 tab_patient, tab_params, tab_tutorial = st.tabs(["🧍 Patient", "⚙️ Paramètres", "📘 Tutoriel"])
 
@@ -220,42 +214,38 @@ tab_patient, tab_params, tab_tutorial = st.tabs(["🧍 Patient", "⚙️ Paramè
 # Onglet Paramètres
 # ------------------------
 with tab_params:
-    st.header(f"⚙️ Paramètres et Bibliothèque — Session : {st.session_state['user_id']}")
+    st.header(f"⚙️ Paramètres et Bibliothèque (Session: {st.session_state['user_id']})")
     config["simultaneous_enabled"] = st.checkbox("Activer l'injection simultanée", value=config.get("simultaneous_enabled", False))
     if config["simultaneous_enabled"]:
         config["target_concentration"] = st.number_input("Concentration cible (mg I/mL)", value=int(config.get("target_concentration", 350)), min_value=200, max_value=500, step=10)
-
     st.subheader("📚 Bibliothèque de programmes")
-    user_libs = st.session_state["user_libraries"]
-
-    program_choice = st.selectbox("Programme", ["Aucun"] + list(user_libs.keys()), key="prog_params")
-    if program_choice != "Aucun":
-        prog_conf = user_libs.get(program_choice, {})
+    
+    # Liste programmes utilisateur
+    program_choice = st.selectbox("Programme", ["Sélection d'un programme"] + list(libraries_user.get("programs", {}).keys()))
+    if program_choice != "Sélection d'un programme":
+        prog_conf = libraries_user["programs"].get(program_choice, {})
         for key, val in prog_conf.items():
             config[key] = val
-
+    
     new_prog_name = st.text_input("Nom du nouveau programme")
     if st.button("💾 Ajouter/Mise à jour programme"):
         if new_prog_name.strip():
-            user_libs[new_prog_name.strip()] = {k: config[k] for k in config}
-            lib_file = os.path.join(SESSIONS_DIR, st.session_state["user_id"], "libraries.json")
-            save_json_atomic(lib_file, user_libs)
-            st.session_state["user_libraries"] = user_libs  # mise à jour instantanée
+            to_save = {k: config[k] for k in config}
+            libraries_user["programs"][new_prog_name.strip()] = to_save
+            # Sauvegarde immédiate
+            session_file = os.path.join(SESSIONS_DIR, f"{st.session_state['user_id']}.json")
+            save_json_atomic(session_file, {"config": config, "programs": libraries_user})
             st.success(f"Programme '{new_prog_name}' ajouté/mis à jour !")
-
-    if user_libs:
-        del_prog = st.selectbox("Supprimer un programme", [""] + list(user_libs.keys()))
+    
+    if libraries_user.get("programs"):
+        del_prog = st.selectbox("Supprimer un programme", [""] + list(libraries_user["programs"].keys()))
         if st.button("🗑 Supprimer programme"):
-            if del_prog in user_libs:
-                del user_libs[del_prog]
-                lib_file = os.path.join(SESSIONS_DIR, st.session_state["user_id"], "libraries.json")
-                save_json_atomic(lib_file, user_libs)
-                st.session_state["user_libraries"] = user_libs
+            if del_prog in libraries_user["programs"]:
+                del libraries_user["programs"][del_prog]
+                session_file = os.path.join(SESSIONS_DIR, f"{st.session_state['user_id']}.json")
+                save_json_atomic(session_file, {"config": config, "programs": libraries_user})
                 st.success(f"Programme '{del_prog}' supprimé !")
-            else:
-                st.error("Programme introuvable.")
 
-    # Paramètres globaux inchangés
     st.subheader("⚙️ Paramètres globaux")
     config["concentration_mg_ml"] = st.selectbox("Concentration (mg I/mL)", [300, 320, 350, 370, 400], index=[300, 320, 350, 370, 400].index(int(config.get("concentration_mg_ml", 350))))
     config["calc_mode"] = st.selectbox("Méthode de calcul", ["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"], index=["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"].index(config.get("calc_mode", "Charge iodée")))
@@ -278,7 +268,8 @@ with tab_params:
     if st.button("💾 Sauvegarder les paramètres"):
         try:
             config["charges"] = {str(int(row.kV)): float(row["Charge (g I/kg)"]) for _, row in edited_df.iterrows()}
-            save_json_atomic(CONFIG_FILE, config)
+            session_file = os.path.join(SESSIONS_DIR, f"{st.session_state['user_id']}.json")
+            save_json_atomic(session_file, {"config": config, "programs": libraries_user})
             st.success("✅ Paramètres sauvegardés !")
         except Exception as e:
             st.error(f"Erreur lors de la sauvegarde : {e}")
@@ -288,16 +279,16 @@ with tab_params:
 # ------------------------
 with tab_patient:
     st.header("🧍 Informations patient (adulte en oncologie)")
+
     col_w, col_h, col_birth, col_prog = st.columns([1,1,1,1.2])
     with col_w: weight = st.select_slider("Poids (kg)", options=list(range(20,201)), value=70, key="weight_patient")
     with col_h: height = st.select_slider("Taille (cm)", options=list(range(100,221)), value=170, key="height_patient")
     current_year = datetime.now().year
     with col_birth: birth_year = st.select_slider("Année de naissance", options=list(range(current_year-120,current_year+1)), value=current_year-40, key="birth_patient")
     with col_prog:
-        libraries = st.session_state.get("user_libraries", {})
-        prog_choice_patient = st.selectbox("Programme", ["Sélection d'un programme"]+list(libraries.get("programs", {}).keys()), index=0, label_visibility="collapsed", key="prog_patient")
+        prog_choice_patient = st.selectbox("Programme", ["Sélection d'un programme"]+list(libraries_user.get("programs", {}).keys()), index=0, label_visibility="collapsed", key="prog_patient")
         if prog_choice_patient != "Sélection d'un programme":
-            prog_conf = libraries["programs"].get(prog_choice_patient, {})
+            prog_conf = libraries_user["programs"].get(prog_choice_patient, {})
             for key, val in prog_conf.items(): config[key] = val
 
     # Calculs patient
