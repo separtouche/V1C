@@ -1,17 +1,17 @@
-
 # -*- coding: utf-8 -*-
 """
 Calculette complète (une page) de dose de produit de contraste - Oncologie adulte
-Version consolidée optimisée avec sessions utilisateurs
+Adaptée pour Sébastien Partouche — version consolidée optimisée
+Usage : streamlit run calculatrice_contraste_oncologie.py
 """
 
 import streamlit as st
 import json
 import os
 import math
+import base64
 from datetime import datetime
 import pandas as pd
-import base64
 
 # ------------------------
 # Fichiers de config
@@ -19,9 +19,7 @@ import base64
 CONFIG_FILE = "iodine_config.json"
 LIB_FILE = "libraries.json"
 LOG_FILE = "calc_audit.log"
-SESSIONS_DIR = "user_sessions"
-
-os.makedirs(SESSIONS_DIR, exist_ok=True)
+USER_SESSIONS_FILE = "user_sessions.json"
 
 # ------------------------
 # Valeurs par défaut
@@ -52,7 +50,8 @@ def load_json_safe(path, default):
         try:
             with open(path, "r", encoding="utf-8") as f:
                 return json.load(f)
-        except Exception:
+        except Exception as e:
+            st.warning(f"⚠️ Erreur lecture '{path}', valeurs par défaut utilisées. Détail: {e}")
             return default.copy()
     return default.copy()
 
@@ -77,29 +76,20 @@ config = load_json_safe(CONFIG_FILE, default_config)
 libraries = load_json_safe(LIB_FILE, {"programs": {}})
 if "programs" not in libraries:
     libraries["programs"] = {}
+user_sessions = load_json_safe(USER_SESSIONS_FILE, {})
 
 # ------------------------
-# Streamlit init
+# Fonctions métier
 # ------------------------
-st.set_page_config(page_title="Calculette Contraste Oncologie adulte", page_icon="💉", layout="wide")
-st.markdown("""
-<style>
-.stApp { background-color: #F7FAFC; font-family: 'Segoe UI', sans-serif; }
-</style>
-""", unsafe_allow_html=True)
+def save_config(cfg):
+    save_json_atomic(CONFIG_FILE, cfg)
 
-if "accepted_legal" not in st.session_state:
-    st.session_state["accepted_legal"] = False
-if "user_id" not in st.session_state:
-    st.session_state["user_id"] = None
-if "user_config" not in st.session_state:
-    st.session_state["user_config"] = default_config.copy()
-if "user_libs" not in st.session_state:
-    st.session_state["user_libs"] = libraries.copy()
+def save_libraries(lib):
+    save_json_atomic(LIB_FILE, lib)
 
-# ------------------------
-# Helper fonctions
-# ------------------------
+def save_user_sessions(sessions):
+    save_json_atomic(USER_SESSIONS_FILE, sessions)
+
 def calculate_bsa(weight, height):
     try:
         return math.sqrt((height * weight) / 3600.0)
@@ -150,46 +140,52 @@ def img_to_base64(path):
         return base64.b64encode(f.read()).decode()
 
 # ------------------------
-# --- Sélection / Création Session ---
+# Streamlit UI init
 # ------------------------
-if not st.session_state["accepted_legal"]:
-    st.header("⚠️ Mentions légales & session utilisateur")
-    st.markdown("Avant utilisation, acceptez la mention légale et choisissez ou créez votre session.")
-    
-    col1, col2 = st.columns([1,1])
-    with col1:
-        user_id_input = st.text_input("Identifiant utilisateur", key="user_id_input")
-    with col2:
-        existing_sessions = [f.replace(".json","") for f in os.listdir(SESSIONS_DIR) if f.endswith(".json")]
-        selected_session = st.selectbox("Ou charger une session existante", [""] + existing_sessions, key="select_session")
-    
-    session_set = False
-    if st.button("✅ Créer / Charger session"):
-        if user_id_input.strip() != "":
-            st.session_state["user_id"] = user_id_input.strip()
-            session_file = os.path.join(SESSIONS_DIR, f"{st.session_state['user_id']}.json")
-            if os.path.exists(session_file):
-                data = load_json_safe(session_file, {})
-                st.session_state["user_config"] = data.get("config", default_config.copy())
-                st.session_state["user_libs"] = data.get("programs", libraries.copy())
-            else:
-                st.session_state["user_config"] = default_config.copy()
-                st.session_state["user_libs"] = libraries.copy()
-                save_json_atomic(session_file, {"config": st.session_state["user_config"], "programs": st.session_state["user_libs"]})
+st.set_page_config(page_title="Calculette Contraste Oncologie adulte", page_icon="💉", layout="wide")
+st.markdown("""
+<style>
+.stApp { background-color: #F7FAFC; font-family: 'Segoe UI', sans-serif; }
+</style>
+""", unsafe_allow_html=True)
+
+# Session state initial
+if "accepted_legal" not in st.session_state:
+    st.session_state["accepted_legal"] = False
+if "user_id" not in st.session_state:
+    st.session_state["user_id"] = None
+
+# ------------------------
+# PAGE ACCUEIL - Mentions légales + Session
+# ------------------------
+if not st.session_state["accepted_legal"] or st.session_state["user_id"] is None:
+    st.markdown("### Mentions légales — acceptation requise")
+    st.markdown("Avant utilisation, acceptez la mention légale. Résultats indicatifs à valider par un professionnel de santé.")
+    accept = st.checkbox("✅ J’accepte les mentions légales.", key="accept_checkbox")
+    user_id_input = st.text_input("Identifiant utilisateur (créez ou entrez existant)")
+    if st.button("Entrer dans la session"):
+        if not accept:
+            st.warning("Vous devez accepter les mentions légales.")
+        elif not user_id_input.strip():
+            st.warning("Veuillez saisir un identifiant utilisateur.")
+        else:
             st.session_state["accepted_legal"] = True
-            session_set = True
-    if not session_set:
-        st.stop()
+            st.session_state["user_id"] = user_id_input.strip()
+            if st.session_state["user_id"] not in user_sessions:
+                user_sessions[st.session_state["user_id"]] = {"programs": {}}
+                save_user_sessions(user_sessions)
+            # Charger programmes utilisateurs
+            if "programs" not in user_sessions[st.session_state["user_id"]]:
+                user_sessions[st.session_state["user_id"]]["programs"] = {}
+            st.experimental_rerun()
+    st.stop()
 
 # ------------------------
-# Charger session dans config
+# Charger programmes de l'utilisateur
 # ------------------------
-config = st.session_state["user_config"]
-libraries_user = st.session_state["user_libs"]
+current_user_programs = user_sessions.get(st.session_state["user_id"], {}).get("programs", {})
 
-# ------------------------
-# Header
-# ------------------------
+# Header réduit
 logo_path = "guerbet_logo.png"
 if os.path.exists(logo_path):
     try:
@@ -214,37 +210,34 @@ tab_patient, tab_params, tab_tutorial = st.tabs(["🧍 Patient", "⚙️ Paramè
 # Onglet Paramètres
 # ------------------------
 with tab_params:
-    st.header(f"⚙️ Paramètres et Bibliothèque (Session: {st.session_state['user_id']})")
+    st.header("⚙️ Paramètres et Bibliothèque")
     config["simultaneous_enabled"] = st.checkbox("Activer l'injection simultanée", value=config.get("simultaneous_enabled", False))
     if config["simultaneous_enabled"]:
         config["target_concentration"] = st.number_input("Concentration cible (mg I/mL)", value=int(config.get("target_concentration", 350)), min_value=200, max_value=500, step=10)
     st.subheader("📚 Bibliothèque de programmes")
-    
-    # Liste programmes utilisateur
-    program_choice = st.selectbox("Programme", ["Sélection d'un programme"] + list(libraries_user.get("programs", {}).keys()))
-    if program_choice != "Sélection d'un programme":
-        prog_conf = libraries_user["programs"].get(program_choice, {})
+    program_choice = st.selectbox("Programme", ["Aucun"] + list(current_user_programs.keys()), key="prog_params")
+    if program_choice != "Aucun":
+        prog_conf = current_user_programs.get(program_choice, {})
         for key, val in prog_conf.items():
             config[key] = val
-    
     new_prog_name = st.text_input("Nom du nouveau programme")
     if st.button("💾 Ajouter/Mise à jour programme"):
         if new_prog_name.strip():
             to_save = {k: config[k] for k in config}
-            libraries_user["programs"][new_prog_name.strip()] = to_save
-            # Sauvegarde immédiate
-            session_file = os.path.join(SESSIONS_DIR, f"{st.session_state['user_id']}.json")
-            save_json_atomic(session_file, {"config": config, "programs": libraries_user})
+            current_user_programs[new_prog_name.strip()] = to_save
+            user_sessions[st.session_state["user_id"]]["programs"] = current_user_programs
+            save_user_sessions(user_sessions)
             st.success(f"Programme '{new_prog_name}' ajouté/mis à jour !")
-    
-    if libraries_user.get("programs"):
-        del_prog = st.selectbox("Supprimer un programme", [""] + list(libraries_user["programs"].keys()))
+    if current_user_programs:
+        del_prog = st.selectbox("Supprimer un programme", [""] + list(current_user_programs.keys()))
         if st.button("🗑 Supprimer programme"):
-            if del_prog in libraries_user["programs"]:
-                del libraries_user["programs"][del_prog]
-                session_file = os.path.join(SESSIONS_DIR, f"{st.session_state['user_id']}.json")
-                save_json_atomic(session_file, {"config": config, "programs": libraries_user})
+            if del_prog in current_user_programs:
+                del current_user_programs[del_prog]
+                user_sessions[st.session_state["user_id"]]["programs"] = current_user_programs
+                save_user_sessions(user_sessions)
                 st.success(f"Programme '{del_prog}' supprimé !")
+            else:
+                st.error("Programme introuvable.")
 
     st.subheader("⚙️ Paramètres globaux")
     config["concentration_mg_ml"] = st.selectbox("Concentration (mg I/mL)", [300, 320, 350, 370, 400], index=[300, 320, 350, 370, 400].index(int(config.get("concentration_mg_ml", 350))))
@@ -268,8 +261,7 @@ with tab_params:
     if st.button("💾 Sauvegarder les paramètres"):
         try:
             config["charges"] = {str(int(row.kV)): float(row["Charge (g I/kg)"]) for _, row in edited_df.iterrows()}
-            session_file = os.path.join(SESSIONS_DIR, f"{st.session_state['user_id']}.json")
-            save_json_atomic(session_file, {"config": config, "programs": libraries_user})
+            save_config(config)
             st.success("✅ Paramètres sauvegardés !")
         except Exception as e:
             st.error(f"Erreur lors de la sauvegarde : {e}")
@@ -279,89 +271,93 @@ with tab_params:
 # ------------------------
 with tab_patient:
     st.header("🧍 Informations patient (adulte en oncologie)")
-
     col_w, col_h, col_birth, col_prog = st.columns([1,1,1,1.2])
     with col_w: weight = st.select_slider("Poids (kg)", options=list(range(20,201)), value=70, key="weight_patient")
     with col_h: height = st.select_slider("Taille (cm)", options=list(range(100,221)), value=170, key="height_patient")
     current_year = datetime.now().year
     with col_birth: birth_year = st.select_slider("Année de naissance", options=list(range(current_year-120,current_year+1)), value=current_year-40, key="birth_patient")
     with col_prog:
-        prog_choice_patient = st.selectbox("Programme", ["Sélection d'un programme"]+list(libraries_user.get("programs", {}).keys()), index=0, label_visibility="collapsed", key="prog_patient")
+        prog_choice_patient = st.selectbox("Programme", ["Sélection d'un programme"]+list(current_user_programs.keys()), index=0, label_visibility="collapsed", key="prog_patient")
         if prog_choice_patient != "Sélection d'un programme":
-            prog_conf = libraries_user["programs"].get(prog_choice_patient, {})
+            prog_conf = current_user_programs.get(prog_choice_patient, {})
             for key, val in prog_conf.items(): config[key] = val
 
     # Calculs patient
-    age=current_year-birth_year
-    imc=weight/((height/100)**2)
-    col_kv,col_mode_time=st.columns([1.2,2])
-    with col_kv:
-        kv_scanner=st.radio("kV du scanner",[80,90,100,110,120],index=4,horizontal=True,key="kv_patient")
+    age = current_year - birth_year
+    imc = weight / ((height / 100)**2)
+    col_kv, col_mode_time = st.columns([1.2,2])
+    with col_kv: kv_scanner = st.radio("kV du scanner", [80,90,100,110,120], index=4, horizontal=True, key="kv_patient")
     with col_mode_time:
-        col_mode,col_times=st.columns([1.2,1])
+        col_mode, col_times = st.columns([1.2,1])
         with col_mode:
-            injection_modes=["Portal","Artériel"]
-            if config.get("intermediate_enabled",False): injection_modes.append("Intermédiaire")
-            injection_mode=st.radio("Mode d’injection", injection_modes,horizontal=True,key="mode_inj_patient")
+            injection_modes = ["Portal","Artériel"]
+            if config.get("intermediate_enabled", False): injection_modes.append("Intermédiaire")
+            injection_mode = st.radio("Mode d’injection", injection_modes, horizontal=True, key="mode_inj_patient")
         with col_times:
             if injection_mode=="Portal": base_time=float(config.get("portal_time",30.0))
             elif injection_mode=="Artériel": base_time=float(config.get("arterial_time",25.0))
-            else: base_time=st.number_input("Temps Intermédiaire (s)", value=float(config.get("intermediate_time",28.0)), min_value=5.0,max_value=120.0,step=1.0,key="intermediate_time_input")
+            else: base_time=st.number_input("Temps Intermédiaire (s)", value=float(config.get("intermediate_time",28.0)), min_value=5.0, max_value=120.0, step=1.0, key="intermediate_time_input")
             st.markdown(f"**Temps {injection_mode} :** {base_time:.0f} s")
-            acquisition_start=calculate_acquisition_start(age,config)
+            acquisition_start = calculate_acquisition_start(age, config)
             st.markdown(f"**Départ d'acquisition :** {acquisition_start:.1f} s")
             st.markdown(f"**Concentration utilisée :** {int(config.get('concentration_mg_ml',350))} mg I/mL")
 
+    # Validations
     if weight<=0 or height<=0: st.error("Poids et taille doivent être >0"); st.stop()
     if float(config.get("concentration_mg_ml",0))<=0: st.error("La concentration doit être >0 mg I/mL"); st.stop()
 
-    volume,bsa=calculate_volume(weight,height,kv_scanner,float(config.get("concentration_mg_ml",350)),imc,config.get("calc_mode","Charge iodée"),config.get("charges",{}),float(config.get("volume_max_limit",200.0)))
-    injection_rate,injection_time,time_adjusted=adjust_injection_rate(volume,float(base_time),float(config.get("max_debit",6.0)))
+    volume, bsa = calculate_volume(weight, height, kv_scanner, float(config.get("concentration_mg_ml",350)), imc, config.get("calc_mode","Charge iodée"), config.get("charges",{}), float(config.get("volume_max_limit",200.0)))
+    injection_rate, injection_time, time_adjusted = adjust_injection_rate(volume, float(base_time), float(config.get("max_debit",6.0)))
 
+    # Injection simultanée
     if config.get("simultaneous_enabled",False):
-        target=float(config.get("target_concentration",350))
-        current_conc=float(config.get("concentration_mg_ml",350))
-        if target>current_conc:
+        target = float(config.get("target_concentration",350))
+        current_conc = float(config.get("concentration_mg_ml",350))
+        if target > current_conc:
             st.warning(f"La concentration cible ({target:.0f}) est supérieure à la concentration du flacon ({current_conc:.0f})")
-            target=current_conc
-        vol_contrast=volume*(target/current_conc) if current_conc>0 else volume
-        vol_nacl_dilution=max(0.0,volume-vol_contrast)
-        perc_contrast=(vol_contrast/volume*100) if volume>0 else 0
-        perc_nacl_dilution=(vol_nacl_dilution/volume*100) if volume>0 else 0
+            target = current_conc
+        vol_contrast = volume*(target/current_conc) if current_conc>0 else volume
+        vol_nacl_dilution = max(0.0, volume-vol_contrast)
+        perc_contrast = (vol_contrast/volume*100) if volume>0 else 0
+        perc_nacl_dilution = (vol_nacl_dilution/volume*100) if volume>0 else 0
         contrast_text=f"{int(round(vol_contrast))} mL ({int(round(perc_contrast))}%)"
         nacl_rincage_volume=float(config.get("rincage_volume",35.0))
         nacl_rincage_debit=max(0.1,injection_rate-float(config.get("rincage_delta_debit",0.5)))
-        nacl_text=f"<div>Dilution : {int(round(vol_nacl_dilution))} mL ({int(round(perc_nacl_dilution))}%)</div>"
-        nacl_text+=f"<div>Rinçage : {int(round(nacl_rincage_volume))} mL @ {injection_rate:.1f} mL/s</div>"
+        nacl_text=f"<div class='sub-item-large'>Dilution : {int(round(vol_nacl_dilution))} mL ({int(round(perc_nacl_dilution))}%)</div>"
+        nacl_text+=f"<div class='sub-item-large'>Rinçage : {int(round(nacl_rincage_volume))} mL @ {injection_rate:.1f} mL/s</div>"
     else:
-        vol_contrast=volume
-        contrast_text=f"{int(round(vol_contrast))} mL"
-        nacl_text=f"{int(round(config.get('rincage_volume',35.0)))} mL"
+        vol_contrast = volume
+        contrast_text = f"{int(round(vol_contrast))} mL"
+        nacl_text = f"{int(round(config.get('rincage_volume',35.0)))} mL"
 
-    col_contrast,col_nacl,col_rate=st.columns(3,gap="medium")
+    # Affichage cartes résultats
+    col_contrast, col_nacl, col_rate = st.columns(3, gap="medium")
     with col_contrast:
         st.markdown(f"""<div style="background:#EAF1F8;padding:12px;border-radius:10px;text-align:center;">
                          <h3>💧 Volume contraste conseillé</h3><h1 style="margin:0">{contrast_text}</h1>
-                       </div>""",unsafe_allow_html=True)
+                       </div>""", unsafe_allow_html=True)
     with col_nacl:
         st.markdown(f"""<div style="background:#EAF1F8;padding:12px;border-radius:10px;text-align:center;">
                          <h3>💧 Volume NaCl conseillé</h3><h1 style="margin:0">{nacl_text}</h1>
-                       </div>""",unsafe_allow_html=True)
+                       </div>""", unsafe_allow_html=True)
     with col_rate:
         st.markdown(f"""<div style="background:#EAF1F8;padding:12px;border-radius:10px;text-align:center;">
                          <h3>🚀 Débit conseillé</h3><h1 style="margin:0">{injection_rate:.1f} mL/s</h1>
-                       </div>""",unsafe_allow_html=True)
+                       </div>""", unsafe_allow_html=True)
+
     if time_adjusted:
         st.warning(f"⚠️ Temps d’injection ajusté à {injection_time:.1f}s pour respecter le débit maximal de {config.get('max_debit',6.0)} mL/s.")
     st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
+
     try:
         audit_log(f"calc:age={age},kv={kv_scanner},mode={injection_mode},vol={volume},vol_contrast={vol_contrast},rate={injection_rate:.2f}")
     except Exception:
         pass
-    st.markdown("""<div style='background-color:#FCE8E6; color:#6B1A00; padding:10px; border-radius:8px; margin-top:15px; font-size:0.9rem;'>⚠️ <b>Avertissement :</b> Ce logiciel est un outil d’aide à la décision. Les résultats sont <b>indicatifs</b> et doivent être validés par un professionnel de santé. Destiné uniquement aux patients adultes en oncologie.</div>""",unsafe_allow_html=True)
+
+    st.markdown("""<div style='background-color:#FCE8E6; color:#6B1A00; padding:10px; border-radius:8px; margin-top:15px; font-size:0.9rem;'>⚠️ <b>Avertissement :</b> Ce logiciel est un outil d’aide à la décision. Les résultats sont <b>indicatifs</b> et doivent être validés par un professionnel de santé. Destiné uniquement aux patients adultes en oncologie.</div>""", unsafe_allow_html=True)
 
 # ------------------------
-# Onglet Tutoriel
+# Tutoriel
 # ------------------------
 with tab_tutorial:
     st.title("📘 Tutoriel — Mode d'emploi et principes cliniques")
@@ -403,4 +399,4 @@ st.markdown(f"""<div style='text-align:center; margin-top:20px; font-size:0.8rem
 © 2025 Guerbet | Développé par <b>Sébastien Partouche</b><br>
 Calculette de dose de produit de contraste en oncologie adulte.<br>
 <div style='display:inline-block; background-color:#FCE8B2; border:1px solid #F5B800; padding:8px 15px; border-radius:10px; color:#5A4500; font-weight:600; margin-top:10px;'>🧪 Version BETA TEST – Usage interne / évaluation</div>
-</div>""",unsafe_allow_html=True)
+</div>""", unsafe_allow_html=True)
