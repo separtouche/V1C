@@ -2,6 +2,7 @@
 """
 Calculette complète de dose de produit de contraste - Oncologie
 Version optimisée et structurée (Streamlit)
+Volumes affichés en entier
 Usage : streamlit run calculatrice_contraste_oncologie.py
 """
 
@@ -172,33 +173,35 @@ tab_patient, tab_params, tab_tutorial = st.tabs(["🧍 Patient","⚙️ Paramèt
 # ------------------------
 with tab_params:
     st.header("⚙️ Paramètres et Bibliothèque")
-    # Injection simultanée
     config["simultaneous_enabled"]=st.checkbox("Activer l'injection simultanée", value=config.get("simultaneous_enabled",False))
     if config["simultaneous_enabled"]:
         config["target_concentration"]=st.number_input("Concentration cible (mg I/mL)", value=int(config.get("target_concentration",350)), min_value=200,max_value=500,step=10)
 
-    # Bibliothèque CRUD
     st.subheader("📚 Bibliothèque de programmes")
     program_choice=st.selectbox("Programme", ["Aucun"] + list(libraries.get("programs",{}).keys()))
     if program_choice!="Aucun":
         prog_conf=libraries["programs"].get(program_choice,{})
-        for key,val in prog_conf.items():
-            config[key]=val
+        for key,val in prog_conf.items(): config[key]=val
+
     new_prog_name=st.text_input("Nom du nouveau programme")
     if st.button("💾 Ajouter/Mise à jour programme"):
         if new_prog_name.strip():
-            to_save={k:config[k] for k in config}
+            to_save={k: config[k] for k in config}
             libraries["programs"][new_prog_name.strip()]=to_save
-            try: save_json_atomic(LIB_FILE,libraries); st.success(f"Programme '{new_prog_name}' ajouté/mis à jour !")
+            try:
+                save_json_atomic(LIB_FILE,libraries)
+                st.success(f"Programme '{new_prog_name}' ajouté/mis à jour !")
             except Exception as e: st.error(f"Erreur sauvegarde bibliothèque : {e}")
+
     if libraries.get("programs"):
         del_prog=st.selectbox("Supprimer un programme", [""] + list(libraries["programs"].keys()))
         if st.button("🗑 Supprimer programme"):
             if del_prog and del_prog in libraries["programs"]:
-                del libraries["programs"][del_prog]; save_json_atomic(LIB_FILE,libraries); st.success(f"Programme '{del_prog}' supprimé !")
+                del libraries["programs"][del_prog]
+                save_json_atomic(LIB_FILE,libraries)
+                st.success(f"Programme '{del_prog}' supprimé !")
             else: st.error("Programme introuvable.")
 
-    # Paramètres globaux
     st.subheader("⚙️ Paramètres globaux")
     config["concentration_mg_ml"]=st.selectbox("Concentration (mg I/mL)", [300,320,350,370,400], index=[300,320,350,370,400].index(int(config.get("concentration_mg_ml",350))))
     config["calc_mode"]=st.selectbox("Méthode de calcul", ["Charge iodée","Surface corporelle","Charge iodée sauf IMC > 30 → Surface corporelle"], index=["Charge iodée","Surface corporelle","Charge iodée sauf IMC > 30 → Surface corporelle"].index(config.get("calc_mode","Charge iodée")))
@@ -213,64 +216,53 @@ with tab_params:
     config["volume_max_limit"]=st.number_input("Plafond volume (mL) - seringue", value=float(config.get("volume_max_limit",200.0)), min_value=50.0,max_value=500.0,step=10.0)
 
     st.markdown("**Charges en iode par kV (g I/kg)**")
-    df_charges=pd.DataFrame({"kV":[80,90,100,110,120],"Charge (g I/kg)":[float(config["charges"].get(str(kv),0.35)) for kv in [80,90,100,110,120]]})
-    edited_df=st.data_editor(df_charges,num_rows="fixed",use_container_width=True)
+    df_charges=pd.DataFrame({
+        "kV":[80,90,100,110,120],
+        "Charge (g I/kg)":[float(config["charges"].get(str(kv),0.35)) for kv in [80,90,100,110,120]]
+    })
+    edited_df=st.data_editor(df_charges, num_rows="fixed", use_container_width=True)
     if st.button("💾 Sauvegarder les paramètres"):
         try:
-            config["charges"]={str(int(row.kV)):float(row["Charge (g I/kg)"]) for _,row in edited_df.iterrows()}
+            config["charges"]={str(int(row.kV)): float(row["Charge (g I/kg)"]) for _,row in edited_df.iterrows()}
             save_json_atomic(CONFIG_FILE,config)
             st.success("✅ Paramètres sauvegardés !")
-        except Exception as e:
-            st.error(f"Erreur sauvegarde : {e}")
+        except Exception as e: st.error(f"Erreur lors de la sauvegarde : {e}")
 
 # ------------------------
 # Onglet Patient
 # ------------------------
 with tab_patient:
     st.header("🧍 Informations patient (adulte en oncologie)")
-
     col_w,col_h,col_birth=st.columns([1,1,1])
-    with col_w:
-        weight=st.select_slider("Poids (kg)", options=list(range(20,201)), value=70)
-    with col_h:
-        height=st.select_slider("Taille (cm)", options=list(range(100,221)), value=170)
+    with col_w: weight=st.select_slider("Poids (kg)", options=list(range(20,201)), value=70)
+    with col_h: height=st.select_slider("Taille (cm)", options=list(range(100,221)), value=170)
     with col_birth:
         current_year=datetime.now().year
         birth_year=st.select_slider("Année de naissance", options=list(range(current_year-120,current_year+1)), value=current_year-40)
-
     age=current_year-birth_year
     imc=weight/((height/100)**2)
 
     col_kv,col_mode_time=st.columns([1.2,2])
-    with col_kv:
-        kv_scanner=st.radio("kV du scanner",[80,90,100,110,120], index=4,horizontal=True)
+    with col_kv: kv_scanner=st.radio("kV du scanner",[80,90,100,110,120], index=4,horizontal=True)
     with col_mode_time:
         col_mode,col_times=st.columns([1.2,1])
         with col_mode:
             injection_modes=["Portal","Artériel"]
             if config.get("intermediate_enabled",False): injection_modes.append("Intermédiaire")
-            injection_mode=st.radio("Mode d’injection", injection_modes, horizontal=True)
+            injection_mode=st.radio("Mode d’injection",injection_modes,horizontal=True)
         with col_times:
-            if injection_mode=="Portal":
-                base_time=float(config.get("portal_time",30.0))
-            elif injection_mode=="Artériel":
-                base_time=float(config.get("arterial_time",25.0))
-            else:
-                base_time=st.number_input("Temps Intermédiaire (s)", value=float(config.get("intermediate_time",28.0)), min_value=5.0,max_value=120.0,step=1.0)
-
+            if injection_mode=="Portal": base_time=float(config.get("portal_time",30.0))
+            elif injection_mode=="Artériel": base_time=float(config.get("arterial_time",25.0))
+            else: base_time=st.number_input("Temps Intermédiaire (s)", value=float(config.get("intermediate_time",28.0)), min_value=5.0,max_value=120.0,step=1.0)
             st.markdown(f"**Temps {injection_mode} :** {base_time:.0f} s")
             acquisition_start=calculate_acquisition_start(age,config)
             st.markdown(f"**Départ d'acquisition :** {acquisition_start:.1f} s")
             st.markdown(f"**Concentration utilisée :** {int(config.get('concentration_mg_ml',350))} mg I/mL")
 
-    if weight<=0 or height<=0:
-        st.error("Poids et taille doivent être >0"); st.stop()
-    if float(config.get("concentration_mg_ml",0))<=0:
-        st.error("Concentration produit doit être >0 mg I/mL"); st.stop()
-
     volume,bsa=calculate_volume(weight,height,kv_scanner,float(config.get("concentration_mg_ml",350)),imc,config.get("calc_mode","Charge iodée"),config.get("charges",{}),float(config.get("volume_max_limit",200.0)))
     injection_rate,injection_time,time_adjusted=adjust_injection_rate(volume,float(base_time),float(config.get("max_debit",6.0)))
 
+    # --- Arrondir volumes ---
     if config.get("simultaneous_enabled",False):
         target=float(config.get("target_concentration",350))
         current_conc=float(config.get("concentration_mg_ml",350))
@@ -279,15 +271,17 @@ with tab_patient:
         vol_nacl=max(0.0,volume-vol_contrast)
         perc_contrast=(vol_contrast/volume*100) if volume>0 else 0
         perc_nacl=(vol_nacl/volume*100) if volume>0 else 0
-        contrast_text=f"{vol_contrast:.1f} mL ({perc_contrast:.0f}%)"
-        nacl_text=f"<div class='sub-item-large'>Dilution : {vol_nacl:.1f} mL ({perc_nacl:.0f}%)</div>"
-        nacl_rincage_volume=float(config.get("rincage_volume",35.0))
+        vol_contrast_rounded=int(round(vol_contrast))
+        vol_nacl_rounded=int(round(vol_nacl))
+        nacl_rincage_volume_rounded=int(round(float(config.get("rincage_volume",35.0))))
         nacl_rincage_debit=max(0.1,injection_rate-float(config.get("rincage_delta_debit",0.5)))
-        nacl_text+=f"<div class='sub-item-large'>Rinçage : {nacl_rincage_volume:.1f} mL @ {nacl_rincage_debit:.1f} mL/s</div>"
+        contrast_text=f"{vol_contrast_rounded} mL ({int(perc_contrast)}%)"
+        nacl_text=f"<div class='sub-item-large'>Dilution : {vol_nacl_rounded} mL ({int(perc_nacl)}%)</div>"
+        nacl_text+=f"<div class='sub-item-large'>Rinçage : {nacl_rincage_volume_rounded} mL @ {nacl_rincage_debit:.1f} mL/s</div>"
     else:
-        vol_contrast=volume
-        contrast_text=f"{vol_contrast:.1f} mL"
-        nacl_text=f"{config.get('rincage_volume',35.0):.0f} mL"
+        vol_contrast_rounded=int(round(volume))
+        contrast_text=f"{vol_contrast_rounded} mL"
+        nacl_text=f"{int(config.get('rincage_volume',35.0))} mL"
 
     col_contrast,col_nacl,col_rate=st.columns(3,gap="medium")
     with col_contrast: st.markdown(f"<div style='background:#EAF1F8;padding:12px;border-radius:10px;text-align:center;'><h3>💧 Volume contraste conseillé</h3><h1 style='margin:0'>{contrast_text}</h1></div>",unsafe_allow_html=True)
@@ -296,11 +290,8 @@ with tab_patient:
 
     if time_adjusted: st.warning(f"⚠️ Temps d’injection ajusté à {injection_time:.1f}s pour respecter débit max {config.get('max_debit',6.0)} mL/s.")
     st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
-
     try: audit_log(f"calc:age={age},kv={kv_scanner},mode={injection_mode},vol={volume:.1f},vol_contrast={vol_contrast:.1f},rate={injection_rate:.2f}")
     except Exception: pass
-
-    st.markdown("<div style='background-color:#FCE8E6;color:#6B1A00;padding:10px;border-radius:8px;margin-top:15px;font-size:0.9rem;'>⚠️ <b>Avertissement :</b> Ce logiciel est un outil d’aide à la décision. Les résultats sont <b>indicatifs</b> et doivent être validés par un professionnel de santé. Destiné uniquement aux patients adultes en oncologie.</div>",unsafe_allow_html=True)
 
 # ------------------------
 # Onglet Tutoriel
@@ -308,32 +299,25 @@ with tab_patient:
 with tab_tutorial:
     st.title("📘 Tutoriel — Mode d'emploi et principes cliniques")
     st.markdown("Bienvenue dans le tutoriel. Cette section explique **comment utiliser** la calculette et **pourquoi** chaque calcul est effectué.")
+
     st.header("🔧 Guide pas à pas — Utilisation")
     st.markdown("""
-    1. Saisir poids, taille et année de naissance.
+    1. Saisir poids, taille, année de naissance.
     2. Choisir kV du scanner.
-    3. Choisir le mode d’injection.
-    4. Vérifier concentration, débit max et temps dans Paramètres.
-    5. Si injection simultanée activée, définir concentration cible.
-    6. Vérifier les résultats (volume contraste, NaCl, débit).
+    3. Sélectionner mode d’injection (Portal/Artériel/Intermédiaire).
+    4. Vérifier concentration produit, débit max, temps.
+    5. Injection simultanée : définir concentration cible pour dilution.
+    6. Vérifier volumes et débit proposés (indicatif).
     """)
-    st.header("🧠 Explications techniques et principes cliniques")
+
+    st.header("🧠 Explications techniques")
     st.markdown("""
-    - **Charge iodée (g I/kg)** : dose proportionnelle au poids.  
-    - **Surface corporelle (BSA)** : dose proportionnelle à la surface corporelle.  
-    - **IMC > 30** : bascule sur BSA si option activée.
-    - **Débit d'injection** : volume / temps, ajusté si dépassement du max.
-    - **Injection simultanée** : dilution pour atteindre concentration cible, rinçage NaCl.
+    - Charge iodée (g I/kg) : dose proportionnelle au poids.
+    - Surface corporelle (BSA) : dose selon m².
+    - IMC>30 : switch automatique sur BSA si configuré.
+    - Débit = volume / temps; ajusté si > max.
+    - Injection simultanée : dilution contraste/NaCl.
     """)
-    st.header("🔬 Bases — recommandations spécifiques en oncologie hépatique")
-    st.markdown("""
-    Valeurs de référence (indicatives) :
-    - Foie sain : ≥ 110 UH au pic
-    - Foie stéatosique : ≥ 120 UH dans la rate
-    ⚠️ Adapter selon protocoles locaux et recommandations nationales.
-    """)
-    st.header("🩺 Exemple de workflow clinique")
-    st.markdown("Patient 75 kg, 170 cm, kV=120, charge 0.5, mode Portal, concentration 350 mg I/mL. Calcul du volume contraste : (75x0,4)/0,35=86 mL.")
 
 # ------------------------
 # Footer
@@ -341,7 +325,7 @@ with tab_tutorial:
 st.markdown(f"""
 <div style='text-align:center;margin-top:20px;font-size:0.8rem;color:#666;'>
 © 2025 Guerbet | Développé par <b>Sébastien Partouche</b><br>
-Calculette de dose de produit de contraste en oncologie — usage adulte.<br>
+Calculette dose contraste — usage adulte<br>
 <div style='display:inline-block;background-color:#FCE8B2;border:1px solid #F5B800;padding:8px 15px;border-radius:10px;color:#5A4500;font-weight:600;margin-top:10px;'>🧪 Version BETA TEST – Usage interne / évaluation</div>
 </div>
 """,unsafe_allow_html=True)
