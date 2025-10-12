@@ -254,8 +254,8 @@ with tab_patient:
     current_year = datetime.now().year
     with col_birth: birth_year = st.select_slider("Année de naissance", options=list(range(current_year-120,current_year+1)), value=current_year-40, key="birth_patient")
     with col_prog:
-        prog_choice_patient = st.selectbox("Programme", ["Aucun"]+list(libraries.get("programs", {}).keys()), index=0, label_visibility="collapsed", key="prog_patient")
-        if prog_choice_patient != "Aucun":
+        prog_choice_patient = st.selectbox("Programme", ["Sélection d'un programme"]+list(libraries.get("programs", {}).keys()), index=0, label_visibility="collapsed", key="prog_patient")
+        if prog_choice_patient != "Sélection d'un programme":
             prog_conf = libraries["programs"].get(prog_choice_patient, {})
             for key, val in prog_conf.items(): config[key] = val
 
