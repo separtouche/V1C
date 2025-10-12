@@ -184,7 +184,7 @@ if not st.session_state["accepted_legal"] or st.session_state["user_id"] is None
     st.stop()  # bloque la suite jusqu'à validation
 
 # ------------------------
-# Header réduit
+# Header réduit + affichage user_id
 # ------------------------
 logo_path = "guerbet_logo.png"
 if os.path.exists(logo_path):
@@ -194,12 +194,13 @@ if os.path.exists(logo_path):
         <div style="display:flex; align-items:center; gap:8px; background:#124F7A; padding:8px; border-radius:8px">
             <img src="data:image/png;base64,{img_b64}" style="height:60px"/>
             <h2 style="color:white; margin:0;">Calculette de dose de produit de contraste — Oncologie adulte</h2>
+            <span style="color:white; margin-left:auto; font-weight:bold;">Utilisateur : {st.session_state['user_id']}</span>
         </div>
         """, unsafe_allow_html=True)
     except Exception:
-        st.title("Calculette de dose de produit de contraste — Oncologie adulte")
+        st.title(f"Calculette de dose de produit de contraste — Oncologie adulte | Utilisateur : {st.session_state['user_id']}")
 else:
-    st.title("Calculette de dose de produit de contraste — Oncologie adulte")
+    st.title(f"Calculette de dose de produit de contraste — Oncologie adulte | Utilisateur : {st.session_state['user_id']}")
 
 # ------------------------
 # Tabs
@@ -209,9 +210,8 @@ tab_patient, tab_params, tab_tutorial = st.tabs(["🧍 Patient", "⚙️ Paramè
 # ------------------------
 # Onglet Paramètres
 # ------------------------
-
 with tab_params:
-    st.header("⚙️ Paramètres et Bibliothèque")
+    st.header(f"⚙️ Paramètres et Bibliothèque — Utilisateur : {st.session_state['user_id']}")
     config["simultaneous_enabled"] = st.checkbox("Activer l'injection simultanée", value=config.get("simultaneous_enabled", False))
     if config["simultaneous_enabled"]:
         config["target_concentration"] = st.number_input("Concentration cible (mg I/mL)", value=int(config.get("target_concentration", 350)), min_value=200, max_value=500, step=10)
