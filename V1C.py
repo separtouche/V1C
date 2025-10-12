@@ -18,8 +18,8 @@ import pandas as pd
 # ------------------------
 CONFIG_FILE = "iodine_config.json"
 LIB_FILE = "libraries.json"
-LOG_FILE = "calc_audit.log"
 USER_SESSIONS_FILE = "user_sessions.json"
+LOG_FILE = "calc_audit.log"
 
 # ------------------------
 # Valeurs par défaut
@@ -51,7 +51,7 @@ def load_json_safe(path, default):
             with open(path, "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception as e:
-            st.warning(f"⚠️ Erreur lecture '{path}', valeurs par défaut utilisées. Détail: {e}")
+            st.warning(f"⚠️ Erreur lecture '{path}' — valeurs par défaut utilisées. Détail: {e}")
             return default.copy()
     return default.copy()
 
@@ -62,6 +62,7 @@ def save_json_atomic(path, data):
     os.replace(tmp, path)
 
 def audit_log(msg):
+    """Ajoute une ligne d'audit (anonymisé) localement."""
     try:
         ts = datetime.utcnow().isoformat()
         with open(LOG_FILE, "a", encoding="utf-8") as f:
@@ -74,8 +75,6 @@ def audit_log(msg):
 # ------------------------
 config = load_json_safe(CONFIG_FILE, default_config)
 libraries = load_json_safe(LIB_FILE, {"programs": {}})
-if "programs" not in libraries:
-    libraries["programs"] = {}
 user_sessions = load_json_safe(USER_SESSIONS_FILE, {})
 
 # ------------------------
@@ -149,43 +148,44 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Session state initial
 if "accepted_legal" not in st.session_state:
     st.session_state["accepted_legal"] = False
 if "user_id" not in st.session_state:
     st.session_state["user_id"] = None
+if "selected_program" not in st.session_state:
+    st.session_state["selected_program"] = None
 
 # ------------------------
-# PAGE ACCUEIL - Mentions légales + Session
+# Page d'accueil : Mentions légales + session utilisateur
 # ------------------------
 if not st.session_state["accepted_legal"] or st.session_state["user_id"] is None:
-    st.markdown("### Mentions légales — acceptation requise")
-    st.markdown("Avant utilisation, acceptez la mention légale. Résultats indicatifs à valider par un professionnel de santé.")
+    st.markdown("### ⚠️ Mentions légales — acceptation requise")
+    st.markdown("Avant utilisation, acceptez la mention légale et créez ou sélectionnez votre identifiant utilisateur. Résultats indicatifs à valider par un professionnel de santé.")
     accept = st.checkbox("✅ J’accepte les mentions légales.", key="accept_checkbox")
-    user_id_input = st.text_input("Identifiant utilisateur (créez ou entrez existant)")
+    
+    # Liste identifiants existants
+    existing_ids = list(user_sessions.keys())
+    user_id_input = st.selectbox("Sélectionner un identifiant existant ou créer nouveau :", [""] + existing_ids, index=0)
+    new_user_id = st.text_input("Ou créez un nouvel identifiant")
+    
     if st.button("Entrer dans la session"):
         if not accept:
             st.warning("Vous devez accepter les mentions légales.")
-        elif not user_id_input.strip():
-            st.warning("Veuillez saisir un identifiant utilisateur.")
         else:
-            st.session_state["accepted_legal"] = True
-            st.session_state["user_id"] = user_id_input.strip()
-            if st.session_state["user_id"] not in user_sessions:
-                user_sessions[st.session_state["user_id"]] = {"programs": {}}
-                save_user_sessions(user_sessions)
-            # Charger programmes utilisateurs
-            if "programs" not in user_sessions[st.session_state["user_id"]]:
-                user_sessions[st.session_state["user_id"]]["programs"] = {}
-            st.experimental_rerun()
-    st.stop()
+            chosen_id = new_user_id.strip() if new_user_id.strip() else user_id_input
+            if not chosen_id:
+                st.warning("Veuillez saisir ou sélectionner un identifiant.")
+            else:
+                st.session_state["accepted_legal"] = True
+                st.session_state["user_id"] = chosen_id
+                if chosen_id not in user_sessions:
+                    user_sessions[chosen_id] = {"programs": {}}
+                    save_user_sessions(user_sessions)
+    st.stop()  # bloque la suite jusqu'à validation
 
 # ------------------------
-# Charger programmes de l'utilisateur
-# ------------------------
-current_user_programs = user_sessions.get(st.session_state["user_id"], {}).get("programs", {})
-
 # Header réduit
+# ------------------------
 logo_path = "guerbet_logo.png"
 if os.path.exists(logo_path):
     try:
@@ -211,60 +211,35 @@ tab_patient, tab_params, tab_tutorial = st.tabs(["🧍 Patient", "⚙️ Paramè
 # ------------------------
 with tab_params:
     st.header("⚙️ Paramètres et Bibliothèque")
+    st.markdown(f"**Session utilisateur :** `{st.session_state['user_id']}`")
     config["simultaneous_enabled"] = st.checkbox("Activer l'injection simultanée", value=config.get("simultaneous_enabled", False))
     if config["simultaneous_enabled"]:
         config["target_concentration"] = st.number_input("Concentration cible (mg I/mL)", value=int(config.get("target_concentration", 350)), min_value=200, max_value=500, step=10)
+    
+    # Bibliothèque programmes utilisateur
+    user_prog_lib = user_sessions[st.session_state["user_id"]]["programs"]
     st.subheader("📚 Bibliothèque de programmes")
-    program_choice = st.selectbox("Programme", ["Aucun"] + list(current_user_programs.keys()), key="prog_params")
+    program_choice = st.selectbox("Programme", ["Aucun"] + list(user_prog_lib.keys()), key="prog_params")
     if program_choice != "Aucun":
-        prog_conf = current_user_programs.get(program_choice, {})
+        prog_conf = user_prog_lib.get(program_choice, {})
         for key, val in prog_conf.items():
             config[key] = val
     new_prog_name = st.text_input("Nom du nouveau programme")
     if st.button("💾 Ajouter/Mise à jour programme"):
         if new_prog_name.strip():
             to_save = {k: config[k] for k in config}
-            current_user_programs[new_prog_name.strip()] = to_save
-            user_sessions[st.session_state["user_id"]]["programs"] = current_user_programs
+            user_prog_lib[new_prog_name.strip()] = to_save
             save_user_sessions(user_sessions)
             st.success(f"Programme '{new_prog_name}' ajouté/mis à jour !")
-    if current_user_programs:
-        del_prog = st.selectbox("Supprimer un programme", [""] + list(current_user_programs.keys()))
+    if user_prog_lib:
+        del_prog = st.selectbox("Supprimer un programme", [""] + list(user_prog_lib.keys()))
         if st.button("🗑 Supprimer programme"):
-            if del_prog in current_user_programs:
-                del current_user_programs[del_prog]
-                user_sessions[st.session_state["user_id"]]["programs"] = current_user_programs
+            if del_prog in user_prog_lib:
+                del user_prog_lib[del_prog]
                 save_user_sessions(user_sessions)
                 st.success(f"Programme '{del_prog}' supprimé !")
             else:
                 st.error("Programme introuvable.")
-
-    st.subheader("⚙️ Paramètres globaux")
-    config["concentration_mg_ml"] = st.selectbox("Concentration (mg I/mL)", [300, 320, 350, 370, 400], index=[300, 320, 350, 370, 400].index(int(config.get("concentration_mg_ml", 350))))
-    config["calc_mode"] = st.selectbox("Méthode de calcul", ["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"], index=["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"].index(config.get("calc_mode", "Charge iodée")))
-    config["max_debit"] = st.number_input("Débit maximal autorisé (mL/s)", value=float(config.get("max_debit", 6.0)), min_value=1.0, max_value=20.0, step=0.1)
-    config["portal_time"] = st.number_input("Portal (s)", value=float(config.get("portal_time", 30.0)), min_value=5.0, max_value=120.0, step=1.0)
-    config["arterial_time"] = st.number_input("Artériel (s)", value=float(config.get("arterial_time", 25.0)), min_value=5.0, max_value=120.0, step=1.0)
-    config["intermediate_enabled"] = st.checkbox("Activer temps intermédiaire", value=bool(config.get("intermediate_enabled", False)))
-    if config["intermediate_enabled"]:
-        config["intermediate_time"] = st.number_input("Intermédiaire (s)", value=float(config.get("intermediate_time", 28.0)), min_value=5.0, max_value=120.0, step=1.0)
-    config["rincage_volume"] = st.number_input("Volume rinçage (mL)", value=float(config.get("rincage_volume", 35.0)), min_value=10.0, max_value=100.0, step=1.0)
-    config["rincage_delta_debit"] = st.number_input("Δ débit NaCl vs contraste (mL/s)", value=float(config.get("rincage_delta_debit", 0.5)), min_value=0.1, max_value=5.0, step=0.1)
-    config["volume_max_limit"] = st.number_input("Plafond volume (mL) - seringue", value=float(config.get("volume_max_limit", 200.0)), min_value=50.0, max_value=500.0, step=10.0)
-
-    st.markdown("**Charges en iode par kV (g I/kg)**")
-    df_charges = pd.DataFrame({
-        "kV": [80, 90, 100, 110, 120],
-        "Charge (g I/kg)": [float(config["charges"].get(str(kv), 0.35)) for kv in [80, 90, 100, 110, 120]]
-    })
-    edited_df = st.data_editor(df_charges, num_rows="fixed", use_container_width=True)
-    if st.button("💾 Sauvegarder les paramètres"):
-        try:
-            config["charges"] = {str(int(row.kV)): float(row["Charge (g I/kg)"]) for _, row in edited_df.iterrows()}
-            save_config(config)
-            st.success("✅ Paramètres sauvegardés !")
-        except Exception as e:
-            st.error(f"Erreur lors de la sauvegarde : {e}")
 
 # ------------------------
 # Onglet Patient
@@ -277,10 +252,11 @@ with tab_patient:
     current_year = datetime.now().year
     with col_birth: birth_year = st.select_slider("Année de naissance", options=list(range(current_year-120,current_year+1)), value=current_year-40, key="birth_patient")
     with col_prog:
-        prog_choice_patient = st.selectbox("Programme", ["Sélection d'un programme"]+list(current_user_programs.keys()), index=0, label_visibility="collapsed", key="prog_patient")
+        prog_choice_patient = st.selectbox("Programme", ["Sélection d'un programme"] + list(user_sessions[st.session_state["user_id"]]["programs"].keys()), index=0, label_visibility="collapsed", key="prog_patient")
         if prog_choice_patient != "Sélection d'un programme":
-            prog_conf = current_user_programs.get(prog_choice_patient, {})
-            for key, val in prog_conf.items(): config[key] = val
+            prog_conf = user_sessions[st.session_state["user_id"]]["programs"].get(prog_choice_patient, {})
+            for key, val in prog_conf.items():
+                config[key] = val
 
     # Calculs patient
     age = current_year - birth_year
