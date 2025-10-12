@@ -279,6 +279,7 @@ with tab_patient:
         config = load_json_safe(CONFIG_FILE, default_config)
         libraries = load_json_safe(LIB_FILE, {"programs": {}})
 
+
     # Ligne unique avec programme
     col_w, col_h, col_birth, col_prog = st.columns([1,1,1,1.2])
     with col_w: weight = st.select_slider("Poids (kg)", options=list(range(20,201)), value=70, key="weight_patient")
