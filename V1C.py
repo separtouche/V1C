@@ -194,13 +194,12 @@ if os.path.exists(logo_path):
         <div style="display:flex; align-items:center; gap:8px; background:#124F7A; padding:8px; border-radius:8px">
             <img src="data:image/png;base64,{img_b64}" style="height:60px"/>
             <h2 style="color:white; margin:0;">Calculette de dose de produit de contraste — Oncologie adulte</h2>
-            <span style="color:white; margin-left:auto; font-weight:bold;">Utilisateur : {st.session_state['user_id']}</span>
         </div>
         """, unsafe_allow_html=True)
     except Exception:
-        st.title(f"Calculette de dose de produit de contraste — Oncologie adulte | Utilisateur : {st.session_state['user_id']}")
+        st.title("Calculette de dose de produit de contraste — Oncologie adulte")
 else:
-    st.title(f"Calculette de dose de produit de contraste — Oncologie adulte | Utilisateur : {st.session_state['user_id']}")
+    st.title("Calculette de dose de produit de contraste — Oncologie adulte")
 
 # ------------------------
 # Tabs
