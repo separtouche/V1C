@@ -258,6 +258,7 @@ with tab_params:
     elif session_to_delete == st.session_state["user_id"]:
         st.warning("⚠️ Impossible de supprimer l'identifiant actuellement utilisé.")
 
+
 # ------------------------
 # Onglet Patient
 # ------------------------
