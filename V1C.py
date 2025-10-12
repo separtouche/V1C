@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Calculette complète (une page) de dose de produit de contraste - Oncologie adulte
-Adaptée pour Sébastien Partouche — version consolidée optimisée
-Usage : streamlit run calculatrice_contraste_oncologie.py
+Avec sessions isolées par utilisateur et restauration automatique
 """
 
 import streamlit as st
@@ -14,43 +13,19 @@ from datetime import datetime
 import pandas as pd
 
 # ------------------------
-# Fichiers de config
+# Fichiers de logs
 # ------------------------
-CONFIG_FILE = "iodine_config.json"
-LIB_FILE = "libraries.json"
 LOG_FILE = "calc_audit.log"
 
 # ------------------------
-# Valeurs par défaut
-# ------------------------
-default_config = {
-    "charges": {str(kv): val for kv, val in zip([80, 90, 100, 110, 120], [0.35, 0.38, 0.40, 0.42, 0.45])},
-    "concentration_mg_ml": 350,
-    "portal_time": 30.0,
-    "arterial_time": 25.0,
-    "intermediate_enabled": False,
-    "intermediate_time": 28.0,
-    "acquisition_start_param": 70.0,
-    "auto_acquisition_by_age": True,
-    "max_debit": 6.0,
-    "rincage_volume": 35.0,
-    "rincage_delta_debit": 0.5,
-    "calc_mode": "Charge iodée",
-    "simultaneous_enabled": False,
-    "target_concentration": 350,
-    "volume_max_limit": 200.0
-}
-
-# ------------------------
-# Utils I/O sécurisées
+# Utils
 # ------------------------
 def load_json_safe(path, default):
     if os.path.exists(path):
         try:
             with open(path, "r", encoding="utf-8") as f:
                 return json.load(f)
-        except Exception as e:
-            st.warning(f"⚠️ Erreur de lecture '{path}' — valeurs par défaut utilisées. Détail: {e}")
+        except:
             return default.copy()
     return default.copy()
 
@@ -61,35 +36,17 @@ def save_json_atomic(path, data):
     os.replace(tmp, path)
 
 def audit_log(msg):
-    """Ajoute une ligne d'audit (anonymisé) localement."""
     try:
         ts = datetime.utcnow().isoformat()
         with open(LOG_FILE, "a", encoding="utf-8") as f:
             f.write(f"{ts} - {msg}\n")
-    except Exception:
+    except:
         pass
-
-# ------------------------
-# Charger config & libs
-# ------------------------
-config = load_json_safe(CONFIG_FILE, default_config)
-libraries = load_json_safe(LIB_FILE, {"programs": {}})
-if "programs" not in libraries:
-    libraries["programs"] = {}
-
-# ------------------------
-# Fonctions métier
-# ------------------------
-def save_config(cfg):
-    save_json_atomic(CONFIG_FILE, cfg)
-
-def save_libraries(lib):
-    save_json_atomic(LIB_FILE, lib)
 
 def calculate_bsa(weight, height):
     try:
         return math.sqrt((height * weight) / 3600.0)
-    except Exception:
+    except:
         return None
 
 def calculate_volume(weight, height, kv, concentration_mg_ml, imc, calc_mode, charges, volume_cap):
@@ -104,7 +61,7 @@ def calculate_volume(weight, height, kv, concentration_mg_ml, imc, calc_mode, ch
         else:
             charge_iodine = float(charges.get(str(kv), 0.4))
             volume = weight * charge_iodine / concentration_g_ml
-    except Exception:
+    except:
         volume = 0.0
     volume = max(0.0, float(volume))
     if volume > volume_cap:
@@ -136,6 +93,29 @@ def img_to_base64(path):
         return base64.b64encode(f.read()).decode()
 
 # ------------------------
+# Config par défaut
+# ------------------------
+default_config = {
+    "charges": {str(kv): val for kv, val in zip([80, 90, 100, 110, 120], [0.35, 0.38, 0.40, 0.42, 0.45])},
+    "concentration_mg_ml": 350,
+    "portal_time": 30.0,
+    "arterial_time": 25.0,
+    "intermediate_enabled": False,
+    "intermediate_time": 28.0,
+    "acquisition_start_param": 70.0,
+    "auto_acquisition_by_age": True,
+    "max_debit": 6.0,
+    "rincage_volume": 35.0,
+    "rincage_delta_debit": 0.5,
+    "calc_mode": "Charge iodée",
+    "simultaneous_enabled": False,
+    "target_concentration": 350,
+    "volume_max_limit": 200.0
+}
+
+default_libraries = {"programs": {}}
+
+# ------------------------
 # Streamlit UI init
 # ------------------------
 st.set_page_config(page_title="Calculette Contraste Oncologie adulte", page_icon="💉", layout="wide")
@@ -145,28 +125,32 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# ------------------------
+# Choix ou création de session
+# ------------------------
+st.header("💾 Sélection ou création de session utilisateur")
+user_id = st.text_input("Identifiant utilisateur", help="Créez ou sélectionnez votre session")
+if not user_id:
+    st.warning("Veuillez saisir un identifiant pour continuer")
+    st.stop()
+
+safe_id = user_id.replace(" ", "_")
+user_config_file = f"user_config_{safe_id}.json"
+user_libs_file = f"user_libs_{safe_id}.json"
+
+if "user_config" not in st.session_state:
+    st.session_state["user_config"] = load_json_safe(user_config_file, default_config)
+if "user_libraries" not in st.session_state:
+    st.session_state["user_libraries"] = load_json_safe(user_libs_file, default_libraries)
 if "accepted_legal" not in st.session_state:
     st.session_state["accepted_legal"] = False
-if "selected_program" not in st.session_state:
-    st.session_state["selected_program"] = None
 
-# Header réduit
-logo_path = "guerbet_logo.png"
-if os.path.exists(logo_path):
-    try:
-        img_b64 = img_to_base64(logo_path)
-        st.markdown(f"""
-        <div style="display:flex; align-items:center; gap:8px; background:#124F7A; padding:8px; border-radius:8px">
-            <img src="data:image/png;base64,{img_b64}" style="height:60px"/>
-            <h2 style="color:white; margin:0;">Calculette de dose de produit de contraste — Oncologie adulte</h2>
-        </div>
-        """, unsafe_allow_html=True)
-    except Exception:
-        st.title("Calculette de dose de produit de contraste — Oncologie adulte")
-else:
-    st.title("Calculette de dose de produit de contraste — Oncologie adulte")
+config = st.session_state["user_config"]
+libraries = st.session_state["user_libraries"]
 
+# ------------------------
 # Mentions légales
+# ------------------------
 if not st.session_state["accepted_legal"]:
     st.markdown("### Mentions légales — acceptation requise")
     st.markdown("Avant utilisation, acceptez la mention légale. Résultats indicatifs à valider par un professionnel de santé.")
@@ -178,7 +162,27 @@ if not st.session_state["accepted_legal"]:
             st.warning("Vous devez cocher la case pour accepter.")
     st.stop()
 
+# ------------------------
+# Header
+# ------------------------
+logo_path = "guerbet_logo.png"
+if os.path.exists(logo_path):
+    try:
+        img_b64 = img_to_base64(logo_path)
+        st.markdown(f"""
+        <div style="display:flex; align-items:center; gap:8px; background:#124F7A; padding:8px; border-radius:8px">
+            <img src="data:image/png;base64,{img_b64}" style="height:60px"/>
+            <h2 style="color:white; margin:0;">Calculette de dose de produit de contraste — Oncologie adulte</h2>
+        </div>
+        """, unsafe_allow_html=True)
+    except:
+        st.title("Calculette de dose de produit de contraste — Oncologie adulte")
+else:
+    st.title("Calculette de dose de produit de contraste — Oncologie adulte")
+
+# ------------------------
 # Tabs
+# ------------------------
 tab_patient, tab_params, tab_tutorial = st.tabs(["🧍 Patient", "⚙️ Paramètres", "📘 Tutoriel"])
 
 # ------------------------
@@ -189,55 +193,45 @@ with tab_params:
     config["simultaneous_enabled"] = st.checkbox("Activer l'injection simultanée", value=config.get("simultaneous_enabled", False))
     if config["simultaneous_enabled"]:
         config["target_concentration"] = st.number_input("Concentration cible (mg I/mL)", value=int(config.get("target_concentration", 350)), min_value=200, max_value=500, step=10)
+    
     st.subheader("📚 Bibliothèque de programmes")
-    program_choice = st.selectbox("Programme", ["Aucun"] + list(libraries.get("programs", {}).keys()), key="prog_params")
-    if program_choice != "Aucun":
-        prog_conf = libraries["programs"].get(program_choice, {})
-        for key, val in prog_conf.items():
-            config[key] = val
+    # Ajouter un programme
     new_prog_name = st.text_input("Nom du nouveau programme")
     if st.button("💾 Ajouter/Mise à jour programme"):
         if new_prog_name.strip():
-            to_save = {k: config[k] for k in config}
-            libraries["programs"][new_prog_name.strip()] = to_save
-            try:
-                save_libraries(libraries)
-                st.success(f"Programme '{new_prog_name}' ajouté/mis à jour !")
-            except Exception as e:
-                st.error(f"Erreur sauvegarde bibliothèque : {e}")
-    if libraries.get("programs"):
-        del_prog = st.selectbox("Supprimer un programme", [""] + list(libraries["programs"].keys()))
-        if st.button("🗑 Supprimer programme"):
-            if del_prog in libraries["programs"]:
-                del libraries["programs"][del_prog]
-                save_libraries(libraries)
-                st.success(f"Programme '{del_prog}' supprimé !")
-            else:
-                st.error("Programme introuvable.")
+            libraries["programs"][new_prog_name.strip()] = config.copy()
+            save_json_atomic(user_libs_file, libraries)
+            st.success(f"Programme '{new_prog_name}' ajouté/mis à jour !")
+    
+    # Liste des programmes
+    prog_choice = st.selectbox("Programme", ["Sélection d'un programme"] + list(libraries["programs"].keys()), key="prog_params")
+    if prog_choice != "Sélection d'un programme":
+        prog_conf = libraries["programs"].get(prog_choice, {})
+        for key, val in prog_conf.items(): config[key] = val
 
     st.subheader("⚙️ Paramètres globaux")
-    config["concentration_mg_ml"] = st.selectbox("Concentration (mg I/mL)", [300, 320, 350, 370, 400], index=[300, 320, 350, 370, 400].index(int(config.get("concentration_mg_ml", 350))))
-    config["calc_mode"] = st.selectbox("Méthode de calcul", ["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"], index=["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"].index(config.get("calc_mode", "Charge iodée")))
-    config["max_debit"] = st.number_input("Débit maximal autorisé (mL/s)", value=float(config.get("max_debit", 6.0)), min_value=1.0, max_value=20.0, step=0.1)
-    config["portal_time"] = st.number_input("Portal (s)", value=float(config.get("portal_time", 30.0)), min_value=5.0, max_value=120.0, step=1.0)
-    config["arterial_time"] = st.number_input("Artériel (s)", value=float(config.get("arterial_time", 25.0)), min_value=5.0, max_value=120.0, step=1.0)
+    config["concentration_mg_ml"] = st.selectbox("Concentration (mg I/mL)", [300, 320, 350, 370, 400], index=[300,320,350,370,400].index(int(config.get("concentration_mg_ml",350))))
+    config["calc_mode"] = st.selectbox("Méthode de calcul", ["Charge iodée","Surface corporelle","Charge iodée sauf IMC > 30 → Surface corporelle"], index=["Charge iodée","Surface corporelle","Charge iodée sauf IMC > 30 → Surface corporelle"].index(config.get("calc_mode","Charge iodée")))
+    config["max_debit"] = st.number_input("Débit maximal autorisé (mL/s)", value=float(config.get("max_debit",6.0)), min_value=1.0, max_value=20.0, step=0.1)
+    config["portal_time"] = st.number_input("Portal (s)", value=float(config.get("portal_time",30.0)), min_value=5.0, max_value=120.0, step=1.0)
+    config["arterial_time"] = st.number_input("Artériel (s)", value=float(config.get("arterial_time",25.0)), min_value=5.0, max_value=120.0, step=1.0)
     config["intermediate_enabled"] = st.checkbox("Activer temps intermédiaire", value=bool(config.get("intermediate_enabled", False)))
     if config["intermediate_enabled"]:
-        config["intermediate_time"] = st.number_input("Intermédiaire (s)", value=float(config.get("intermediate_time", 28.0)), min_value=5.0, max_value=120.0, step=1.0)
-    config["rincage_volume"] = st.number_input("Volume rinçage (mL)", value=float(config.get("rincage_volume", 35.0)), min_value=10.0, max_value=100.0, step=1.0)
-    config["rincage_delta_debit"] = st.number_input("Δ débit NaCl vs contraste (mL/s)", value=float(config.get("rincage_delta_debit", 0.5)), min_value=0.1, max_value=5.0, step=0.1)
-    config["volume_max_limit"] = st.number_input("Plafond volume (mL) - seringue", value=float(config.get("volume_max_limit", 200.0)), min_value=50.0, max_value=500.0, step=10.0)
-
+        config["intermediate_time"] = st.number_input("Intermédiaire (s)", value=float(config.get("intermediate_time",28.0)), min_value=5.0, max_value=120.0, step=1.0)
+    config["rincage_volume"] = st.number_input("Volume rinçage (mL)", value=float(config.get("rincage_volume",35.0)), min_value=10.0, max_value=100.0, step=1.0)
+    config["rincage_delta_debit"] = st.number_input("Δ débit NaCl vs contraste (mL/s)", value=float(config.get("rincage_delta_debit",0.5)), min_value=0.1, max_value=5.0, step=0.1)
+    config["volume_max_limit"] = st.number_input("Plafond volume (mL) - seringue", value=float(config.get("volume_max_limit",200.0)), min_value=50.0, max_value=500.0, step=10.0)
+    
     st.markdown("**Charges en iode par kV (g I/kg)**")
     df_charges = pd.DataFrame({
         "kV": [80, 90, 100, 110, 120],
-        "Charge (g I/kg)": [float(config["charges"].get(str(kv), 0.35)) for kv in [80, 90, 100, 110, 120]]
+        "Charge (g I/kg)": [float(config["charges"].get(str(kv),0.35)) for kv in [80,90,100,110,120]]
     })
     edited_df = st.data_editor(df_charges, num_rows="fixed", use_container_width=True)
     if st.button("💾 Sauvegarder les paramètres"):
         try:
             config["charges"] = {str(int(row.kV)): float(row["Charge (g I/kg)"]) for _, row in edited_df.iterrows()}
-            save_config(config)
+            save_json_atomic(user_config_file, config)
             st.success("✅ Paramètres sauvegardés !")
         except Exception as e:
             st.error(f"Erreur lors de la sauvegarde : {e}")
@@ -247,7 +241,6 @@ with tab_params:
 # ------------------------
 with tab_patient:
     st.header("🧍 Informations patient (adulte en oncologie)")
-    # Ligne unique avec programme
     col_w, col_h, col_birth, col_prog = st.columns([1,1,1,1.2])
     with col_w: weight = st.select_slider("Poids (kg)", options=list(range(20,201)), value=70, key="weight_patient")
     with col_h: height = st.select_slider("Taille (cm)", options=list(range(100,221)), value=170, key="height_patient")
@@ -262,6 +255,7 @@ with tab_patient:
     # Calculs patient
     age = current_year - birth_year
     imc = weight / ((height / 100)**2)
+    
     col_kv, col_mode_time = st.columns([1.2,2])
     with col_kv: kv_scanner = st.radio("kV du scanner", [80,90,100,110,120], index=4, horizontal=True, key="kv_patient")
     with col_mode_time:
@@ -279,14 +273,12 @@ with tab_patient:
             st.markdown(f"**Départ d'acquisition :** {acquisition_start:.1f} s")
             st.markdown(f"**Concentration utilisée :** {int(config.get('concentration_mg_ml',350))} mg I/mL")
 
-    # Validations
     if weight<=0 or height<=0: st.error("Poids et taille doivent être >0"); st.stop()
     if float(config.get("concentration_mg_ml",0))<=0: st.error("La concentration doit être >0 mg I/mL"); st.stop()
 
     volume, bsa = calculate_volume(weight, height, kv_scanner, float(config.get("concentration_mg_ml",350)), imc, config.get("calc_mode","Charge iodée"), config.get("charges",{}), float(config.get("volume_max_limit",200.0)))
     injection_rate, injection_time, time_adjusted = adjust_injection_rate(volume, float(base_time), float(config.get("max_debit",6.0)))
 
-    # Injection simultanée
     if config.get("simultaneous_enabled",False):
         target = float(config.get("target_concentration",350))
         current_conc = float(config.get("concentration_mg_ml",350))
@@ -307,73 +299,28 @@ with tab_patient:
         contrast_text = f"{int(round(vol_contrast))} mL"
         nacl_text = f"{int(round(config.get('rincage_volume',35.0)))} mL"
 
-    # Affichage cartes résultats
     col_contrast, col_nacl, col_rate = st.columns(3, gap="medium")
     with col_contrast:
         st.markdown(f"""<div style="background:#EAF1F8;padding:12px;border-radius:10px;text-align:center;">
-                         <h3>💧 Volume contraste conseillé</h3><h1 style="margin:0">{contrast_text}</h1>
-                       </div>""", unsafe_allow_html=True)
+                         <h3>💧 Volume contraste conseillé</h3><h1 style="margin:0">{contrast_text}</h1></div>""", unsafe_allow_html=True)
     with col_nacl:
-        st.markdown(f"""<div style="background:#EAF1F8;padding:12px;border-radius:10px;text-align:center;">
-                         <h3>💧 Volume NaCl conseillé</h3><h1 style="margin:0">{nacl_text}</h1>
-                       </div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div style="background:#F5F5F5;padding:12px;border-radius:10px;text-align:center;">
+                         <h3>💦 Rinçage / dilution</h3>{nacl_text}</div>""", unsafe_allow_html=True)
     with col_rate:
-        st.markdown(f"""<div style="background:#EAF1F8;padding:12px;border-radius:10px;text-align:center;">
-                         <h3>🚀 Débit conseillé</h3><h1 style="margin:0">{injection_rate:.1f} mL/s</h1>
-                       </div>""", unsafe_allow_html=True)
-
-    if time_adjusted:
-        st.warning(f"⚠️ Temps d’injection ajusté à {injection_time:.1f}s pour respecter le débit maximal de {config.get('max_debit',6.0)} mL/s.")
-    st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
-
-    try:
-        audit_log(f"calc:age={age},kv={kv_scanner},mode={injection_mode},vol={volume},vol_contrast={vol_contrast},rate={injection_rate:.2f}")
-    except Exception:
-        pass
-
-    st.markdown("""<div style='background-color:#FCE8E6; color:#6B1A00; padding:10px; border-radius:8px; margin-top:15px; font-size:0.9rem;'>⚠️ <b>Avertissement :</b> Ce logiciel est un outil d’aide à la décision. Les résultats sont <b>indicatifs</b> et doivent être validés par un professionnel de santé. Destiné uniquement aux patients adultes en oncologie.</div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div style="background:#FFF4E5;padding:12px;border-radius:10px;text-align:center;">
+                         <h3>🚀 Débit injection</h3><h1 style="margin:0">{injection_rate:.1f} mL/s</h1>
+                         <p>{'⚠️ Débit ajusté pour respecter le max autorisé' if time_adjusted else ''}</p>
+                         <p>Durée : {injection_time:.1f} s</p></div>""", unsafe_allow_html=True)
 
 # ------------------------
-# Tutoriel
+# Onglet Tutoriel
 # ------------------------
 with tab_tutorial:
-    st.title("📘 Tutoriel — Mode d'emploi et principes cliniques")
-    st.markdown("Bienvenue dans le tutoriel. Cette section explique **comment utiliser** la calculette et **pourquoi** chaque calcul est effectué.")
-    st.header("🔧 Guide pas à pas — Utilisation")
+    st.header("📘 Tutoriel / Aide")
     st.markdown("""
-    1. **Patient** : saisissez poids, taille et année de naissance.
-    2. **kV du scanner** : choisissez la valeur correspondant à votre machine.
-    3. **Mode d’injection** : Portal / Artériel / Intermédiaire.
-    4. **Paramètres** : vérifiez la concentration, le débit max et les temps.
-    5. **Injection simultanée** : si activée, définissez la concentration cible.
-    6. **Validation** : relisez les résultats (volume contraste, NaCl, débit).
-    """)
-    st.header("🧠 Explications techniques et cliniques")
-    st.markdown("""
-    - **Charge iodée** : dose proportionnelle au poids.
-    - **Surface corporelle (BSA)** : dose selon m².
-    - **IMC>30** : règle “Charge iodée sauf IMC>30 → Surface corporelle”.
-    - **Débit** = volume / temps; ajusté si dépasse max.
-    - **Injection simultanée** : dilution pour atteindre concentration cible.
-    """)
-    st.header("🔬 Bases — recommandations spécifiques en oncologie hépatique")
-    st.markdown("""
-    Objectif : standardiser le rehaussement hépatique.
-    - Foie sain : ≥110 UH
-    - Foie stéatosique : ≥120 UH
-    ⚠️ Valeurs indicatives selon protocole local.
-    """)
-    st.header("🩺 Exemple de workflow clinique")
-    st.markdown("""
-    Patient 75 kg, 170 cm, kV=120, charge iodée 0.5, mode Portal, concentration 350 mg I/mL.
-    Exemple volume : (75x0.5)/0.35 ≈ 107 mL
-    """)
-
-# ------------------------
-# Footer
-# ------------------------
-st.markdown(f"""<div style='text-align:center; margin-top:20px; font-size:0.8rem; color:#666;'>
-© 2025 Guerbet | Développé par <b>Sébastien Partouche</b><br>
-Calculette de dose de produit de contraste en oncologie adulte.<br>
-<div style='display:inline-block; background-color:#FCE8B2; border:1px solid #F5B800; padding:8px 15px; border-radius:10px; color:#5A4500; font-weight:600; margin-top:10px;'>🧪 Version BETA TEST – Usage interne / évaluation</div>
-</div>""", unsafe_allow_html=True)
+- **Patient** : saisissez vos données et sélectionnez votre programme.
+- **Paramètres** : gérez les paramètres globaux et votre bibliothèque de programmes.
+- **Injection simultanée** : si activée, le volume de contraste est ajusté pour obtenir la concentration cible, le reste étant dilué par NaCl.
+- **Rinçage** : toujours ajouté en volume et débit configurables.
+- **Validation** : résultats indicatifs, à valider par un professionnel de santé.
+""")
