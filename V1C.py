@@ -211,10 +211,13 @@ tab_patient, tab_params, tab_tutorial = st.tabs(["🧍 Patient", "⚙️ Paramè
 # ------------------------
 with tab_params:
     st.header("⚙️ Paramètres et Bibliothèque")
+    st.markdown(f"**Utilisateur actuel :** `{st.session_state['user_id']}`")  # affichage identifiant
+
+    # Paramètres
     config["simultaneous_enabled"] = st.checkbox("Activer l'injection simultanée", value=config.get("simultaneous_enabled", False))
     if config["simultaneous_enabled"]:
         config["target_concentration"] = st.number_input("Concentration cible (mg I/mL)", value=int(config.get("target_concentration", 350)), min_value=200, max_value=500, step=10)
-    
+
     # Bibliothèque de programmes
     st.subheader("📚 Bibliothèque de programmes")
     program_choice = st.selectbox("Programme", ["Aucun"] + list(libraries.get("programs", {}).keys()), key="prog_params")
@@ -227,11 +230,8 @@ with tab_params:
         if new_prog_name.strip():
             to_save = {k: config[k] for k in config}
             libraries["programs"][new_prog_name.strip()] = to_save
-            try:
-                save_libraries(libraries)
-                st.success(f"Programme '{new_prog_name}' ajouté/mis à jour !")
-            except Exception as e:
-                st.error(f"Erreur sauvegarde bibliothèque : {e}")
+            save_libraries(libraries)
+            st.success(f"Programme '{new_prog_name}' ajouté/mis à jour !")
     if libraries.get("programs"):
         del_prog = st.selectbox("Supprimer un programme", [""] + list(libraries["programs"].keys()))
         if st.button("🗑 Supprimer programme"):
@@ -239,11 +239,8 @@ with tab_params:
                 del libraries["programs"][del_prog]
                 save_libraries(libraries)
                 st.success(f"Programme '{del_prog}' supprimé !")
-            else:
-                st.error("Programme introuvable.")
-    
+
     # Paramètres globaux
-    st.subheader("⚙️ Paramètres globaux")
     config["concentration_mg_ml"] = st.selectbox("Concentration (mg I/mL)", [300, 320, 350, 370, 400], index=[300, 320, 350, 370, 400].index(int(config.get("concentration_mg_ml", 350))))
     config["calc_mode"] = st.selectbox("Méthode de calcul", ["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"], index=["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"].index(config.get("calc_mode", "Charge iodée")))
     config["max_debit"] = st.number_input("Débit maximal autorisé (mL/s)", value=float(config.get("max_debit", 6.0)), min_value=1.0, max_value=20.0, step=0.1)
@@ -255,7 +252,8 @@ with tab_params:
     config["rincage_volume"] = st.number_input("Volume rinçage (mL)", value=float(config.get("rincage_volume", 35.0)), min_value=10.0, max_value=100.0, step=1.0)
     config["rincage_delta_debit"] = st.number_input("Δ débit NaCl vs contraste (mL/s)", value=float(config.get("rincage_delta_debit", 0.5)), min_value=0.1, max_value=5.0, step=0.1)
     config["volume_max_limit"] = st.number_input("Plafond volume (mL) - seringue", value=float(config.get("volume_max_limit", 200.0)), min_value=50.0, max_value=500.0, step=10.0)
-    
+
+    # Charges en iode
     st.markdown("**Charges en iode par kV (g I/kg)**")
     df_charges = pd.DataFrame({
         "kV": [80, 90, 100, 110, 120],
@@ -263,35 +261,35 @@ with tab_params:
     })
     edited_df = st.data_editor(df_charges, num_rows="fixed", use_container_width=True)
     if st.button("💾 Sauvegarder les paramètres"):
-        try:
-            config["charges"] = {str(int(row.kV)): float(row["Charge (g I/kg)"]) for _, row in edited_df.iterrows()}
-            save_config(config)
-            st.success("✅ Paramètres sauvegardés !")
-        except Exception as e:
-            st.error(f"Erreur lors de la sauvegarde : {e}")
-    
-    # ------------------------
-    # Gestion des sessions
-    # ------------------------
-st.subheader("👤 Gestion des sessions utilisateurs")
-existing_sessions = list(user_sessions.keys())
+        config["charges"] = {str(int(row.kV)): float(row["Charge (g I/kg)"]) for _, row in edited_df.iterrows()}
+        save_config(config)
+        st.success("✅ Paramètres sauvegardés !")
 
-# Sélection d’une session à supprimer
-session_to_delete = st.selectbox("Sélectionner une session à supprimer", [""] + existing_sessions)
-
-if session_to_delete:
-    confirm_delete = st.checkbox(f"Confirmer la suppression de la session '{session_to_delete}'", key="confirm_delete")
-    if st.button("🗑 Supprimer la session"):
-        if confirm_delete:
-            if session_to_delete in user_sessions:
-                del user_sessions[session_to_delete]
-                save_user_sessions(user_sessions)
-                st.success(f"Session '{session_to_delete}' supprimée !")
-                st.experimental_rerun()  # rafraîchit la page pour mettre à jour la liste
-            else:
-                st.warning("Session introuvable.")
+    # ------------------------
+    # Gestion des sessions utilisateurs
+    # ------------------------
+    st.subheader("👤 Gestion des sessions utilisateurs")
+    existing_sessions = list(user_sessions.keys())
+    session_to_delete = st.selectbox("Sélectionner une session à supprimer", [""] + existing_sessions)
+    if session_to_delete:
+        if session_to_delete == st.session_state["user_id"]:
+            st.warning("⚠️ Impossible de supprimer l'identifiant actuellement utilisé.")
         else:
-            st.warning("Veuillez cocher la case de confirmation avant de supprimer.")
+            confirm_delete = st.checkbox(f"Confirmer la suppression de la session '{session_to_delete}'", key="confirm_delete")
+            if st.button("🗑 Supprimer la session", key="delete_session_btn"):
+                if confirm_delete:
+                    if session_to_delete in user_sessions:
+                        del user_sessions[session_to_delete]
+                        save_user_sessions(user_sessions)
+                        st.success(f"Session '{session_to_delete}' supprimée !")
+                        st.session_state['user_sessions_updated'] = True
+                    else:
+                        st.warning("Session introuvable.")
+                else:
+                    st.warning("Veuillez cocher la case de confirmation avant de supprimer.")
+    if st.session_state.get('user_sessions_updated', False):
+        st.session_state['user_sessions_updated'] = False
+        st.experimental_rerun()
 
 # ------------------------
 # Onglet Patient
