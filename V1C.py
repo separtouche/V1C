@@ -366,7 +366,7 @@ with tab_tutorial:
     st.header("🩺 Exemple de workflow clinique")
     st.markdown("""
     Patient 75 kg, 170 cm, kV=120, charge iodée 0.5, mode Portal, concentration 350 mg I/mL.
-    Exemple volume : (75x0.4)/0.35 ≈ 86 mL
+    Exemple volume : (75x0.5)/0.35 ≈ 107 mL
     """)
 
 # ------------------------
