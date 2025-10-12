@@ -184,7 +184,7 @@ if not st.session_state["accepted_legal"] or st.session_state["user_id"] is None
     st.stop()  # bloque la suite jusqu'à validation
 
 # ------------------------
-# Header réduit + affichage user_id
+# Header réduit (sans user_id)
 # ------------------------
 logo_path = "guerbet_logo.png"
 if os.path.exists(logo_path):
@@ -210,10 +210,12 @@ tab_patient, tab_params, tab_tutorial = st.tabs(["🧍 Patient", "⚙️ Paramè
 # Onglet Paramètres
 # ------------------------
 with tab_params:
-    st.header(f"⚙️ Paramètres et Bibliothèque — Utilisateur : {st.session_state['user_id']}")
+    st.header("⚙️ Paramètres et Bibliothèque")
     config["simultaneous_enabled"] = st.checkbox("Activer l'injection simultanée", value=config.get("simultaneous_enabled", False))
     if config["simultaneous_enabled"]:
         config["target_concentration"] = st.number_input("Concentration cible (mg I/mL)", value=int(config.get("target_concentration", 350)), min_value=200, max_value=500, step=10)
+    
+    # Bibliothèque de programmes
     st.subheader("📚 Bibliothèque de programmes")
     program_choice = st.selectbox("Programme", ["Aucun"] + list(libraries.get("programs", {}).keys()), key="prog_params")
     if program_choice != "Aucun":
@@ -239,7 +241,8 @@ with tab_params:
                 st.success(f"Programme '{del_prog}' supprimé !")
             else:
                 st.error("Programme introuvable.")
-
+    
+    # Paramètres globaux
     st.subheader("⚙️ Paramètres globaux")
     config["concentration_mg_ml"] = st.selectbox("Concentration (mg I/mL)", [300, 320, 350, 370, 400], index=[300, 320, 350, 370, 400].index(int(config.get("concentration_mg_ml", 350))))
     config["calc_mode"] = st.selectbox("Méthode de calcul", ["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"], index=["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"].index(config.get("calc_mode", "Charge iodée")))
@@ -252,7 +255,7 @@ with tab_params:
     config["rincage_volume"] = st.number_input("Volume rinçage (mL)", value=float(config.get("rincage_volume", 35.0)), min_value=10.0, max_value=100.0, step=1.0)
     config["rincage_delta_debit"] = st.number_input("Δ débit NaCl vs contraste (mL/s)", value=float(config.get("rincage_delta_debit", 0.5)), min_value=0.1, max_value=5.0, step=0.1)
     config["volume_max_limit"] = st.number_input("Plafond volume (mL) - seringue", value=float(config.get("volume_max_limit", 200.0)), min_value=50.0, max_value=500.0, step=10.0)
-
+    
     st.markdown("**Charges en iode par kV (g I/kg)**")
     df_charges = pd.DataFrame({
         "kV": [80, 90, 100, 110, 120],
@@ -266,6 +269,23 @@ with tab_params:
             st.success("✅ Paramètres sauvegardés !")
         except Exception as e:
             st.error(f"Erreur lors de la sauvegarde : {e}")
+    
+    # ------------------------
+    # Gestion des sessions
+    # ------------------------
+    st.subheader("👤 Gestion des sessions utilisateurs")
+    existing_sessions = list(user_sessions.keys())
+    session_to_delete = st.selectbox("Sélectionner une session à supprimer", [""] + existing_sessions)
+    if st.button("🗑 Supprimer la session"):
+        if session_to_delete in user_sessions:
+            confirm = st.checkbox(f"Confirmer la suppression de la session '{session_to_delete}'")
+            if confirm:
+                del user_sessions[session_to_delete]
+                save_user_sessions(user_sessions)
+                st.success(f"Session '{session_to_delete}' supprimée !")
+                st.experimental_rerun()
+        else:
+            st.warning("Veuillez sélectionner une session existante à supprimer.")
 
 # ------------------------
 # Onglet Patient
