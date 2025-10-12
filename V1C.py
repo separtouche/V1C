@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Calculette complète (une page) de dose de produit de contraste - Oncologie adulte
-Adaptée pour Sébastien Partouche — version consolidée optimisée
+Adaptée pour Sébastien Partouche — version consolidée avec sessions utilisateurs
 Usage : streamlit run calculatrice_contraste_oncologie.py
 """
 
@@ -19,8 +19,7 @@ import pandas as pd
 CONFIG_FILE = "iodine_config.json"
 LIB_FILE = "libraries.json"
 LOG_FILE = "calc_audit.log"
-USER_LIBS_DIR = "user_sessions"
-
+USER_LIBS_DIR = "user_libraries"
 os.makedirs(USER_LIBS_DIR, exist_ok=True)
 
 # ------------------------
@@ -72,7 +71,7 @@ def audit_log(msg):
         pass
 
 # ------------------------
-# Charger config & libs
+# Charger config & libs globales
 # ------------------------
 config = load_json_safe(CONFIG_FILE, default_config)
 libraries = load_json_safe(LIB_FILE, {"programs": {}})
@@ -85,8 +84,8 @@ if "programs" not in libraries:
 def save_config(cfg):
     save_json_atomic(CONFIG_FILE, cfg)
 
-def save_libraries(lib):
-    save_json_atomic(LIB_FILE, lib)
+def save_libraries(lib, path=LIB_FILE):
+    save_json_atomic(path, lib)
 
 def calculate_bsa(weight, height):
     try:
@@ -147,54 +146,53 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-if "accepted_legal" not in st.session_state:
-    st.session_state["accepted_legal"] = False
-if "user_id" not in st.session_state:
-    st.session_state["user_id"] = None
-if "selected_program" not in st.session_state:
-    st.session_state["selected_program"] = None
+# ------------------------
+# Session state initial
+# ------------------------
+for key in ["accepted_legal", "user_id", "selected_program"]:
+    if key not in st.session_state:
+        st.session_state[key] = None
 
 # ------------------------
-# Page initiale : Mentions légales + sélection/création session
+# Choix ou création de session + mentions légales
 # ------------------------
-if not st.session_state["accepted_legal"]:
-    st.markdown("### Mentions légales — acceptation requise")
-    st.markdown("Avant utilisation, acceptez la mention légale. Résultats indicatifs à valider par un professionnel de santé.")
+if st.session_state["accepted_legal"] is None:
+    st.markdown("### ⚠️ Mentions légales & Sélection de session utilisateur")
+    st.markdown("Avant utilisation, acceptez la mention légale et sélectionnez/créez votre identifiant.")
     accept = st.checkbox("✅ J’accepte les mentions légales.", key="accept_checkbox")
-
-    st.markdown("### Sélection ou création de session utilisateur")
-    users_files = [f.replace(".json","") for f in os.listdir(USER_LIBS_DIR) if f.endswith(".json")]
-    selected_user = st.selectbox("Sélectionner votre identifiant", ["Nouvel utilisateur"] + users_files, key="user_select")
-    new_user_id = st.text_input("Ou créer un nouvel identifiant", key="user_new_id")
-
+    # Liste des utilisateurs existants
+    existing_users = [f.replace(".json","") for f in os.listdir(USER_LIBS_DIR) if f.endswith(".json")]
+    selected_user = st.selectbox("Sélection d’un utilisateur existant", ["Nouvel utilisateur"] + existing_users)
+    new_user_id = ""
+    if selected_user == "Nouvel utilisateur":
+        new_user_id = st.text_input("Créer un nouvel identifiant utilisateur")
     if st.button("✔️ Valider"):
-        if accept:
-            st.session_state["accepted_legal"] = True
-            # Choix de session
-            if selected_user != "Nouvel utilisateur":
-                st.session_state["user_id"] = selected_user
-            elif new_user_id.strip():
-                st.session_state["user_id"] = new_user_id.strip()
-                # Créer fichier session
-                user_lib_file = os.path.join(USER_LIBS_DIR, st.session_state["user_id"]+".json")
-                if not os.path.exists(user_lib_file):
-                    save_json_atomic(user_lib_file, {"programs":{}})
-            else:
-                st.warning("Vous devez sélectionner ou créer un identifiant.")
-                st.stop()
-            st.experimental_rerun()
-        else:
+        if not accept:
             st.warning("Vous devez accepter les mentions légales.")
             st.stop()
+        st.session_state["accepted_legal"] = True
+        if selected_user != "Nouvel utilisateur":
+            st.session_state["user_id"] = selected_user
+        elif new_user_id.strip():
+            st.session_state["user_id"] = new_user_id.strip()
+            user_lib_file = os.path.join(USER_LIBS_DIR, st.session_state["user_id"]+".json")
+            if not os.path.exists(user_lib_file):
+                save_json_atomic(user_lib_file, {"programs": {}})
+        else:
+            st.warning("Vous devez sélectionner ou créer un identifiant.")
+            st.stop()
+        st.experimental_rerun()
 
 # ------------------------
-# Charger programmes de l'utilisateur
+# Après validation, charger bibliothèques utilisateur
 # ------------------------
+if st.session_state.get("user_id") is None:
+    st.stop()
 user_lib_file = os.path.join(USER_LIBS_DIR, st.session_state["user_id"]+".json")
 user_libraries = load_json_safe(user_lib_file, {"programs": {}})
 
 # ------------------------
-# Header réduit
+# Header
 # ------------------------
 logo_path = "guerbet_logo.png"
 if os.path.exists(logo_path):
@@ -217,42 +215,36 @@ else:
 tab_patient, tab_params, tab_tutorial = st.tabs(["🧍 Patient", "⚙️ Paramètres", "📘 Tutoriel"])
 
 # ------------------------
-# Onglet Paramètres (tous les paramètres conservés)
+# Onglet Paramètres
 # ------------------------
 with tab_params:
-    st.header(f"⚙️ Paramètres et Bibliothèque — Session: {st.session_state['user_id']}")
+    st.header("⚙️ Paramètres et Bibliothèque")
+    st.markdown(f"**Session utilisateur :** {st.session_state['user_id']}")
     config["simultaneous_enabled"] = st.checkbox("Activer l'injection simultanée", value=config.get("simultaneous_enabled", False))
     if config["simultaneous_enabled"]:
         config["target_concentration"] = st.number_input("Concentration cible (mg I/mL)", value=int(config.get("target_concentration", 350)), min_value=200, max_value=500, step=10)
-    
     st.subheader("📚 Bibliothèque de programmes")
-    # Fusion bibliothèque globale et utilisateur
-    merged_programs = {**libraries.get("programs", {}), **user_libraries.get("programs", {})}
-    program_choice = st.selectbox("Programme", ["Sélection d'un programme"] + list(merged_programs.keys()), key="prog_params")
-    if program_choice != "Sélection d'un programme":
-        prog_conf = merged_programs.get(program_choice, {})
-        for key, val in prog_conf.items(): config[key] = val
-        st.session_state["selected_program"] = program_choice
-    
+    prog_choice = st.selectbox("Programme", [""] + list(user_libraries.get("programs", {}).keys()), key="prog_params")
+    if prog_choice:
+        prog_conf = user_libraries["programs"].get(prog_choice, {})
+        for key, val in prog_conf.items():
+            config[key] = val
     new_prog_name = st.text_input("Nom du nouveau programme")
     if st.button("💾 Ajouter/Mise à jour programme"):
         if new_prog_name.strip():
             to_save = {k: config[k] for k in config}
             user_libraries["programs"][new_prog_name.strip()] = to_save
-            save_json_atomic(user_lib_file, user_libraries)
+            save_libraries(user_libraries, user_lib_file)
             st.success(f"Programme '{new_prog_name}' ajouté/mis à jour !")
-    
     if user_libraries.get("programs"):
         del_prog = st.selectbox("Supprimer un programme", [""] + list(user_libraries["programs"].keys()))
         if st.button("🗑 Supprimer programme"):
             if del_prog in user_libraries["programs"]:
                 del user_libraries["programs"][del_prog]
-                save_json_atomic(user_lib_file, user_libraries)
+                save_libraries(user_libraries, user_lib_file)
                 st.success(f"Programme '{del_prog}' supprimé !")
-            else:
-                st.error("Programme introuvable.")
 
-    # Tous les paramètres originaux conservés
+    st.subheader("⚙️ Paramètres globaux")
     config["concentration_mg_ml"] = st.selectbox("Concentration (mg I/mL)", [300, 320, 350, 370, 400], index=[300, 320, 350, 370, 400].index(int(config.get("concentration_mg_ml", 350))))
     config["calc_mode"] = st.selectbox("Méthode de calcul", ["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"], index=["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"].index(config.get("calc_mode", "Charge iodée")))
     config["max_debit"] = st.number_input("Débit maximal autorisé (mL/s)", value=float(config.get("max_debit", 6.0)), min_value=1.0, max_value=20.0, step=0.1)
@@ -284,19 +276,13 @@ with tab_params:
 # ------------------------
 with tab_patient:
     st.header("🧍 Informations patient (adulte en oncologie)")
-
     # Ligne unique avec programme
-    col_w, col_h, col_birth, col_prog = st.columns([1,1,1,1.2])
+    col_w, col_h, col_birth = st.columns([1,1,1])
     with col_w: weight = st.select_slider("Poids (kg)", options=list(range(20,201)), value=70, key="weight_patient")
     with col_h: height = st.select_slider("Taille (cm)", options=list(range(100,221)), value=170, key="height_patient")
     current_year = datetime.now().year
     with col_birth: birth_year = st.select_slider("Année de naissance", options=list(range(current_year-120,current_year+1)), value=current_year-40, key="birth_patient")
-    with col_prog:
-        prog_choice_patient = st.selectbox("Programme", ["Sélection d'un programme"]+list(merged_programs.keys()), index=0, label_visibility="collapsed", key="prog_patient")
-        if prog_choice_patient != "Sélection d'un programme":
-            prog_conf = merged_programs.get(prog_choice_patient, {})
-            for key, val in prog_conf.items(): config[key] = val
-            
+
     # Calculs patient
     age = current_year - birth_year
     imc = weight / ((height / 100)**2)
@@ -317,7 +303,6 @@ with tab_patient:
             st.markdown(f"**Départ d'acquisition :** {acquisition_start:.1f} s")
             st.markdown(f"**Concentration utilisée :** {int(config.get('concentration_mg_ml',350))} mg I/mL")
 
-    # Validations
     if weight<=0 or height<=0: st.error("Poids et taille doivent être >0"); st.stop()
     if float(config.get("concentration_mg_ml",0))<=0: st.error("La concentration doit être >0 mg I/mL"); st.stop()
 
@@ -368,8 +353,6 @@ with tab_patient:
         audit_log(f"calc:age={age},kv={kv_scanner},mode={injection_mode},vol={volume},vol_contrast={vol_contrast},rate={injection_rate:.2f}")
     except Exception:
         pass
-
-    st.markdown("""<div style='background-color:#FCE8E6; color:#6B1A00; padding:10px; border-radius:8px; margin-top:15px; font-size:0.9rem;'>⚠️ <b>Avertissement :</b> Ce logiciel est un outil d’aide à la décision. Les résultats sont <b>indicatifs</b> et doivent être validés par un professionnel de santé. Destiné uniquement aux patients adultes en oncologie.</div>""", unsafe_allow_html=True)
 
 # ------------------------
 # Tutoriel
