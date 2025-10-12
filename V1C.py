@@ -70,14 +70,6 @@ def audit_log(msg):
         pass
 
 # ------------------------
-# Charger config & libs
-# ------------------------
-config = load_json_safe(CONFIG_FILE, default_config)
-libraries = load_json_safe(LIB_FILE, {"programs": {}})
-if "programs" not in libraries:
-    libraries["programs"] = {}
-
-# ------------------------
 # Fonctions métier
 # ------------------------
 def save_config(cfg):
@@ -147,8 +139,6 @@ st.markdown("""
 
 if "accepted_legal" not in st.session_state:
     st.session_state["accepted_legal"] = False
-if "selected_program" not in st.session_state:
-    st.session_state["selected_program"] = None
 
 # Header réduit
 logo_path = "guerbet_logo.png"
@@ -186,15 +176,22 @@ tab_patient, tab_params, tab_tutorial = st.tabs(["🧍 Patient", "⚙️ Paramè
 # ------------------------
 with tab_params:
     st.header("⚙️ Paramètres et Bibliothèque")
+    config = load_json_safe(CONFIG_FILE, default_config)
+    libraries = load_json_safe(LIB_FILE, {"programs": {}})
+    if "programs" not in libraries:
+        libraries["programs"] = {}
+
     config["simultaneous_enabled"] = st.checkbox("Activer l'injection simultanée", value=config.get("simultaneous_enabled", False))
     if config["simultaneous_enabled"]:
         config["target_concentration"] = st.number_input("Concentration cible (mg I/mL)", value=int(config.get("target_concentration", 350)), min_value=200, max_value=500, step=10)
+
     st.subheader("📚 Bibliothèque de programmes")
     program_choice = st.selectbox("Programme", ["Aucun"] + list(libraries.get("programs", {}).keys()), key="prog_params")
     if program_choice != "Aucun":
         prog_conf = libraries["programs"].get(program_choice, {})
         for key, val in prog_conf.items():
             config[key] = val
+
     new_prog_name = st.text_input("Nom du nouveau programme")
     if st.button("💾 Ajouter/Mise à jour programme"):
         if new_prog_name.strip():
@@ -247,6 +244,41 @@ with tab_params:
 # ------------------------
 with tab_patient:
     st.header("🧍 Informations patient (adulte en oncologie)")
+
+    # ----- Gestion session utilisateur -----
+    st.subheader("💼 Gestion de session utilisateur")
+    user_id = st.text_input("Identifiant utilisateur", value="", help="Entrez un identifiant pour retrouver vos protocoles précédents")
+    if user_id:
+        safe_id = user_id.replace(" ", "_")
+        user_config_file = f"user_config_{safe_id}.json"
+        user_libs_file = f"user_libs_{safe_id}.json"
+
+        if "user_config" not in st.session_state:
+            st.session_state["user_config"] = default_config.copy()
+        if "user_libraries" not in st.session_state:
+            st.session_state["user_libraries"] = {"programs": {}}
+
+        if os.path.exists(user_config_file):
+            st.session_state["user_config"].update(load_json_safe(user_config_file, default_config))
+        if os.path.exists(user_libs_file):
+            st.session_state["user_libraries"].update(load_json_safe(user_libs_file, {"programs": {}}))
+
+        config = st.session_state["user_config"]
+        libraries = st.session_state["user_libraries"]
+
+        def save_user_session():
+            try:
+                save_json_atomic(user_config_file, st.session_state["user_config"])
+                save_json_atomic(user_libs_file, st.session_state["user_libraries"])
+                st.success("✅ Session utilisateur sauvegardée !")
+            except Exception as e:
+                st.warning(f"Impossible de sauvegarder la session utilisateur: {e}")
+
+        st.button("💾 Sauvegarder ma session", on_click=save_user_session)
+    else:
+        config = load_json_safe(CONFIG_FILE, default_config)
+        libraries = load_json_safe(LIB_FILE, {"programs": {}})
+
     # Ligne unique avec programme
     col_w, col_h, col_birth, col_prog = st.columns([1,1,1,1.2])
     with col_w: weight = st.select_slider("Poids (kg)", options=list(range(20,201)), value=70, key="weight_patient")
