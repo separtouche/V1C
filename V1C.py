@@ -62,7 +62,6 @@ def save_json_atomic(path, data):
     os.replace(tmp, path)
 
 def audit_log(msg):
-    """Ajoute une ligne d'audit (anonymisé) localement."""
     try:
         ts = datetime.utcnow().isoformat()
         with open(LOG_FILE, "a", encoding="utf-8") as f:
@@ -101,7 +100,6 @@ if not st.session_state["accepted_legal"] or st.session_state["user_id"] is None
     st.markdown("Avant utilisation, acceptez la mention légale et créez ou sélectionnez votre identifiant utilisateur. Résultats indicatifs à valider par un professionnel de santé.")
     accept = st.checkbox("✅ J’accepte les mentions légales.", key="accept_checkbox")
     
-    # Liste identifiants existants
     existing_ids = list(user_sessions.keys())
     user_id_input = st.selectbox("Sélectionner un identifiant existant ou créer nouveau :", [""] + existing_ids, index=0)
     new_user_id = st.text_input("Ou créez un nouvel identifiant")
@@ -116,22 +114,26 @@ if not st.session_state["accepted_legal"] or st.session_state["user_id"] is None
             else:
                 st.session_state["accepted_legal"] = True
                 st.session_state["user_id"] = chosen_id
+                # S'assurer que programs et config existent pour l'utilisateur
                 if chosen_id not in user_sessions:
                     user_sessions[chosen_id] = {"programs": {}, "config": default_config.copy()}
-                    save_json_atomic(USER_SESSIONS_FILE, user_sessions)
-    st.stop()  # bloque la suite jusqu'à validation
+                else:
+                    if "programs" not in user_sessions[chosen_id]:
+                        user_sessions[chosen_id]["programs"] = {}
+                    if "config" not in user_sessions[chosen_id]:
+                        user_sessions[chosen_id]["config"] = default_config.copy()
+                save_json_atomic(USER_SESSIONS_FILE, user_sessions)
+    st.stop()
 
 # ------------------------
 # Charger config et programmes pour l'utilisateur courant
 # ------------------------
 user_id = st.session_state["user_id"]
-if user_id not in user_sessions:
-    user_sessions[user_id] = {"programs": {}, "config": default_config.copy()}
 config = user_sessions[user_id]["config"]
 programs_user = user_sessions[user_id]["programs"]
 
 # ------------------------
-# Header réduit (sans user_id)
+# Header réduit (sans identifiant)
 # ------------------------
 logo_path = "guerbet_logo.png"
 if os.path.exists(logo_path):
@@ -158,42 +160,36 @@ tab_patient, tab_params, tab_tutorial = st.tabs(["🧍 Patient", "⚙️ Paramè
 # ------------------------
 with tab_params:
     st.header("⚙️ Paramètres et Bibliothèque")
-    st.markdown(f"**Utilisateur actuel :** `{user_id}`")  # affichage identifiant
+    st.markdown(f"**Utilisateur actuel :** `{st.session_state['user_id']}`")
 
-    # Paramètres
+    # Injection simultanée
     config["simultaneous_enabled"] = st.checkbox("Activer l'injection simultanée", value=config.get("simultaneous_enabled", False))
     if config["simultaneous_enabled"]:
         config["target_concentration"] = st.number_input("Concentration cible (mg I/mL)", value=int(config.get("target_concentration", 350)), min_value=200, max_value=500, step=10)
 
-    # Bibliothèque de programmes utilisateur uniquement
+    # Bibliothèque
     st.subheader("📚 Bibliothèque de programmes")
     program_choice = st.selectbox("Programme", ["Aucun"] + list(programs_user.keys()), key="prog_params")
     if program_choice != "Aucun":
         prog_conf = programs_user.get(program_choice, {})
         for key, val in prog_conf.items():
             config[key] = val
-
-    # Ajouter / mettre à jour programme
     new_prog_name = st.text_input("Nom du nouveau programme")
     if st.button("💾 Ajouter/Mise à jour programme"):
         if new_prog_name.strip():
-            programs_user[new_prog_name.strip()] = config.copy()
-            user_sessions[user_id]["programs"] = programs_user
-            user_sessions[user_id]["config"] = config
+            to_save = {k: config[k] for k in config}
+            programs_user[new_prog_name.strip()] = to_save
             save_json_atomic(USER_SESSIONS_FILE, user_sessions)
             st.success(f"Programme '{new_prog_name}' ajouté/mis à jour !")
-
-    # Supprimer programme
     if programs_user:
         del_prog = st.selectbox("Supprimer un programme", [""] + list(programs_user.keys()))
         if st.button("🗑 Supprimer programme"):
             if del_prog in programs_user:
                 del programs_user[del_prog]
-                user_sessions[user_id]["programs"] = programs_user
                 save_json_atomic(USER_SESSIONS_FILE, user_sessions)
                 st.success(f"Programme '{del_prog}' supprimé !")
 
-    # Paramètres globaux (inchangés)
+    # Paramètres globaux
     config["concentration_mg_ml"] = st.selectbox("Concentration (mg I/mL)", [300, 320, 350, 370, 400], index=[300, 320, 350, 370, 400].index(int(config.get("concentration_mg_ml", 350))))
     config["calc_mode"] = st.selectbox("Méthode de calcul", ["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"], index=["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"].index(config.get("calc_mode", "Charge iodée")))
     config["max_debit"] = st.number_input("Débit maximal autorisé (mL/s)", value=float(config.get("max_debit", 6.0)), min_value=1.0, max_value=20.0, step=0.1)
@@ -206,7 +202,7 @@ with tab_params:
     config["rincage_delta_debit"] = st.number_input("Δ débit NaCl vs contraste (mL/s)", value=float(config.get("rincage_delta_debit", 0.5)), min_value=0.1, max_value=5.0, step=0.1)
     config["volume_max_limit"] = st.number_input("Plafond volume (mL) - seringue", value=float(config.get("volume_max_limit", 200.0)), min_value=50.0, max_value=500.0, step=10.0)
 
-    # Charges en iode
+    # Charges
     st.markdown("**Charges en iode par kV (g I/kg)**")
     df_charges = pd.DataFrame({
         "kV": [80, 90, 100, 110, 120],
@@ -215,7 +211,6 @@ with tab_params:
     edited_df = st.data_editor(df_charges, num_rows="fixed", use_container_width=True)
     if st.button("💾 Sauvegarder les paramètres"):
         config["charges"] = {str(int(row.kV)): float(row["Charge (g I/kg)"]) for _, row in edited_df.iterrows()}
-        user_sessions[user_id]["config"] = config
         save_json_atomic(USER_SESSIONS_FILE, user_sessions)
         st.success("✅ Paramètres sauvegardés !")
 
@@ -226,7 +221,7 @@ with tab_params:
     existing_sessions = list(user_sessions.keys())
     session_to_delete = st.selectbox("Sélectionner une session à supprimer", [""] + existing_sessions)
     if session_to_delete:
-        if session_to_delete == user_id:
+        if session_to_delete == st.session_state["user_id"]:
             st.warning("⚠️ Impossible de supprimer l'identifiant actuellement utilisé.")
         else:
             confirm_delete = st.checkbox(f"Confirmer la suppression de la session '{session_to_delete}'", key="confirm_delete")
