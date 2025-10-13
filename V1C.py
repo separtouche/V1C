@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Calculette complète (une page) de dose de produit de contraste - Oncologie adulte
-Adaptée pour Sébastien Partouche — version consolidée optimisée avec isolation des utilisateurs
+Adaptée pour Sébastien Partouche — version consolidée optimisée
 Usage : streamlit run calculatrice_contraste_oncologie.py
 """
 
@@ -163,6 +163,7 @@ if not st.session_state["accepted_legal"] or st.session_state["user_id"] is None
     st.markdown("Avant utilisation, acceptez la mention légale et créez ou sélectionnez votre identifiant utilisateur. Résultats indicatifs à valider par un professionnel de santé.")
     accept = st.checkbox("✅ J’accepte les mentions légales.", key="accept_checkbox")
     
+    # Liste identifiants existants
     existing_ids = list(user_sessions.keys())
     user_id_input = st.selectbox("Sélectionner un identifiant existant ou créer nouveau :", [""] + existing_ids, index=0)
     new_user_id = st.text_input("Ou créez un nouvel identifiant")
@@ -178,12 +179,9 @@ if not st.session_state["accepted_legal"] or st.session_state["user_id"] is None
                 st.session_state["accepted_legal"] = True
                 st.session_state["user_id"] = chosen_id
                 if chosen_id not in user_sessions:
-                    user_sessions[chosen_id] = {"programs": {}, "parameters": default_config.copy(), "last_selected_program": ""}
+                    user_sessions[chosen_id] = {"programs": {}}
                     save_user_sessions(user_sessions)
     st.stop()  # bloque la suite jusqu'à validation
-
-user_id = st.session_state["user_id"]
-user_data = user_sessions[user_id]
 
 # ------------------------
 # Header réduit
@@ -209,57 +207,51 @@ else:
 tab_patient, tab_params, tab_tutorial = st.tabs(["🧍 Patient", "⚙️ Paramètres", "📘 Tutoriel"])
 
 # ------------------------
-# Onglet Paramètres
+# Onglet Paramètres (inchangé)
 # ------------------------
 with tab_params:
     st.header("⚙️ Paramètres et Bibliothèque")
-    
-    # Paramètres globaux de l'utilisateur
-    config = user_data.get("parameters", default_config.copy())
     config["simultaneous_enabled"] = st.checkbox("Activer l'injection simultanée", value=config.get("simultaneous_enabled", False))
     if config["simultaneous_enabled"]:
         config["target_concentration"] = st.number_input("Concentration cible (mg I/mL)", value=int(config.get("target_concentration", 350)), min_value=200, max_value=500, step=10)
-
-    st.subheader("📚 Vos programmes")
-    user_programs = user_data.get("programs", {})
-    program_choice = st.selectbox("Programme", ["Aucun"] + list(user_programs.keys()), key="prog_params")
+    st.subheader("📚 Bibliothèque de programmes")
+    program_choice = st.selectbox("Programme", ["Aucun"] + list(libraries.get("programs", {}).keys()), key="prog_params")
     if program_choice != "Aucun":
-        prog_conf = user_programs.get(program_choice, {})
+        prog_conf = libraries["programs"].get(program_choice, {})
         for key, val in prog_conf.items():
             config[key] = val
-
     new_prog_name = st.text_input("Nom du nouveau programme")
     if st.button("💾 Ajouter/Mise à jour programme"):
         if new_prog_name.strip():
-            to_save = config.copy()
-            user_programs[new_prog_name.strip()] = to_save
-            user_data["programs"] = user_programs
-            user_data["parameters"] = config
-            save_user_sessions(user_sessions)
-            st.success(f"Programme '{new_prog_name}' ajouté/mis à jour !")
-
-    if user_programs:
-        del_prog = st.selectbox("Supprimer un programme", [""] + list(user_programs.keys()))
+            to_save = {k: config[k] for k in config}
+            libraries["programs"][new_prog_name.strip()] = to_save
+            try:
+                save_libraries(libraries)
+                st.success(f"Programme '{new_prog_name}' ajouté/mis à jour !")
+            except Exception as e:
+                st.error(f"Erreur sauvegarde bibliothèque : {e}")
+    if libraries.get("programs"):
+        del_prog = st.selectbox("Supprimer un programme", [""] + list(libraries["programs"].keys()))
         if st.button("🗑 Supprimer programme"):
-            if del_prog in user_programs:
-                del user_programs[del_prog]
-                user_data["programs"] = user_programs
-                save_user_sessions(user_sessions)
+            if del_prog in libraries["programs"]:
+                del libraries["programs"][del_prog]
+                save_libraries(libraries)
                 st.success(f"Programme '{del_prog}' supprimé !")
-    
+            else:
+                st.error("Programme introuvable.")
+
     st.subheader("⚙️ Paramètres globaux")
-    # Garder tous les champs de config
     config["concentration_mg_ml"] = st.selectbox("Concentration (mg I/mL)", [300, 320, 350, 370, 400], index=[300, 320, 350, 370, 400].index(int(config.get("concentration_mg_ml", 350))))
-    config["calc_mode"] = st.selectbox("Méthode de calcul", ["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"], index=["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"].index(config.get("calc_mode","Charge iodée")))
-    config["max_debit"] = st.number_input("Débit maximal autorisé (mL/s)", value=float(config.get("max_debit",6.0)), min_value=1.0, max_value=20.0, step=0.1)
-    config["portal_time"] = st.number_input("Portal (s)", value=float(config.get("portal_time",30.0)), min_value=5.0, max_value=120.0, step=1.0)
-    config["arterial_time"] = st.number_input("Artériel (s)", value=float(config.get("arterial_time",25.0)), min_value=5.0, max_value=120.0, step=1.0)
+    config["calc_mode"] = st.selectbox("Méthode de calcul", ["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"], index=["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"].index(config.get("calc_mode", "Charge iodée")))
+    config["max_debit"] = st.number_input("Débit maximal autorisé (mL/s)", value=float(config.get("max_debit", 6.0)), min_value=1.0, max_value=20.0, step=0.1)
+    config["portal_time"] = st.number_input("Portal (s)", value=float(config.get("portal_time", 30.0)), min_value=5.0, max_value=120.0, step=1.0)
+    config["arterial_time"] = st.number_input("Artériel (s)", value=float(config.get("arterial_time", 25.0)), min_value=5.0, max_value=120.0, step=1.0)
     config["intermediate_enabled"] = st.checkbox("Activer temps intermédiaire", value=bool(config.get("intermediate_enabled", False)))
     if config["intermediate_enabled"]:
-        config["intermediate_time"] = st.number_input("Intermédiaire (s)", value=float(config.get("intermediate_time",28.0)), min_value=5.0,max_value=120.0,step=1.0)
-    config["rincage_volume"] = st.number_input("Volume rinçage (mL)", value=float(config.get("rincage_volume",35.0)), min_value=10.0, max_value=100.0, step=1.0)
-    config["rincage_delta_debit"] = st.number_input("Δ débit NaCl vs contraste (mL/s)", value=float(config.get("rincage_delta_debit",0.5)), min_value=0.1, max_value=5.0, step=0.1)
-    config["volume_max_limit"] = st.number_input("Plafond volume (mL) - seringue", value=float(config.get("volume_max_limit",200.0)), min_value=50.0, max_value=500.0, step=10.0)
+        config["intermediate_time"] = st.number_input("Intermédiaire (s)", value=float(config.get("intermediate_time", 28.0)), min_value=5.0, max_value=120.0, step=1.0)
+    config["rincage_volume"] = st.number_input("Volume rinçage (mL)", value=float(config.get("rincage_volume", 35.0)), min_value=10.0, max_value=100.0, step=1.0)
+    config["rincage_delta_debit"] = st.number_input("Δ débit NaCl vs contraste (mL/s)", value=float(config.get("rincage_delta_debit", 0.5)), min_value=0.1, max_value=5.0, step=0.1)
+    config["volume_max_limit"] = st.number_input("Plafond volume (mL) - seringue", value=float(config.get("volume_max_limit", 200.0)), min_value=50.0, max_value=500.0, step=10.0)
 
     st.markdown("**Charges en iode par kV (g I/kg)**")
     df_charges = pd.DataFrame({
@@ -270,46 +262,40 @@ with tab_params:
     if st.button("💾 Sauvegarder les paramètres"):
         try:
             config["charges"] = {str(int(row.kV)): float(row["Charge (g I/kg)"]) for _, row in edited_df.iterrows()}
-            user_data["parameters"] = config
-            save_user_sessions(user_sessions)
+            save_config(config)
             st.success("✅ Paramètres sauvegardés !")
         except Exception as e:
             st.error(f"Erreur lors de la sauvegarde : {e}")
 
-    st.subheader("🗂 Gestion des sessions")
-    all_user_ids = list(user_sessions.keys())
-    delete_id = st.selectbox("Supprimer une session utilisateur", [""] + all_user_ids, index=0)
-    if st.button("🗑 Supprimer session"):
-        if delete_id:
-            if delete_id == user_id:
-                st.error("⚠️ Impossible de supprimer la session en cours.")
-            else:
-                del user_sessions[delete_id]
-                save_user_sessions(user_sessions)
-                st.success(f"Session '{delete_id}' supprimée.")
-
 # ------------------------
-# Onglet Patient
+# Onglet Patient (corrigé complet)
 # ------------------------
 with tab_patient:
     st.header("🧍 Informations patient (adulte en oncologie)")
     col_w, col_h, col_birth, col_prog = st.columns([1,1,1,1.2])
-    with col_w: weight = st.select_slider("Poids (kg)", options=list(range(20,201)), value=70, key="weight_patient")
-    with col_h: height = st.select_slider("Taille (cm)", options=list(range(100,221)), value=170, key="height_patient")
+    with col_w:
+        weight = st.select_slider("Poids (kg)", options=list(range(20,201)), value=70, key="weight_patient")
+    with col_h:
+        height = st.select_slider("Taille (cm)", options=list(range(100,221)), value=170, key="height_patient")
     current_year = datetime.now().year
-    with col_birth: birth_year = st.select_slider("Année de naissance", options=list(range(current_year-120,current_year+1)), value=current_year-40, key="birth_patient")
-    
+    with col_birth:
+        birth_year = st.select_slider("Année de naissance", options=list(range(current_year-120,current_year+1)), value=current_year-40, key="birth_patient")
     with col_prog:
-        user_programs = user_data.get("programs", {})
-        prog_choice_patient = st.selectbox("Programme", ["Sélection d'un programme"] + list(user_programs.keys()), index=0, label_visibility="collapsed", key="prog_patient")
+        user_id = st.session_state["user_id"]
+        user_programs = user_sessions[user_id].get("programs", {})
+        prog_choice_patient = st.selectbox(
+            "Programme",
+            ["Sélection d'un programme"] + list(user_programs.keys()),
+            index=0,
+            label_visibility="collapsed",
+            key="prog_patient"
+        )
         if prog_choice_patient != "Sélection d'un programme":
             prog_conf = user_programs.get(prog_choice_patient, {})
             for key, val in prog_conf.items():
                 config[key] = val
-            user_data["last_selected_program"] = prog_choice_patient
-            user_data["parameters"] = config
+            user_sessions[user_id]["last_selected_program"] = prog_choice_patient
             save_user_sessions(user_sessions)
-
 
     # Calculs et affichage identiques à l’original
     age = current_year - birth_year
