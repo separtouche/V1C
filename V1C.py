@@ -1,4 +1,3 @@
-
 # -*- coding: utf-8 -*-
 """
 Calculette complète (une page) de dose de produit de contraste - Oncologie adulte
@@ -74,70 +73,8 @@ def audit_log(msg):
 # ------------------------
 # Charger config & libs
 # ------------------------
-config = load_json_safe(CONFIG_FILE, default_config)
 libraries = load_json_safe(LIB_FILE, {"programs": {}})
 user_sessions = load_json_safe(USER_SESSIONS_FILE, {})
-
-# ------------------------
-# Fonctions métier
-# ------------------------
-def save_config(cfg):
-    save_json_atomic(CONFIG_FILE, cfg)
-
-def save_libraries(lib):
-    save_json_atomic(LIB_FILE, lib)
-
-def save_user_sessions(sessions):
-    save_json_atomic(USER_SESSIONS_FILE, sessions)
-
-def calculate_bsa(weight, height):
-    try:
-        return math.sqrt((height * weight) / 3600.0)
-    except Exception:
-        return None
-
-def calculate_volume(weight, height, kv, concentration_mg_ml, imc, calc_mode, charges, volume_cap):
-    kv_factors = {80: 11, 90: 13, 100: 15, 110: 16.5, 120: 18.6}
-    concentration_g_ml = concentration_mg_ml / 1000.0
-    bsa = None
-    try:
-        if calc_mode == "Surface corporelle" or (calc_mode.startswith("Charge iodée sauf") and imc >= 30):
-            bsa = calculate_bsa(weight, height)
-            factor = kv_factors.get(kv, 15)
-            volume = bsa * factor / concentration_g_ml
-        else:
-            charge_iodine = float(charges.get(str(kv), 0.4))
-            volume = weight * charge_iodine / concentration_g_ml
-    except Exception:
-        volume = 0.0
-    volume = max(0.0, float(volume))
-    if volume > volume_cap:
-        volume = volume_cap
-    return volume, bsa
-
-def calculate_acquisition_start(age, cfg):
-    if not cfg.get("auto_acquisition_by_age", True):
-        return float(cfg.get("acquisition_start_param", 70.0))
-    if age < 70:
-        return float(cfg.get("acquisition_start_param", 70.0))
-    elif 70 <= age <= 90:
-        return float(age)
-    else:
-        return 90.0
-
-def adjust_injection_rate(volume, injection_time, max_debit):
-    injection_time = float(injection_time) if injection_time > 0 else 1.0
-    injection_rate = volume / injection_time if injection_time > 0 else 0.0
-    time_adjusted = False
-    if injection_rate > max_debit:
-        injection_time = volume / max_debit
-        injection_rate = max_debit
-        time_adjusted = True
-    return float(injection_rate), float(injection_time), bool(time_adjusted)
-
-def img_to_base64(path):
-    with open(path, "rb") as f:
-        return base64.b64encode(f.read()).decode()
 
 # ------------------------
 # Streamlit UI init
@@ -149,44 +86,49 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ------------------------
-# Initialisation session
-# ------------------------
 if "accepted_legal" not in st.session_state:
     st.session_state["accepted_legal"] = False
 if "user_id" not in st.session_state:
     st.session_state["user_id"] = None
+if "selected_program" not in st.session_state:
+    st.session_state["selected_program"] = None
 
 # ------------------------
 # Page d'accueil : Mentions légales + session utilisateur
 # ------------------------
 if not st.session_state["accepted_legal"] or st.session_state["user_id"] is None:
     st.markdown("### ⚠️ Mentions légales — acceptation requise")
-    st.markdown("Avant utilisation, acceptez la mention légale et créez votre identifiant utilisateur. Résultats indicatifs à valider par un professionnel de santé.")
+    st.markdown("Avant utilisation, acceptez la mention légale et créez ou sélectionnez votre identifiant utilisateur. Résultats indicatifs à valider par un professionnel de santé.")
     accept = st.checkbox("✅ J’accepte les mentions légales.", key="accept_checkbox")
-
-    new_user_id = st.text_input("Entrez votre identifiant unique")
+    
+    # Liste identifiants existants
+    existing_ids = list(user_sessions.keys())
+    user_id_input = st.selectbox("Sélectionner un identifiant existant ou créer nouveau :", [""] + existing_ids, index=0)
+    new_user_id = st.text_input("Ou créez un nouvel identifiant")
     
     if st.button("Entrer dans la session"):
-        chosen_id = new_user_id.strip()
         if not accept:
             st.warning("Vous devez accepter les mentions légales.")
-        elif not chosen_id:
-            st.warning("Veuillez saisir un identifiant.")
         else:
-            st.session_state["accepted_legal"] = True
-            st.session_state["user_id"] = chosen_id
-            # Crée la session si elle n'existe pas
-            if chosen_id not in user_sessions:
-                user_sessions[chosen_id] = {"programs": {}, "config": config.copy()}
-                save_user_sessions(user_sessions)
+            chosen_id = new_user_id.strip() if new_user_id.strip() else user_id_input
+            if not chosen_id:
+                st.warning("Veuillez saisir ou sélectionner un identifiant.")
+            else:
+                st.session_state["accepted_legal"] = True
+                st.session_state["user_id"] = chosen_id
+                if chosen_id not in user_sessions:
+                    user_sessions[chosen_id] = {"programs": {}, "config": default_config.copy()}
+                    save_json_atomic(USER_SESSIONS_FILE, user_sessions)
     st.stop()  # bloque la suite jusqu'à validation
 
-# Charger la config de l’utilisateur
+# ------------------------
+# Charger config et programmes pour l'utilisateur courant
+# ------------------------
 user_id = st.session_state["user_id"]
-if "config" not in user_sessions[user_id]:
-    user_sessions[user_id]["config"] = config.copy()
+if user_id not in user_sessions:
+    user_sessions[user_id] = {"programs": {}, "config": default_config.copy()}
 config = user_sessions[user_id]["config"]
+programs_user = user_sessions[user_id]["programs"]
 
 # ------------------------
 # Header réduit (sans user_id)
@@ -194,7 +136,7 @@ config = user_sessions[user_id]["config"]
 logo_path = "guerbet_logo.png"
 if os.path.exists(logo_path):
     try:
-        img_b64 = img_to_base64(logo_path)
+        img_b64 = base64.b64encode(open(logo_path, "rb").read()).decode()
         st.markdown(f"""
         <div style="display:flex; align-items:center; gap:8px; background:#124F7A; padding:8px; border-radius:8px">
             <img src="data:image/png;base64,{img_b64}" style="height:60px"/>
@@ -223,34 +165,35 @@ with tab_params:
     if config["simultaneous_enabled"]:
         config["target_concentration"] = st.number_input("Concentration cible (mg I/mL)", value=int(config.get("target_concentration", 350)), min_value=200, max_value=500, step=10)
 
-    # Bibliothèque de programmes
+    # Bibliothèque de programmes utilisateur uniquement
     st.subheader("📚 Bibliothèque de programmes")
-    programs_user = user_sessions[user_id]["programs"]
     program_choice = st.selectbox("Programme", ["Aucun"] + list(programs_user.keys()), key="prog_params")
     if program_choice != "Aucun":
         prog_conf = programs_user.get(program_choice, {})
         for key, val in prog_conf.items():
             config[key] = val
 
+    # Ajouter / mettre à jour programme
     new_prog_name = st.text_input("Nom du nouveau programme")
     if st.button("💾 Ajouter/Mise à jour programme"):
         if new_prog_name.strip():
-            to_save = {k: config[k] for k in config}
-            programs_user[new_prog_name.strip()] = to_save
+            programs_user[new_prog_name.strip()] = config.copy()
             user_sessions[user_id]["programs"] = programs_user
-            save_user_sessions(user_sessions)
+            user_sessions[user_id]["config"] = config
+            save_json_atomic(USER_SESSIONS_FILE, user_sessions)
             st.success(f"Programme '{new_prog_name}' ajouté/mis à jour !")
 
+    # Supprimer programme
     if programs_user:
         del_prog = st.selectbox("Supprimer un programme", [""] + list(programs_user.keys()))
         if st.button("🗑 Supprimer programme"):
             if del_prog in programs_user:
                 del programs_user[del_prog]
                 user_sessions[user_id]["programs"] = programs_user
-                save_user_sessions(user_sessions)
+                save_json_atomic(USER_SESSIONS_FILE, user_sessions)
                 st.success(f"Programme '{del_prog}' supprimé !")
 
-    # Paramètres globaux
+    # Paramètres globaux (inchangés)
     config["concentration_mg_ml"] = st.selectbox("Concentration (mg I/mL)", [300, 320, 350, 370, 400], index=[300, 320, 350, 370, 400].index(int(config.get("concentration_mg_ml", 350))))
     config["calc_mode"] = st.selectbox("Méthode de calcul", ["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"], index=["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"].index(config.get("calc_mode", "Charge iodée")))
     config["max_debit"] = st.number_input("Débit maximal autorisé (mL/s)", value=float(config.get("max_debit", 6.0)), min_value=1.0, max_value=20.0, step=0.1)
@@ -273,21 +216,34 @@ with tab_params:
     if st.button("💾 Sauvegarder les paramètres"):
         config["charges"] = {str(int(row.kV)): float(row["Charge (g I/kg)"]) for _, row in edited_df.iterrows()}
         user_sessions[user_id]["config"] = config
-        save_user_sessions(user_sessions)
+        save_json_atomic(USER_SESSIONS_FILE, user_sessions)
         st.success("✅ Paramètres sauvegardés !")
 
     # ------------------------
-    # Supprimer sa propre session
+    # Gestion des sessions utilisateurs
     # ------------------------
-    st.subheader("👤 Gestion de la session")
-    if st.button("🗑 Supprimer ma session"):
-        confirm_delete = st.checkbox(f"Confirmer suppression de votre session `{user_id}`", key="confirm_delete")
-        if confirm_delete:
-            if user_id in user_sessions:
-                del user_sessions[user_id]
-                save_user_sessions(user_sessions)
-                st.warning("Votre session a été supprimée. Rechargez l'application pour créer une nouvelle session.")
-                st.stop()
+    st.subheader("👤 Gestion des sessions utilisateurs")
+    existing_sessions = list(user_sessions.keys())
+    session_to_delete = st.selectbox("Sélectionner une session à supprimer", [""] + existing_sessions)
+    if session_to_delete:
+        if session_to_delete == user_id:
+            st.warning("⚠️ Impossible de supprimer l'identifiant actuellement utilisé.")
+        else:
+            confirm_delete = st.checkbox(f"Confirmer la suppression de la session '{session_to_delete}'", key="confirm_delete")
+            if st.button("🗑 Supprimer la session", key="delete_session_btn"):
+                if confirm_delete:
+                    if session_to_delete in user_sessions:
+                        del user_sessions[session_to_delete]
+                        save_json_atomic(USER_SESSIONS_FILE, user_sessions)
+                        st.success(f"Session '{session_to_delete}' supprimée !")
+                        st.session_state['user_sessions_updated'] = True
+                    else:
+                        st.warning("Session introuvable.")
+                else:
+                    st.warning("Veuillez cocher la case de confirmation avant de supprimer.")
+    if st.session_state.get('user_sessions_updated', False):
+        st.session_state['user_sessions_updated'] = False
+        st.experimental_rerun()
 
 # ------------------------
 # Onglet Patient
