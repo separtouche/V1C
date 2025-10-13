@@ -207,9 +207,8 @@ else:
 tab_patient, tab_params, tab_tutorial = st.tabs(["🧍 Patient", "⚙️ Paramètres", "📘 Tutoriel"])
 
 # ------------------------
-# Onglet Paramètres
+# Onglet Paramètres (inchangé)
 # ------------------------
-
 with tab_params:
     st.header("⚙️ Paramètres et Bibliothèque")
     config["simultaneous_enabled"] = st.checkbox("Activer l'injection simultanée", value=config.get("simultaneous_enabled", False))
@@ -269,70 +268,89 @@ with tab_params:
             st.error(f"Erreur lors de la sauvegarde : {e}")
 
 # ------------------------
-# Onglet Patient
+# Onglet Patient (corrigé complet)
 # ------------------------
 with tab_patient:
     st.header("🧍 Informations patient (adulte en oncologie)")
     col_w, col_h, col_birth, col_prog = st.columns([1,1,1,1.2])
-    with col_w: weight = st.select_slider("Poids (kg)", options=list(range(20,201)), value=70, key="weight_patient")
-    with col_h: height = st.select_slider("Taille (cm)", options=list(range(100,221)), value=170, key="height_patient")
+    with col_w:
+        weight = st.select_slider("Poids (kg)", options=list(range(20,201)), value=70, key="weight_patient")
+    with col_h:
+        height = st.select_slider("Taille (cm)", options=list(range(100,221)), value=170, key="height_patient")
     current_year = datetime.now().year
-    with col_birth: birth_year = st.select_slider("Année de naissance", options=list(range(current_year-120,current_year+1)), value=current_year-40, key="birth_patient")
+    with col_birth:
+        birth_year = st.select_slider("Année de naissance", options=list(range(current_year-120,current_year+1)), value=current_year-40, key="birth_patient")
     with col_prog:
-        prog_choice_patient = st.selectbox("Programme", ["Sélection d'un programme"] + list(user_sessions[st.session_state["user_id"]]["programs"].keys()), index=0, label_visibility="collapsed", key="prog_patient")
+        user_id = st.session_state["user_id"]
+        user_programs = user_sessions[user_id].get("programs", {})
+        prog_choice_patient = st.selectbox(
+            "Programme",
+            ["Sélection d'un programme"] + list(user_programs.keys()),
+            index=0,
+            label_visibility="collapsed",
+            key="prog_patient"
+        )
         if prog_choice_patient != "Sélection d'un programme":
-            prog_conf = user_sessions[st.session_state["user_id"]]["programs"].get(prog_choice_patient, {})
+            prog_conf = user_programs.get(prog_choice_patient, {})
             for key, val in prog_conf.items():
                 config[key] = val
-    # calculs
-    age=current_year-birth_year
-    imc=weight/((height/100)**2)
-    col_kv,col_mode_time=st.columns([1.2,2])
-    with col_kv: kv_scanner = st.radio("kV du scanner",[80,90,100,110,120],index=4,horizontal=True,key="kv_patient")
+            user_sessions[user_id]["last_selected_program"] = prog_choice_patient
+            save_user_sessions(user_sessions)
+
+    # Calculs et affichage identiques à l’original
+    age = current_year - birth_year
+    imc = weight / ((height/100)**2)
+    col_kv, col_mode_time = st.columns([1.2,2])
+    with col_kv:
+        kv_scanner = st.radio("kV du scanner",[80,90,100,110,120],index=4,horizontal=True,key="kv_patient")
     with col_mode_time:
-        col_mode,col_times=st.columns([1.2,1])
+        col_mode, col_times = st.columns([1.2,1])
         with col_mode:
             injection_modes=["Portal","Artériel"]
-            if config.get("intermediate_enabled",False): injection_modes.append("Intermédiaire")
+            if config.get("intermediate_enabled",False):
+                injection_modes.append("Intermédiaire")
             injection_mode = st.radio("Mode d’injection", injection_modes,horizontal=True,key="mode_inj_patient")
         with col_times:
-            if injection_mode=="Portal": base_time=float(config.get("portal_time",30.0))
-            elif injection_mode=="Artériel": base_time=float(config.get("arterial_time",25.0))
-            else: base_time=st.number_input("Temps Intermédiaire (s)", value=float(config.get("intermediate_time",28.0)), min_value=5.0,max_value=120.0,step=1.0,key="intermediate_time_input")
+            if injection_mode=="Portal": 
+                base_time = float(config.get("portal_time",30.0))
+            elif injection_mode=="Artériel": 
+                base_time = float(config.get("arterial_time",25.0))
+            else:
+                base_time = st.number_input("Temps Intermédiaire (s)", value=float(config.get("intermediate_time",28.0)), min_value=5.0,max_value=120.0,step=1.0,key="intermediate_time_input")
             st.markdown(f"**Temps {injection_mode} :** {base_time:.0f} s")
-            acquisition_start=calculate_acquisition_start(age,config)
+            acquisition_start = calculate_acquisition_start(age, config)
             st.markdown(f"**Départ d'acquisition :** {acquisition_start:.1f} s")
             st.markdown(f"**Concentration utilisée :** {int(config.get('concentration_mg_ml',350))} mg I/mL")
 
-    if weight<=0 or height<=0: st.error("Poids et taille doivent être >0"); st.stop()
-    if float(config.get("concentration_mg_ml",0))<=0: st.error("La concentration doit être >0 mg I/mL"); st.stop()
+    if weight <= 0 or height <= 0: 
+        st.error("Poids et taille doivent être >0"); st.stop()
+    if float(config.get("concentration_mg_ml",0)) <= 0: 
+        st.error("La concentration doit être >0 mg I/mL"); st.stop()
 
-    volume,bsa=calculate_volume(weight,height,kv_scanner,float(config.get("concentration_mg_ml",350)),imc,config.get("calc_mode","Charge iodée"),config.get("charges",{}),float(config.get("volume_max_limit",200.0)))
-    injection_rate,injection_time,time_adjusted=adjust_injection_rate(volume,float(base_time),float(config.get("max_debit",6.0)))
+    volume, bsa = calculate_volume(weight, height, kv_scanner, float(config.get("concentration_mg_ml",350)), imc, config.get("calc_mode","Charge iodée"), config.get("charges",{}), float(config.get("volume_max_limit",200.0)))
+    injection_rate, injection_time, time_adjusted = adjust_injection_rate(volume, float(base_time), float(config.get("max_debit",6.0)))
 
-    # Injection simultanée
     if config.get("simultaneous_enabled",False):
-        target=float(config.get("target_concentration",350))
-        current_conc=float(config.get("concentration_mg_ml",350))
-        if target>current_conc:
+        target = float(config.get("target_concentration",350))
+        current_conc = float(config.get("concentration_mg_ml",350))
+        if target > current_conc:
             st.warning(f"La concentration cible ({target:.0f}) est supérieure à la concentration du flacon ({current_conc:.0f})")
-            target=current_conc
-        vol_contrast=volume*(target/current_conc) if current_conc>0 else volume
-        vol_nacl_dilution=max(0.0,volume-vol_contrast)
-        perc_contrast=(vol_contrast/volume*100) if volume>0 else 0
-        perc_nacl_dilution=(vol_nacl_dilution/volume*100) if volume>0 else 0
-        contrast_text=f"{int(round(vol_contrast))} mL ({int(round(perc_contrast))}%)"
-        nacl_rincage_volume=float(config.get("rincage_volume",35.0))
-        nacl_rincage_debit=max(0.1,injection_rate-float(config.get("rincage_delta_debit",0.5)))
-        nacl_text=f"<div class='sub-item-large'>Dilution : {int(round(vol_nacl_dilution))} mL ({int(round(perc_nacl_dilution))}%)</div>"
-        nacl_text+=f"<div class='sub-item-large'>Rinçage : {int(round(nacl_rincage_volume))} mL @ {injection_rate:.1f} mL/s</div>"
+            target = current_conc
+        vol_contrast = volume * (target/current_conc) if current_conc > 0 else volume
+        vol_nacl_dilution = max(0.0, volume - vol_contrast)
+        perc_contrast = (vol_contrast/volume*100) if volume>0 else 0
+        perc_nacl_dilution = (vol_nacl_dilution/volume*100) if volume>0 else 0
+        contrast_text = f"{int(round(vol_contrast))} mL ({int(round(perc_contrast))}%)"
+        nacl_rincage_volume = float(config.get("rincage_volume",35.0))
+        nacl_rincage_debit = max(0.1, injection_rate - float(config.get("rincage_delta_debit",0.5)))
+        nacl_text = f"<div class='sub-item-large'>Dilution : {int(round(vol_nacl_dilution))} mL ({int(round(perc_nacl_dilution))}%)</div>"
+        nacl_text += f"<div class='sub-item-large'>Rinçage : {int(round(nacl_rincage_volume))} mL @ {injection_rate:.1f} mL/s</div>"
     else:
-        vol_contrast=volume
-        contrast_text=f"{int(round(vol_contrast))} mL"
-        nacl_text=f"{int(round(config.get('rincage_volume',35.0)))} mL"
+        vol_contrast = volume
+        contrast_text = f"{int(round(vol_contrast))} mL"
+        nacl_text = f"{int(round(config.get('rincage_volume',35.0)))} mL"
 
-    # Affichage cartes résultats
-    col_contrast,col_nacl,col_rate=st.columns(3,gap="medium")
+    col_contrast, col_nacl, col_rate = st.columns(3, gap="medium")
     with col_contrast:
         st.markdown(f"""<div style="background:#EAF1F8;padding:12px;border-radius:10px;text-align:center;">
                          <h3>💧 Volume contraste conseillé</h3><h1 style="margin:0">{contrast_text}</h1>
@@ -353,8 +371,23 @@ with tab_patient:
     except:
         pass
 
+    # ------------------------
+    # Gestion suppression de sessions sécurisée
+    # ------------------------
+    st.subheader("Gestion des sessions")
+    all_user_ids = list(user_sessions.keys())
+    delete_id = st.selectbox("Supprimer une session utilisateur", [""] + all_user_ids, index=0)
+    if st.button("🗑 Supprimer session"):
+        if delete_id:
+            if delete_id == user_id:
+                st.error("⚠️ Impossible de supprimer la session en cours.")
+            else:
+                del user_sessions[delete_id]
+                save_user_sessions(user_sessions)
+                st.success(f"Session '{delete_id}' supprimée.")
+
 # ------------------------
-# Tutoriel
+# Onglet Tutoriel (inchangé)
 # ------------------------
 with tab_tutorial:
     st.title("📘 Tutoriel — Mode d'emploi et principes cliniques")
