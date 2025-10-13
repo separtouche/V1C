@@ -156,32 +156,43 @@ if "selected_program" not in st.session_state:
     st.session_state["selected_program"] = None
 
 # ------------------------
-# Page d'accueil : Mentions légales + session utilisateur
+# Page d'accueil : Mentions légales + session utilisateur (sécurisée)
 # ------------------------
 if not st.session_state["accepted_legal"] or st.session_state["user_id"] is None:
     st.markdown("### ⚠️ Mentions légales — acceptation requise")
-    st.markdown("Avant utilisation, acceptez la mention légale et créez ou sélectionnez votre identifiant utilisateur. Résultats indicatifs à valider par un professionnel de santé.")
+    st.markdown("""
+    Avant utilisation, veuillez :
+    - Lire et accepter les mentions légales.
+    - Créer ou saisir votre identifiant personnel (aucun identifiant d'autres utilisateurs n’est visible).
+    
+    Les résultats sont **indicatifs** et doivent être validés par un professionnel de santé.
+    """)
+
     accept = st.checkbox("✅ J’accepte les mentions légales.", key="accept_checkbox")
-    
-    # Liste identifiants existants
-    existing_ids = list(user_sessions.keys())
-    user_id_input = st.selectbox("Sélectionner un identifiant existant ou créer nouveau :", [""] + existing_ids, index=0)
-    new_user_id = st.text_input("Ou créez un nouvel identifiant")
-    
+
+    # ✅ Connexion confidentielle : aucun identifiant affiché
+    st.markdown("#### 🔐 Connexion / Création d’identifiant personnel")
+    new_user_id = st.text_input(
+        "Entrez votre identifiant personnel (par exemple vos initiales ou un code interne)",
+        placeholder="Exemple : SP2025"
+    )
+
     if st.button("Entrer dans la session"):
         if not accept:
-            st.warning("Vous devez accepter les mentions légales.")
+            st.warning("⚠️ Vous devez accepter les mentions légales avant de continuer.")
         else:
-            chosen_id = new_user_id.strip() if new_user_id.strip() else user_id_input
+            chosen_id = new_user_id.strip()
             if not chosen_id:
-                st.warning("Veuillez saisir ou sélectionner un identifiant.")
+                st.warning("Veuillez saisir un identifiant.")
             else:
                 st.session_state["accepted_legal"] = True
                 st.session_state["user_id"] = chosen_id
+                # Si l'identifiant n'existe pas, on le crée
                 if chosen_id not in user_sessions:
                     user_sessions[chosen_id] = {"programs": {}}
                     save_user_sessions(user_sessions)
-    st.stop()  # bloque la suite jusqu'à validation
+                st.success(f"✅ Session ouverte : {chosen_id}")
+    st.stop()  # bloque la suite jusqu’à validation
 
 # ------------------------
 # Header réduit (sans user_id)
