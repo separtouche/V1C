@@ -164,23 +164,24 @@ if not st.session_state["accepted_legal"] or st.session_state["user_id"] is None
     accept = st.checkbox("✅ J’accepte les mentions légales.", key="accept_checkbox")
     
     # Liste identifiants existants
-    existing_ids = list(user_sessions.keys())
-    user_id_input = st.selectbox("Sélectionner un identifiant existant ou créer nouveau :", [""] + existing_ids, index=0)
-    new_user_id = st.text_input("Ou créez un nouvel identifiant")
     
-    if st.button("Entrer dans la session"):
-        if not accept:
-            st.warning("Vous devez accepter les mentions légales.")
+    st.markdown("#### 🔐 Connexion / Création d’identifiant")
+new_user_id = st.text_input("Entrez votre identifiant personnel (ou créez-en un nouveau)")
+
+if st.button("Entrer dans la session"):
+    if not accept:
+        st.warning("Vous devez accepter les mentions légales.")
+    else:
+        chosen_id = new_user_id.strip()
+        if not chosen_id:
+            st.warning("Veuillez saisir un identifiant.")
         else:
-            chosen_id = new_user_id.strip() if new_user_id.strip() else user_id_input
-            if not chosen_id:
-                st.warning("Veuillez saisir ou sélectionner un identifiant.")
-            else:
-                st.session_state["accepted_legal"] = True
-                st.session_state["user_id"] = chosen_id
-                if chosen_id not in user_sessions:
-                    user_sessions[chosen_id] = {"programs": {}}
-                    save_user_sessions(user_sessions)
+            st.session_state["accepted_legal"] = True
+            st.session_state["user_id"] = chosen_id
+            if chosen_id not in user_sessions:
+                user_sessions[chosen_id] = {"programs": {}}
+                save_user_sessions(user_sessions)
+
     st.stop()  # bloque la suite jusqu'à validation
 
 # ------------------------
