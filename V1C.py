@@ -17,7 +17,7 @@ import pandas as pd
 # Fichiers de config
 # ------------------------
 CONFIG_FILE = "iodine_config.json"
-LIB_FILE = "libraries.json"
+LIB_FILE = "libraries.json"  # conservé si besoin futur, mais programmes globaux désactivés
 USER_SESSIONS_FILE = "user_sessions.json"
 LOG_FILE = "calc_audit.log"
 
@@ -75,20 +75,27 @@ def audit_log(msg):
 # ------------------------
 # Charger config & libs
 # ------------------------
-# config_global : valeurs par défaut / globales
 config_global = load_json_safe(CONFIG_FILE, default_config)
+# libraries left for future but global programs disabled per request
 libraries = load_json_safe(LIB_FILE, {"programs": {}})
 user_sessions = load_json_safe(USER_SESSIONS_FILE, {})
 
-# Normalize older data shapes: ensure each user has "config" and "programs" keys
+# Normalize older data shapes: ensure each user has keys
 for uid, data in list(user_sessions.items()):
     if not isinstance(data, dict):
-        user_sessions[uid] = {"programs": {}, "config": config_global.copy(), "created": datetime.utcnow().isoformat()}
+        user_sessions[uid] = {
+            "programs": {},
+            "config": config_global.copy(),
+            "email": None,
+            "created": datetime.utcnow().isoformat()
+        }
     else:
         if "programs" not in data:
             user_sessions[uid]["programs"] = {}
         if "config" not in data:
             user_sessions[uid]["config"] = config_global.copy()
+        if "email" not in data:
+            user_sessions[uid]["email"] = None
         if "created" not in data:
             user_sessions[uid]["created"] = datetime.utcnow().isoformat()
 
@@ -184,37 +191,76 @@ if not st.session_state["accepted_legal"] or st.session_state["user_id"] is None
     st.markdown("Avant utilisation, acceptez la mention légale et créez ou entrez votre identifiant utilisateur. Résultats indicatifs à valider par un professionnel de santé.")
     accept = st.checkbox("✅ J’accepte les mentions légales.", key="accept_checkbox")
     
-    # Pour confidentialité on n'affiche pas la liste complète d'ids : l'utilisateur entre son id ou en crée un nouveau.
+    # Connexion : entrer IDENTIFIANT EXISTANT uniquement
+    st.markdown("**Se connecter**")
     existing_id_input = st.text_input("Entrez un identifiant existant (si vous le connaissez)", key="existing_id_input")
-    new_user_id = st.text_input("Ou créez un nouvel identifiant", key="new_id_input")
+    st.markdown("— ou —")
+    st.markdown("**Créer un nouvel identifiant**")
+    new_user_id = st.text_input("Créez un nouvel identifiant", key="new_id_input")
+    new_user_email = st.text_input("(Facultatif) Email pour récupération d'identifiant", key="new_user_email")
+    st.caption("Astuce : si vous oubliez votre identifiant, utilisez 'Identifiant oublié ?' pour le retrouver via votre email (si ajouté).")
+    
+    # Identification oubliée (affichée dans la page d'accueil)
+    with st.expander("🔑 Identifiant oublié ?"):
+        forget_email = st.text_input("Entrez l'email associé à votre identifiant", key="forget_email")
+        if st.button("🔍 Rechercher identifiant par email"):
+            email = forget_email.strip()
+            if not email:
+                st.warning("Veuillez saisir un email.")
+            else:
+                found = [uid for uid, info in user_sessions.items() if info.get("email") == email]
+                if found:
+                    st.success(f"Identifiant(s) associé(s) à {email} : {', '.join(found)}")
+                else:
+                    st.error("Aucun identifiant n'est associé à cet email.")
     
     if st.button("Entrer dans la session"):
         if not accept:
             st.warning("Vous devez accepter les mentions légales.")
         else:
-            chosen_id = new_user_id.strip() if new_user_id.strip() else existing_id_input.strip()
-            if not chosen_id:
-                st.warning("Veuillez saisir ou entrer un identifiant.")
-            else:
-                st.session_state["accepted_legal"] = True
-                st.session_state["user_id"] = chosen_id
-                # Si nouvel identifiant — création et enregistrement automatiques (snapshot des paramètres)
-                if chosen_id not in user_sessions:
+            chosen_existing = existing_id_input.strip()
+            chosen_new = new_user_id.strip()
+            email_new = new_user_email.strip() if new_user_email else None
+
+            # 1) If user filled both, prefer explicit creation? We'll disallow: require only one action
+            if chosen_existing and chosen_new:
+                st.warning("Veuillez soit entrer un identifiant existant, soit créer un nouvel identifiant, pas les deux.")
+            elif chosen_existing:
+                # Connecting to existing id only allowed
+                if chosen_existing not in user_sessions:
+                    st.error("❌ Identifiant introuvable. Veuillez saisir un identifiant existant ou créer un nouvel identifiant.")
+                else:
+                    st.session_state["accepted_legal"] = True
+                    st.session_state["user_id"] = chosen_existing
+                    # load user's config into session
+                    st.session_state["user_config"] = user_sessions[chosen_existing].get("config", config_global.copy()).copy()
+            elif chosen_new:
+                # Creating new id: must not already exist, email maybe provided but must be unique
+                if chosen_new in user_sessions:
+                    st.error("❌ Cet identifiant existe déjà. Choisissez un autre nom.")
+                else:
+                    # if email provided, ensure unique
+                    if email_new:
+                        emails = [info.get("email") for info in user_sessions.values() if info.get("email")]
+                        if email_new in emails:
+                            st.error("❌ Cet email est déjà associé à un autre identifiant.")
+                            st.stop()
+                    # create
                     ts = datetime.utcnow().isoformat()
-                    user_sessions[chosen_id] = {
+                    user_sessions[chosen_new] = {
                         "programs": {},
                         "config": config_global.copy(),
+                        "email": email_new,
                         "created": ts,
                         "last_selected_program": None
                     }
                     save_user_sessions(user_sessions)
-                else:
-                    # s'il existe, charger sa config dans la session
-                    if "config" not in user_sessions[chosen_id]:
-                        user_sessions[chosen_id]["config"] = config_global.copy()
-                        save_user_sessions(user_sessions)
-                # charger la config personnelle dans la session pour l'UI
-                st.session_state["user_config"] = user_sessions[chosen_id]["config"].copy()
+                    st.session_state["accepted_legal"] = True
+                    st.session_state["user_id"] = chosen_new
+                    st.session_state["user_config"] = config_global.copy()
+                    st.success(f"Identifiant '{chosen_new}' créé. Vous êtes connecté.")
+            else:
+                st.warning("Veuillez saisir un identifiant existant ou créer un nouvel identifiant.")
     st.stop()  # bloque la suite jusqu'à validation
 
 # ------------------------
@@ -248,16 +294,16 @@ def set_cfg_and_persist(user_id, new_cfg):
     st.session_state["user_config"] = new_cfg.copy()
     # persist in user_sessions
     if user_id not in user_sessions:
-        user_sessions[user_id] = {"programs": {}, "config": new_cfg.copy(), "created": datetime.utcnow().isoformat()}
+        user_sessions[user_id] = {"programs": {}, "config": new_cfg.copy(), "email": None, "created": datetime.utcnow().isoformat()}
     else:
         user_sessions[user_id]["config"] = new_cfg.copy()
     save_user_sessions(user_sessions)
 
 # ------------------------
-# Onglet Paramètres (modifié pour gestion sessions + programmes personnels)
+# Onglet Paramètres (gestion sessions + programmes personnels uniquement)
 # ------------------------
 with tab_params:
-    st.header("⚙️ Paramètres et Bibliothèque")
+    st.header("⚙️ Paramètres et Bibliothèque (personnelle)")
     user_id = st.session_state["user_id"]
     cfg = get_cfg()
 
@@ -265,29 +311,19 @@ with tab_params:
     if cfg["simultaneous_enabled"]:
         cfg["target_concentration"] = st.number_input("Concentration cible (mg I/mL)", value=int(cfg.get("target_concentration", 350)), min_value=200, max_value=500, step=10)
 
-    st.subheader("📚 Bibliothèque de programmes (personnelle ou globale)")
-    prog_scope = st.radio("Portée du programme", ["Personnel", "Global"], index=0, horizontal=True)
-    if prog_scope == "Personnel":
-        personal_programs = user_sessions.get(user_id, {}).get("programs", {})
-        program_choice = st.selectbox("Programme (Personnel)", ["Aucun"] + list(personal_programs.keys()), key="prog_params_personal")
-        if program_choice != "Aucun":
-            prog_conf = personal_programs.get(program_choice, {})
-            for key, val in prog_conf.items():
-                cfg[key] = val
-    else:
-        program_choice = st.selectbox("Programme (Global)", ["Aucun"] + list(libraries.get("programs", {}).keys()), key="prog_params_global")
-        if program_choice != "Aucun":
-            prog_conf = libraries["programs"].get(program_choice, {})
-            for key, val in prog_conf.items():
-                cfg[key] = val
+    st.subheader("📚 Vos programmes personnels")
+    personal_programs = user_sessions.get(user_id, {}).get("programs", {})
+    program_choice = st.selectbox("Programme (Personnel)", ["Aucun"] + list(personal_programs.keys()), key="prog_params_personal")
+    if program_choice != "Aucun":
+        prog_conf = personal_programs.get(program_choice, {})
+        for key, val in prog_conf.items():
+            cfg[key] = val
 
     new_prog_name = st.text_input("Nom du nouveau programme (sera enregistré dans vos programmes personnels)")
     if st.button("💾 Ajouter/Mise à jour programme"):
         if new_prog_name.strip():
             to_save = {k: cfg[k] for k in cfg}
-            # enregistrer dans programmes personnels
             user_sessions.setdefault(user_id, {}).setdefault("programs", {})[new_prog_name.strip()] = to_save
-            # s'assurer que la config perso est à jour
             user_sessions.setdefault(user_id, {})["config"] = cfg.copy()
             save_user_sessions(user_sessions)
             st.success(f"Programme personnel '{new_prog_name}' ajouté/mis à jour pour l'identifiant '{user_id}' !")
@@ -309,7 +345,7 @@ with tab_params:
         st.info("Vous n'avez pas encore de programmes personnels enregistrés.")
 
     st.markdown("---")
-    st.subheader("Paramètres globaux (affectent la configuration par défaut)")
+    st.subheader("Paramètres (enregistrés dans votre espace personnel)")
     cfg["concentration_mg_ml"] = st.selectbox("Concentration (mg I/mL)", [300, 320, 350, 370, 400], index=[300, 320, 350, 370, 400].index(int(cfg.get("concentration_mg_ml", 350))))
     cfg["calc_mode"] = st.selectbox("Méthode de calcul", ["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"], index=["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"].index(cfg.get("calc_mode", "Charge iodée")))
     cfg["max_debit"] = st.number_input("Débit maximal autorisé (mL/s)", value=float(cfg.get("max_debit", 6.0)), min_value=1.0, max_value=20.0, step=0.1)
@@ -348,7 +384,9 @@ with tab_params:
     if user_id == SUPER_USER:
         st.markdown("**Super-utilisateur : accès à tous les identifiants**")
         st.write("Liste des identifiants existants :")
-        st.write(all_user_ids)
+        # display with optional email column
+        df_users = pd.DataFrame([{"identifiant": uid, "email": user_sessions[uid].get("email")} for uid in all_user_ids])
+        st.dataframe(df_users, use_container_width=True)
         st.markdown("**Supprimer un identifiant** — saisissez le nom exact de l'identifiant à supprimer")
         del_input = st.text_input("Identifiant à supprimer (exact)", key="del_input_admin")
         if st.button("🗑 Supprimer identifiant (super-utilisateur)"):
@@ -356,7 +394,7 @@ with tab_params:
             if not target:
                 st.warning("Veuillez saisir l'identifiant à supprimer.")
             elif target == user_id:
-                st.error("⚠️ Impossible de supprimer l'identifiant en cours (super-utilisateur connecté).")
+                st.error("⚠️ Impossible de supprimer l'identifiant en cours (super-utilateur connecté).")
             elif target not in user_sessions:
                 st.error("Identifiant introuvable.")
             else:
@@ -365,7 +403,6 @@ with tab_params:
                 st.success(f"Identifiant '{target}' supprimé par le super-utilisateur.")
     else:
         st.markdown("Seul le super-utilisateur peut lister tous les identifiants.")
-        st.markdown("**Supprimer un autre identifiant** — réservé au super-utilisateur.")
         st.markdown("**Supprimer VOTRE identifiant** — saisissez EXACTEMENT votre identifiant pour confirmer.")
         del_input_self = st.text_input("Confirmez votre identifiant pour supprimer votre compte (exact)", key="del_input_self")
         if st.button("🗑 Supprimer MON identifiant"):
