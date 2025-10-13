@@ -160,27 +160,39 @@ if "selected_program" not in st.session_state:
 # ------------------------
 if not st.session_state["accepted_legal"] or st.session_state["user_id"] is None:
     st.markdown("### ⚠️ Mentions légales — acceptation requise")
-    st.markdown("Avant utilisation, acceptez la mention légale et créez ou sélectionnez votre identifiant utilisateur. Résultats indicatifs à valider par un professionnel de santé.")
+    st.markdown("Avant utilisation, acceptez la mention légale et créez ou entrez votre identifiant utilisateur. Résultats indicatifs à valider par un professionnel de santé.")
     accept = st.checkbox("✅ J’accepte les mentions légales.", key="accept_checkbox")
     
-    # Liste identifiants existants
-    existing_ids = list(user_sessions.keys())
-    user_id_input = st.selectbox("Sélectionner un identifiant existant ou créer nouveau :", [""] + existing_ids, index=0)
-    new_user_id = st.text_input("Ou créez un nouvel identifiant")
+    # NOTE: pour respecter la confidentialité des identifiants, on **n'affiche pas** la liste complète ici.
+    # L'utilisateur peut soit entrer un identifiant existant (s'il le connaît), soit en créer un nouveau.
+    existing_id_input = st.text_input("Entrez un identifiant existant (si vous le connaissez)", key="existing_id_input")
+    new_user_id = st.text_input("Ou créez un nouvel identifiant", key="new_id_input")
     
     if st.button("Entrer dans la session"):
         if not accept:
             st.warning("Vous devez accepter les mentions légales.")
         else:
-            chosen_id = new_user_id.strip() if new_user_id.strip() else user_id_input
+            chosen_id = new_user_id.strip() if new_user_id.strip() else existing_id_input.strip()
             if not chosen_id:
-                st.warning("Veuillez saisir ou sélectionner un identifiant.")
+                st.warning("Veuillez saisir ou entrer un identifiant.")
             else:
                 st.session_state["accepted_legal"] = True
                 st.session_state["user_id"] = chosen_id
+                # Si nouvel identifiant — création et enregistrement automatiques (snapshot des paramètres)
                 if chosen_id not in user_sessions:
-                    user_sessions[chosen_id] = {"programs": {}}
+                    ts = datetime.utcnow().isoformat()
+                    user_sessions[chosen_id] = {
+                        "programs": {},  # programmes propres à l'identifiant
+                        "params": config.copy(),  # snapshot des paramètres au moment de la création
+                        "created": ts,
+                        "last_selected_program": None
+                    }
                     save_user_sessions(user_sessions)
+                else:
+                    # Mettre à jour le snapshot 'params' si absent (optionnel)
+                    if "params" not in user_sessions[chosen_id]:
+                        user_sessions[chosen_id]["params"] = config.copy()
+                        save_user_sessions(user_sessions)
     st.stop()  # bloque la suite jusqu'à validation
 
 # ------------------------
@@ -207,40 +219,67 @@ else:
 tab_patient, tab_params, tab_tutorial = st.tabs(["🧍 Patient", "⚙️ Paramètres", "📘 Tutoriel"])
 
 # ------------------------
-# Onglet Paramètres (inchangé)
+# Onglet Paramètres (modifié pour gestion sessions + programmes personnels)
 # ------------------------
 with tab_params:
     st.header("⚙️ Paramètres et Bibliothèque")
+    user_id = st.session_state["user_id"]
+    # Charger snapshot des paramètres si existant pour affichage personnel
+    user_params = user_sessions.get(user_id, {}).get("params", config.copy())
+    # Afficher / modifier les paramètres (affecte le config global, mais on sauvegarde snapshot perso)
     config["simultaneous_enabled"] = st.checkbox("Activer l'injection simultanée", value=config.get("simultaneous_enabled", False))
     if config["simultaneous_enabled"]:
         config["target_concentration"] = st.number_input("Concentration cible (mg I/mL)", value=int(config.get("target_concentration", 350)), min_value=200, max_value=500, step=10)
     st.subheader("📚 Bibliothèque de programmes")
-    program_choice = st.selectbox("Programme", ["Aucun"] + list(libraries.get("programs", {}).keys()), key="prog_params")
-    if program_choice != "Aucun":
-        prog_conf = libraries["programs"].get(program_choice, {})
-        for key, val in prog_conf.items():
-            config[key] = val
-    new_prog_name = st.text_input("Nom du nouveau programme")
+    # Choix de portée : programme global (bibliothèque) vs programmes personnels
+    prog_scope = st.radio("Portée du programme", ["Personnel", "Global"], index=0, horizontal=True)
+    if prog_scope == "Personnel":
+        personal_programs = user_sessions.get(user_id, {}).get("programs", {})
+        program_choice = st.selectbox("Programme (Personnel)", ["Aucun"] + list(personal_programs.keys()), key="prog_params_personal")
+        if program_choice != "Aucun":
+            prog_conf = personal_programs.get(program_choice, {})
+            for key, val in prog_conf.items():
+                config[key] = val
+    else:
+        program_choice = st.selectbox("Programme (Global)", ["Aucun"] + list(libraries.get("programs", {}).keys()), key="prog_params_global")
+        if program_choice != "Aucun":
+            prog_conf = libraries["programs"].get(program_choice, {})
+            for key, val in prog_conf.items():
+                config[key] = val
+
+    new_prog_name = st.text_input("Nom du nouveau programme (sera enregistré dans vos programmes personnels)")
     if st.button("💾 Ajouter/Mise à jour programme"):
         if new_prog_name.strip():
             to_save = {k: config[k] for k in config}
-            libraries["programs"][new_prog_name.strip()] = to_save
-            try:
-                save_libraries(libraries)
-                st.success(f"Programme '{new_prog_name}' ajouté/mis à jour !")
-            except Exception as e:
-                st.error(f"Erreur sauvegarde bibliothèque : {e}")
-    if libraries.get("programs"):
-        del_prog = st.selectbox("Supprimer un programme", [""] + list(libraries["programs"].keys()))
-        if st.button("🗑 Supprimer programme"):
-            if del_prog in libraries["programs"]:
-                del libraries["programs"][del_prog]
-                save_libraries(libraries)
-                st.success(f"Programme '{del_prog}' supprimé !")
+            # Enregistrer dans les programmes personnels de l'utilisateur (indépendants)
+            if user_id not in user_sessions:
+                user_sessions[user_id] = {"programs": {}, "params": config.copy(), "created": datetime.utcnow().isoformat()}
+            user_sessions[user_id].setdefault("programs", {})[new_prog_name.strip()] = to_save
+            # mettre à jour snapshot params également
+            user_sessions[user_id]["params"] = config.copy()
+            save_user_sessions(user_sessions)
+            st.success(f"Programme personnel '{new_prog_name}' ajouté/mis à jour pour l'identifiant '{user_id}' !")
+        else:
+            st.warning("Donnez un nom au programme.")
+
+    # Suppression de programmes : proposer suppression pour programmes personnels (conforme à confidentialité)
+    st.markdown("**Gérer mes programmes personnels**")
+    personal_prog_list = list(user_sessions.get(user_id, {}).get("programs", {}).keys())
+    if personal_prog_list:
+        del_prog_personal = st.selectbox("Supprimer un programme personnel", [""] + personal_prog_list, key="del_prog_personal")
+        if st.button("🗑 Supprimer programme (Personnel)"):
+            if del_prog_personal and del_prog_personal in user_sessions[user_id].get("programs", {}):
+                del user_sessions[user_id]["programs"][del_prog_personal]
+                save_user_sessions(user_sessions)
+                st.success(f"Programme personnel '{del_prog_personal}' supprimé pour l'identifiant '{user_id}'.")
             else:
                 st.error("Programme introuvable.")
+    else:
+        st.info("Vous n'avez pas encore de programmes personnels enregistrés.")
 
-    st.subheader("⚙️ Paramètres globaux")
+    # Conserver la gestion globale des programmes (lecture/écriture) pour l'administrateur uniquement
+    st.markdown("---")
+    st.subheader("Paramètres globaux")
     config["concentration_mg_ml"] = st.selectbox("Concentration (mg I/mL)", [300, 320, 350, 370, 400], index=[300, 320, 350, 370, 400].index(int(config.get("concentration_mg_ml", 350))))
     config["calc_mode"] = st.selectbox("Méthode de calcul", ["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"], index=["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"].index(config.get("calc_mode", "Charge iodée")))
     config["max_debit"] = st.number_input("Débit maximal autorisé (mL/s)", value=float(config.get("max_debit", 6.0)), min_value=1.0, max_value=20.0, step=0.1)
@@ -263,9 +302,52 @@ with tab_params:
         try:
             config["charges"] = {str(int(row.kV)): float(row["Charge (g I/kg)"]) for _, row in edited_df.iterrows()}
             save_config(config)
+            # mettre à jour snapshot params de l'utilisateur (indépendant)
+            if user_id in user_sessions:
+                user_sessions[user_id]["params"] = config.copy()
+                save_user_sessions(user_sessions)
             st.success("✅ Paramètres sauvegardés !")
         except Exception as e:
             st.error(f"Erreur lors de la sauvegarde : {e}")
+
+    # ------------------------
+    # Gestion des sessions (déplacée ici)
+    # ------------------------
+    st.markdown("---")
+    st.subheader("🗂 Gestion des sessions / identifiants")
+    st.markdown("Les identifiants sont indépendants. Vos programmes et paramètres personnels ne sont accessibles qu'avec votre identifiant.")
+    all_user_ids = list(user_sessions.keys())
+
+    # Option suppression : seul 'admin' peut gérer/supprimer d'autres identifiants.
+    if user_id == "admin":
+        st.markdown("**Admin : suppression d'autres identifiants**")
+        delete_id_admin = st.selectbox("Supprimer un autre identifiant", [""] + [uid for uid in all_user_ids if uid != user_id], key="del_id_admin")
+        if st.button("🗑 Supprimer identifiant (admin)"):
+            if delete_id_admin:
+                if delete_id_admin in user_sessions:
+                    del user_sessions[delete_id_admin]
+                    save_user_sessions(user_sessions)
+                    st.success(f"Identifiant '{delete_id_admin}' supprimé.")
+                else:
+                    st.error("Identifiant introuvable.")
+    else:
+        st.info("Seul l'administrateur (identifiant 'admin') peut supprimer d'autres identifiants.")
+        # Permettre à l'utilisateur de supprimer ses **anciens** identifiants s'il en a (liste filtrée)
+        st.markdown("**Supprimer votre identifiant**")
+        st.markdown("⚠️ Suppression de votre identifiant supprimera vos programmes et paramètres personnels. Cette action est irréversible.")
+        if st.button("🗑 Supprimer MON identifiant"):
+            # On n'autorise pas la suppression si c'est la session active (pour éviter incohérences); proposer plutôt de supprimer puis réinitialiser l'app
+            try:
+                # Supprimer l'identifiant puis réinitialiser la session côté UI
+                if user_id in user_sessions:
+                    del user_sessions[user_id]
+                    save_user_sessions(user_sessions)
+                st.session_state["accepted_legal"] = False
+                st.session_state["user_id"] = None
+                st.success("Votre identifiant a été supprimé. Vous avez été déconnecté.")
+                st.experimental_rerun()
+            except Exception as e:
+                st.error(f"Erreur suppression identifiant : {e}")
 
 # ------------------------
 # Onglet Patient (corrigé complet)
@@ -282,7 +364,8 @@ with tab_patient:
         birth_year = st.select_slider("Année de naissance", options=list(range(current_year-120,current_year+1)), value=current_year-40, key="birth_patient")
     with col_prog:
         user_id = st.session_state["user_id"]
-        user_programs = user_sessions[user_id].get("programs", {})
+        # Afficher **uniquement** les programmes associés à l'identifiant connecté
+        user_programs = user_sessions.get(user_id, {}).get("programs", {})
         prog_choice_patient = st.selectbox(
             "Programme",
             ["Sélection d'un programme"] + list(user_programs.keys()),
@@ -294,6 +377,8 @@ with tab_patient:
             prog_conf = user_programs.get(prog_choice_patient, {})
             for key, val in prog_conf.items():
                 config[key] = val
+            # enregistrement du programme sélectionné dans la session de l'identifiant
+            user_sessions.setdefault(user_id, {}).setdefault("last_selected_program", None)
             user_sessions[user_id]["last_selected_program"] = prog_choice_patient
             save_user_sessions(user_sessions)
 
@@ -367,24 +452,11 @@ with tab_patient:
         st.warning(f"⚠️ Temps d’injection ajusté à {injection_time:.1f}s pour respecter le débit maximal de {config.get('max_debit',6.0)} mL/s.")
     st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
     try:
-        audit_log(f"calc:age={age},kv={kv_scanner},mode={injection_mode},vol={volume},vol_contrast={vol_contrast},rate={injection_rate:.2f}")
+        audit_log(f"calc:user={user_id},age={age},kv={kv_scanner},mode={injection_mode},vol={volume},vol_contrast={vol_contrast},rate={injection_rate:.2f}")
     except:
         pass
 
-    # ------------------------
-    # Gestion suppression de sessions sécurisée
-    # ------------------------
-    st.subheader("Gestion des sessions")
-    all_user_ids = list(user_sessions.keys())
-    delete_id = st.selectbox("Supprimer une session utilisateur", [""] + all_user_ids, index=0)
-    if st.button("🗑 Supprimer session"):
-        if delete_id:
-            if delete_id == user_id:
-                st.error("⚠️ Impossible de supprimer la session en cours.")
-            else:
-                del user_sessions[delete_id]
-                save_user_sessions(user_sessions)
-                st.success(f"Session '{delete_id}' supprimée.")
+    # NOTE: gestion de suppression de sessions déplacée dans l'onglet Paramètres pour respecter la confidentialité.
 
 # ------------------------
 # Onglet Tutoriel (inchangé)
