@@ -1,3 +1,4 @@
+
 # -*- coding: utf-8 -*-
 """
 Calculette complète (une page) de dose de produit de contraste - Oncologie adulte
@@ -62,6 +63,7 @@ def save_json_atomic(path, data):
     os.replace(tmp, path)
 
 def audit_log(msg):
+    """Ajoute une ligne d'audit (anonymisé) localement."""
     try:
         ts = datetime.utcnow().isoformat()
         with open(LOG_FILE, "a", encoding="utf-8") as f:
@@ -148,41 +150,46 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ------------------------
-# Session utilisateur
+# Initialisation session
 # ------------------------
 if "accepted_legal" not in st.session_state:
     st.session_state["accepted_legal"] = False
 if "user_id" not in st.session_state:
     st.session_state["user_id"] = None
-if "selected_program" not in st.session_state:
-    st.session_state["selected_program"] = None
-
-if not st.session_state["accepted_legal"] or st.session_state["user_id"] is None:
-    st.markdown("### ⚠️ Mentions légales — acceptation requise")
-    st.markdown("Avant utilisation, acceptez la mention légale et créez ou sélectionnez votre identifiant utilisateur. Résultats indicatifs à valider par un professionnel de santé.")
-    accept = st.checkbox("✅ J’accepte les mentions légales.", key="accept_checkbox")
-    
-    existing_ids = list(user_sessions.keys())
-    user_id_input = st.selectbox("Sélectionner un identifiant existant ou créer nouveau :", [""] + existing_ids, index=0)
-    new_user_id = st.text_input("Ou créez un nouvel identifiant")
-    
-    if st.button("Entrer dans la session"):
-        if not accept:
-            st.warning("Vous devez accepter les mentions légales.")
-        else:
-            chosen_id = new_user_id.strip() if new_user_id.strip() else user_id_input
-            if not chosen_id:
-                st.warning("Veuillez saisir ou sélectionner un identifiant.")
-            else:
-                st.session_state["accepted_legal"] = True
-                st.session_state["user_id"] = chosen_id
-                if chosen_id not in user_sessions:
-                    user_sessions[chosen_id] = {"programs": {}, "config": default_config.copy()}
-                    save_user_sessions(user_sessions)
-    st.stop()
 
 # ------------------------
-# Header (logo seul)
+# Page d'accueil : Mentions légales + session utilisateur
+# ------------------------
+if not st.session_state["accepted_legal"] or st.session_state["user_id"] is None:
+    st.markdown("### ⚠️ Mentions légales — acceptation requise")
+    st.markdown("Avant utilisation, acceptez la mention légale et créez votre identifiant utilisateur. Résultats indicatifs à valider par un professionnel de santé.")
+    accept = st.checkbox("✅ J’accepte les mentions légales.", key="accept_checkbox")
+
+    new_user_id = st.text_input("Entrez votre identifiant unique")
+    
+    if st.button("Entrer dans la session"):
+        chosen_id = new_user_id.strip()
+        if not accept:
+            st.warning("Vous devez accepter les mentions légales.")
+        elif not chosen_id:
+            st.warning("Veuillez saisir un identifiant.")
+        else:
+            st.session_state["accepted_legal"] = True
+            st.session_state["user_id"] = chosen_id
+            # Crée la session si elle n'existe pas
+            if chosen_id not in user_sessions:
+                user_sessions[chosen_id] = {"programs": {}, "config": config.copy()}
+                save_user_sessions(user_sessions)
+    st.stop()  # bloque la suite jusqu'à validation
+
+# Charger la config de l’utilisateur
+user_id = st.session_state["user_id"]
+if "config" not in user_sessions[user_id]:
+    user_sessions[user_id]["config"] = config.copy()
+config = user_sessions[user_id]["config"]
+
+# ------------------------
+# Header réduit (sans user_id)
 # ------------------------
 logo_path = "guerbet_logo.png"
 if os.path.exists(logo_path):
@@ -209,93 +216,78 @@ tab_patient, tab_params, tab_tutorial = st.tabs(["🧍 Patient", "⚙️ Paramè
 # ------------------------
 with tab_params:
     st.header("⚙️ Paramètres et Bibliothèque")
-    current_user = st.session_state["user_id"]
-    st.markdown(f"**Utilisateur actuel :** `{current_user}`")
+    st.markdown(f"**Utilisateur actuel :** `{user_id}`")  # affichage identifiant
 
-    # Charger config de l'utilisateur
-    user_config = user_sessions[current_user].get("config", default_config.copy())
-    user_programs = user_sessions[current_user].get("programs", {})
+    # Paramètres
+    config["simultaneous_enabled"] = st.checkbox("Activer l'injection simultanée", value=config.get("simultaneous_enabled", False))
+    if config["simultaneous_enabled"]:
+        config["target_concentration"] = st.number_input("Concentration cible (mg I/mL)", value=int(config.get("target_concentration", 350)), min_value=200, max_value=500, step=10)
 
-    # Paramètres généraux
-    user_config["simultaneous_enabled"] = st.checkbox("Activer l'injection simultanée", value=user_config.get("simultaneous_enabled", False))
-    if user_config["simultaneous_enabled"]:
-        user_config["target_concentration"] = st.number_input("Concentration cible (mg I/mL)", value=int(user_config.get("target_concentration", 350)), min_value=200, max_value=500, step=10)
-
-    # Bibliothèque programmes personnels
+    # Bibliothèque de programmes
     st.subheader("📚 Bibliothèque de programmes")
-    program_choice = st.selectbox("Programme", ["Aucun"] + list(user_programs.keys()), key="prog_params")
+    programs_user = user_sessions[user_id]["programs"]
+    program_choice = st.selectbox("Programme", ["Aucun"] + list(programs_user.keys()), key="prog_params")
     if program_choice != "Aucun":
-        prog_conf = user_programs.get(program_choice, {})
+        prog_conf = programs_user.get(program_choice, {})
         for key, val in prog_conf.items():
-            user_config[key] = val
+            config[key] = val
+
     new_prog_name = st.text_input("Nom du nouveau programme")
     if st.button("💾 Ajouter/Mise à jour programme"):
         if new_prog_name.strip():
-            user_programs[new_prog_name.strip()] = user_config.copy()
-            user_sessions[current_user]["programs"] = user_programs
-            user_sessions[current_user]["config"] = user_config
+            to_save = {k: config[k] for k in config}
+            programs_user[new_prog_name.strip()] = to_save
+            user_sessions[user_id]["programs"] = programs_user
             save_user_sessions(user_sessions)
             st.success(f"Programme '{new_prog_name}' ajouté/mis à jour !")
-    if user_programs:
-        del_prog = st.selectbox("Supprimer un programme", [""] + list(user_programs.keys()))
+
+    if programs_user:
+        del_prog = st.selectbox("Supprimer un programme", [""] + list(programs_user.keys()))
         if st.button("🗑 Supprimer programme"):
-            if del_prog in user_programs:
-                del user_programs[del_prog]
-                user_sessions[current_user]["programs"] = user_programs
+            if del_prog in programs_user:
+                del programs_user[del_prog]
+                user_sessions[user_id]["programs"] = programs_user
                 save_user_sessions(user_sessions)
                 st.success(f"Programme '{del_prog}' supprimé !")
 
     # Paramètres globaux
-    user_config["concentration_mg_ml"] = st.selectbox("Concentration (mg I/mL)", [300, 320, 350, 370, 400], index=[300, 320, 350, 370, 400].index(int(user_config.get("concentration_mg_ml", 350))))
-    user_config["calc_mode"] = st.selectbox("Méthode de calcul", ["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"], index=["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"].index(user_config.get("calc_mode", "Charge iodée")))
-    user_config["max_debit"] = st.number_input("Débit maximal autorisé (mL/s)", value=float(user_config.get("max_debit", 6.0)), min_value=1.0, max_value=20.0, step=0.1)
-    user_config["portal_time"] = st.number_input("Portal (s)", value=float(user_config.get("portal_time", 30.0)), min_value=5.0, max_value=120.0, step=1.0)
-    user_config["arterial_time"] = st.number_input("Artériel (s)", value=float(user_config.get("arterial_time", 25.0)), min_value=5.0, max_value=120.0, step=1.0)
-    user_config["intermediate_enabled"] = st.checkbox("Activer temps intermédiaire", value=bool(user_config.get("intermediate_enabled", False)))
-    if user_config["intermediate_enabled"]:
-        user_config["intermediate_time"] = st.number_input("Intermédiaire (s)", value=float(user_config.get("intermediate_time", 28.0)), min_value=5.0, max_value=120.0, step=1.0)
-    user_config["rincage_volume"] = st.number_input("Volume rinçage (mL)", value=float(user_config.get("rincage_volume", 35.0)), min_value=10.0, max_value=100.0, step=1.0)
-    user_config["rincage_delta_debit"] = st.number_input("Δ débit NaCl vs contraste (mL/s)", value=float(user_config.get("rincage_delta_debit", 0.5)), min_value=0.1, max_value=5.0, step=0.1)
-    user_config["volume_max_limit"] = st.number_input("Plafond volume (mL) - seringue", value=float(user_config.get("volume_max_limit", 200.0)), min_value=50.0, max_value=500.0, step=10.0)
+    config["concentration_mg_ml"] = st.selectbox("Concentration (mg I/mL)", [300, 320, 350, 370, 400], index=[300, 320, 350, 370, 400].index(int(config.get("concentration_mg_ml", 350))))
+    config["calc_mode"] = st.selectbox("Méthode de calcul", ["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"], index=["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"].index(config.get("calc_mode", "Charge iodée")))
+    config["max_debit"] = st.number_input("Débit maximal autorisé (mL/s)", value=float(config.get("max_debit", 6.0)), min_value=1.0, max_value=20.0, step=0.1)
+    config["portal_time"] = st.number_input("Portal (s)", value=float(config.get("portal_time", 30.0)), min_value=5.0, max_value=120.0, step=1.0)
+    config["arterial_time"] = st.number_input("Artériel (s)", value=float(config.get("arterial_time", 25.0)), min_value=5.0, max_value=120.0, step=1.0)
+    config["intermediate_enabled"] = st.checkbox("Activer temps intermédiaire", value=bool(config.get("intermediate_enabled", False)))
+    if config["intermediate_enabled"]:
+        config["intermediate_time"] = st.number_input("Intermédiaire (s)", value=float(config.get("intermediate_time", 28.0)), min_value=5.0, max_value=120.0, step=1.0)
+    config["rincage_volume"] = st.number_input("Volume rinçage (mL)", value=float(config.get("rincage_volume", 35.0)), min_value=10.0, max_value=100.0, step=1.0)
+    config["rincage_delta_debit"] = st.number_input("Δ débit NaCl vs contraste (mL/s)", value=float(config.get("rincage_delta_debit", 0.5)), min_value=0.1, max_value=5.0, step=0.1)
+    config["volume_max_limit"] = st.number_input("Plafond volume (mL) - seringue", value=float(config.get("volume_max_limit", 200.0)), min_value=50.0, max_value=500.0, step=10.0)
 
     # Charges en iode
     st.markdown("**Charges en iode par kV (g I/kg)**")
     df_charges = pd.DataFrame({
         "kV": [80, 90, 100, 110, 120],
-        "Charge (g I/kg)": [float(user_config["charges"].get(str(kv), 0.35)) for kv in [80, 90, 100, 110, 120]]
+        "Charge (g I/kg)": [float(config["charges"].get(str(kv), 0.35)) for kv in [80, 90, 100, 110, 120]]
     })
     edited_df = st.data_editor(df_charges, num_rows="fixed", use_container_width=True)
     if st.button("💾 Sauvegarder les paramètres"):
-        user_config["charges"] = {str(int(row.kV)): float(row["Charge (g I/kg)"]) for _, row in edited_df.iterrows()}
-        user_sessions[current_user]["config"] = user_config
+        config["charges"] = {str(int(row.kV)): float(row["Charge (g I/kg)"]) for _, row in edited_df.iterrows()}
+        user_sessions[user_id]["config"] = config
         save_user_sessions(user_sessions)
         st.success("✅ Paramètres sauvegardés !")
 
     # ------------------------
-    # Gestion des sessions utilisateurs
+    # Supprimer sa propre session
     # ------------------------
-    st.subheader("👤 Gestion des sessions utilisateurs")
-    existing_sessions = list(user_sessions.keys())
-    session_to_delete = st.selectbox("Sélectionner une session à supprimer", [""] + existing_sessions)
-    if session_to_delete:
-        if session_to_delete == current_user:
-            st.warning("⚠️ Impossible de supprimer l'identifiant actuellement utilisé.")
-        else:
-            confirm_delete = st.checkbox(f"Confirmer la suppression de la session '{session_to_delete}'", key="confirm_delete")
-            if st.button("🗑 Supprimer la session", key="delete_session_btn"):
-                if confirm_delete:
-                    if session_to_delete in user_sessions:
-                        del user_sessions[session_to_delete]
-                        save_user_sessions(user_sessions)
-                        st.success(f"Session '{session_to_delete}' supprimée !")
-                        st.session_state['user_sessions_updated'] = True
-                    else:
-                        st.warning("Session introuvable.")
-                else:
-                    st.warning("Veuillez cocher la case de confirmation avant de supprimer.")
-    if st.session_state.get('user_sessions_updated', False):
-        st.session_state['user_sessions_updated'] = False
-        st.experimental_rerun()
+    st.subheader("👤 Gestion de la session")
+    if st.button("🗑 Supprimer ma session"):
+        confirm_delete = st.checkbox(f"Confirmer suppression de votre session `{user_id}`", key="confirm_delete")
+        if confirm_delete:
+            if user_id in user_sessions:
+                del user_sessions[user_id]
+                save_user_sessions(user_sessions)
+                st.warning("Votre session a été supprimée. Rechargez l'application pour créer une nouvelle session.")
+                st.stop()
 
 # ------------------------
 # Onglet Patient
