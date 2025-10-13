@@ -209,38 +209,38 @@ tab_patient, tab_params, tab_tutorial = st.tabs(["🧍 Patient", "⚙️ Paramè
 # ------------------------
 # Onglet Paramètres
 # ------------------------
-
 with tab_params:
     st.header("⚙️ Paramètres et Bibliothèque")
     config["simultaneous_enabled"] = st.checkbox("Activer l'injection simultanée", value=config.get("simultaneous_enabled", False))
     if config["simultaneous_enabled"]:
         config["target_concentration"] = st.number_input("Concentration cible (mg I/mL)", value=int(config.get("target_concentration", 350)), min_value=200, max_value=500, step=10)
-    st.subheader("📚 Bibliothèque de programmes")
-    program_choice = st.selectbox("Programme", ["Aucun"] + list(libraries.get("programs", {}).keys()), key="prog_params")
+    
+    st.subheader("📚 Bibliothèque de programmes (globale)")
+    program_choice = st.selectbox("Programme global", ["Aucun"] + list(libraries.get("programs", {}).keys()), key="prog_params")
     if program_choice != "Aucun":
         prog_conf = libraries["programs"].get(program_choice, {})
         for key, val in prog_conf.items():
             config[key] = val
+
+    st.subheader("📚 Vos programmes (session)")
     new_prog_name = st.text_input("Nom du nouveau programme")
-    if st.button("💾 Ajouter/Mise à jour programme"):
+    if st.button("💾 Ajouter/Mise à jour programme (session)"):
         if new_prog_name.strip():
             to_save = {k: config[k] for k in config}
-            libraries["programs"][new_prog_name.strip()] = to_save
-            try:
-                save_libraries(libraries)
-                st.success(f"Programme '{new_prog_name}' ajouté/mis à jour !")
-            except Exception as e:
-                st.error(f"Erreur sauvegarde bibliothèque : {e}")
-    if libraries.get("programs"):
-        del_prog = st.selectbox("Supprimer un programme", [""] + list(libraries["programs"].keys()))
-        if st.button("🗑 Supprimer programme"):
-            if del_prog in libraries["programs"]:
-                del libraries["programs"][del_prog]
-                save_libraries(libraries)
+            user_sessions[st.session_state["user_id"]]["programs"][new_prog_name.strip()] = to_save
+            save_user_sessions(user_sessions)
+            st.success(f"Programme '{new_prog_name}' sauvegardé pour votre session !")
+    if user_sessions[st.session_state["user_id"]]["programs"]:
+        del_prog = st.selectbox("Supprimer un programme (session)", [""] + list(user_sessions[st.session_state["user_id"]]["programs"].keys()))
+        if st.button("🗑 Supprimer programme (session)"):
+            if del_prog in user_sessions[st.session_state["user_id"]]["programs"]:
+                del user_sessions[st.session_state["user_id"]]["programs"][del_prog]
+                save_user_sessions(user_sessions)
                 st.success(f"Programme '{del_prog}' supprimé !")
             else:
                 st.error("Programme introuvable.")
 
+    # Paramètres globaux
     st.subheader("⚙️ Paramètres globaux")
     config["concentration_mg_ml"] = st.selectbox("Concentration (mg I/mL)", [300, 320, 350, 370, 400], index=[300, 320, 350, 370, 400].index(int(config.get("concentration_mg_ml", 350))))
     config["calc_mode"] = st.selectbox("Méthode de calcul", ["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"], index=["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"].index(config.get("calc_mode", "Charge iodée")))
@@ -278,18 +278,22 @@ with tab_patient:
     with col_h: height = st.select_slider("Taille (cm)", options=list(range(100,221)), value=170, key="height_patient")
     current_year = datetime.now().year
     with col_birth: birth_year = st.select_slider("Année de naissance", options=list(range(current_year-120,current_year+1)), value=current_year-40, key="birth_patient")
+    
+    # Programme utilisateur
     with col_prog:
-         prog_choice_patient = st.selectbox(
-    "Programme",
-    ["Sélection d'un programme"] + list(libraries.get("programs", {}).keys()),
-    index=0,
-    label_visibility="collapsed",
-    key="prog_patient"
-)
+        user_prog_list = list(user_sessions[st.session_state["user_id"]]["programs"].keys())
+        prog_choice_patient = st.selectbox(
+            "Programme",
+            ["Sélection d'un programme"] + user_prog_list,
+            index=0,
+            label_visibility="collapsed",
+            key="prog_patient"
+        )
         if prog_choice_patient != "Sélection d'un programme":
             prog_conf = user_sessions[st.session_state["user_id"]]["programs"].get(prog_choice_patient, {})
             for key, val in prog_conf.items():
                 config[key] = val
+
     # calculs
     age=current_year-birth_year
     imc=weight/((height/100)**2)
