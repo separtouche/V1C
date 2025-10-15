@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Calculette complète (une page) de dose de produit de contraste - Oncologie CT adulte
+Calculette complète (une page) de dose de produit de contraste - Oncologie adulte
 Adaptée pour Sébastien Partouche — version consolidée optimisée
 Usage : streamlit run calculatrice_contraste_oncologie.py
 """
@@ -17,7 +17,7 @@ import pandas as pd
 # Fichiers de config
 # ------------------------
 CONFIG_FILE = "iodine_config.json"
-LIB_FILE = "libraries.json"  # conservé pour usage futur (non utilisé pour programmes globaux)
+LIB_FILE = "libraries.json"  # conservé si besoin futur, mais programmes globaux désactivés
 USER_SESSIONS_FILE = "user_sessions.json"
 LOG_FILE = "calc_audit.log"
 
@@ -76,6 +76,7 @@ def audit_log(msg):
 # Charger config & libs
 # ------------------------
 config_global = load_json_safe(CONFIG_FILE, default_config)
+# libraries left for future but global programs disabled per request
 libraries = load_json_safe(LIB_FILE, {"programs": {}})
 user_sessions = load_json_safe(USER_SESSIONS_FILE, {})
 
@@ -162,13 +163,10 @@ def img_to_base64(path):
 # ------------------------
 # Streamlit UI init
 # ------------------------
-st.set_page_config(page_title="Calculette Contraste Oncologie CT adulte", page_icon="💉", layout="wide")
+st.set_page_config(page_title="Calculette Contraste Oncologie adulte", page_icon="💉", layout="wide")
 st.markdown("""
 <style>
 .stApp { background-color: #F7FAFC; font-family: 'Segoe UI', sans-serif; }
-.small-note { font-size:0.82rem; color:#666; }
-.link-muted { font-size:0.85rem; color:#0B67A9; text-decoration:underline; }
-.info-block { background:#F6F6F6; padding:8px 10px; border-radius:6px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -224,6 +222,7 @@ if not st.session_state["accepted_legal"] or st.session_state["user_id"] is None
             chosen_new = new_user_id.strip()
             email_new = new_user_email.strip() if new_user_email else None
 
+            # 1) If user filled both, prefer explicit creation? We'll disallow: require only one action
             if chosen_existing and chosen_new:
                 st.warning("Veuillez soit entrer un identifiant existant, soit créer un nouvel identifiant, pas les deux.")
             elif chosen_existing:
@@ -274,13 +273,13 @@ if os.path.exists(logo_path):
         st.markdown(f"""
         <div style="display:flex; align-items:center; gap:8px; background:#124F7A; padding:8px; border-radius:8px">
             <img src="data:image/png;base64,{img_b64}" style="height:60px"/>
-            <h2 style="color:white; margin:0;">Calculette de dose de produit de contraste — Oncologie CT adulte</h2>
+            <h2 style="color:white; margin:0;">Calculette de dose de produit de contraste — Oncologie adulte</h2>
         </div>
         """, unsafe_allow_html=True)
     except Exception:
-        st.title("Calculette de dose de produit de contraste — Oncologie CT adulte")
+        st.title("Calculette de dose de produit de contraste — Oncologie adulte")
 else:
-    st.title("Calculette de dose de produit de contraste — Oncologie CT adulte")
+    st.title("Calculette de dose de produit de contraste — Oncologie adulte")
 
 # ------------------------
 # Tabs
@@ -308,11 +307,7 @@ with tab_params:
     user_id = st.session_state["user_id"]
     cfg = get_cfg()
 
-    # Show connected identifier
-    st.markdown(f"**👤 Identifiant connecté :** `{user_id}`", unsafe_allow_html=True)
-
-    # Injection simultanée (maintenue ici)
-    cfg["simultaneous_enabled"] = st.checkbox("Activer l'injection simultanée (paramètre personnel)", value=cfg.get("simultaneous_enabled", False))
+    cfg["simultaneous_enabled"] = st.checkbox("Activer l'injection simultanée", value=cfg.get("simultaneous_enabled", False))
     if cfg["simultaneous_enabled"]:
         cfg["target_concentration"] = st.number_input("Concentration cible (mg I/mL)", value=int(cfg.get("target_concentration", 350)), min_value=200, max_value=500, step=10)
 
@@ -351,19 +346,16 @@ with tab_params:
 
     st.markdown("---")
     st.subheader("Paramètres (enregistrés dans votre espace personnel)")
-    # auto_acquisition_by_age moved to parameters (user scope)
-    cfg["auto_acquisition_by_age"] = st.checkbox("Activer ajustement automatique du départ d'acquisition selon l'âge (paramètre personnel)", value=bool(cfg.get("auto_acquisition_by_age", True)))
-
     cfg["concentration_mg_ml"] = st.selectbox("Concentration (mg I/mL)", [300, 320, 350, 370, 400], index=[300, 320, 350, 370, 400].index(int(cfg.get("concentration_mg_ml", 350))))
     cfg["calc_mode"] = st.selectbox("Méthode de calcul", ["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"], index=["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"].index(cfg.get("calc_mode", "Charge iodée")))
     cfg["max_debit"] = st.number_input("Débit maximal autorisé (mL/s)", value=float(cfg.get("max_debit", 6.0)), min_value=1.0, max_value=20.0, step=0.1)
     cfg["portal_time"] = st.number_input("Portal (s)", value=float(cfg.get("portal_time", 30.0)), min_value=5.0, max_value=120.0, step=1.0)
     cfg["arterial_time"] = st.number_input("Artériel (s)", value=float(cfg.get("arterial_time", 25.0)), min_value=5.0, max_value=120.0, step=1.0)
-    cfg["intermediate_enabled"] = st.checkbox("Activer temps intermédiaire (paramètre personnel)", value=bool(cfg.get("intermediate_enabled", False)))
+    cfg["intermediate_enabled"] = st.checkbox("Activer temps intermédiaire", value=bool(cfg.get("intermediate_enabled", False)))
     if cfg["intermediate_enabled"]:
         cfg["intermediate_time"] = st.number_input("Intermédiaire (s)", value=float(cfg.get("intermediate_time", 28.0)), min_value=5.0, max_value=120.0, step=1.0)
     cfg["rincage_volume"] = st.number_input("Volume rinçage (mL)", value=float(cfg.get("rincage_volume", 35.0)), min_value=10.0, max_value=100.0, step=1.0)
-    cfg["rincage_delta_debit"] = st.number_input("Δ débit (NaCl vs contraste) (mL/s) — réglable", value=float(cfg.get("rincage_delta_debit", 0.5)), min_value=0.0, max_value=10.0, step=0.1)
+    cfg["rincage_delta_debit"] = st.number_input("Δ débit NaCl vs contraste (mL/s)", value=float(cfg.get("rincage_delta_debit", 0.5)), min_value=0.1, max_value=5.0, step=0.1)
     cfg["volume_max_limit"] = st.number_input("Plafond volume (mL) - seringue", value=float(cfg.get("volume_max_limit", 200.0)), min_value=50.0, max_value=500.0, step=10.0)
 
     st.markdown("**Charges en iode par kV (g I/kg)**")
@@ -402,7 +394,7 @@ with tab_params:
             if not target:
                 st.warning("Veuillez saisir l'identifiant à supprimer.")
             elif target == user_id:
-                st.error("⚠️ Impossible de supprimer l'identifiant en cours (super-utilisateur connecté).")
+                st.error("⚠️ Impossible de supprimer l'identifiant en cours (super-utilateur connecté).")
             elif target not in user_sessions:
                 st.error("Identifiant introuvable.")
             else:
@@ -437,7 +429,7 @@ with tab_params:
 # Onglet Patient (correspond aux programmes personnels)
 # ------------------------
 with tab_patient:
-    st.header("🧍 Informations patient")
+    st.header("🧍 Informations patient (adulte en oncologie)")
     col_w, col_h, col_birth, col_prog = st.columns([1,1,1,1.2])
     with col_w:
         weight = st.select_slider("Poids (kg)", options=list(range(20,201)), value=70, key="weight_patient")
@@ -473,13 +465,6 @@ with tab_patient:
     col_kv, col_mode_time = st.columns([1.2,2])
     with col_kv:
         kv_scanner = st.radio("kV du scanner",[80,90,100,110,120],index=4,horizontal=True,key="kv_patient")
-
-        # Méthode de calcul + charge iodée (texte simple, pas d'encadré pour ne pas décaler)
-        method = cfg.get("calc_mode", "Charge iodée")
-        charge_used = float(cfg.get("charges", {}).get(str(kv_scanner), 0.0))
-        st.markdown(f"**🧮 Méthode utilisée :** {method}")
-        st.markdown(f"**💊 Charge iodée appliquée (kV {kv_scanner}) :** {charge_used:.2f} g I/kg")
-
     with col_mode_time:
         col_mode, col_times = st.columns([1.2,1])
         with col_mode:
@@ -495,21 +480,9 @@ with tab_patient:
             else:
                 base_time = st.number_input("Temps Intermédiaire (s)", value=float(cfg.get("intermediate_time",28.0)), min_value=5.0,max_value=120.0,step=1.0,key="intermediate_time_input")
             st.markdown(f"**Temps {injection_mode} :** {base_time:.0f} s")
-
-            # Indicateurs (ajustement par âge + simultané) - affichés ici suivant paramètres enregistrés
-            if cfg.get("auto_acquisition_by_age", True):
-                st.markdown("<div class='small-note'>🕒 Ajustement automatique du départ d'acquisition selon l'âge activé (paramètres)</div>", unsafe_allow_html=True)
-
-            if cfg.get("simultaneous_enabled", False):
-                st.markdown("<div class='small-note'>💧 Injection simultanée activée (voir Paramètres)</div>", unsafe_allow_html=True)
-
             acquisition_start = calculate_acquisition_start(age, cfg)
             st.markdown(f"**Départ d'acquisition :** {acquisition_start:.1f} s")
             st.markdown(f"**Concentration utilisée :** {int(cfg.get('concentration_mg_ml',350))} mg I/mL")
-
-    # Petit avertissement (en plus petit) si mode intermédiaire
-    if injection_mode == "Intermédiaire":
-        st.markdown("<div class='small-note'>⚠️⚠️ Pensez à ajuster votre départ d'acquisition manuellement.</div>", unsafe_allow_html=True)
 
     if weight <= 0 or height <= 0: 
         st.error("Poids et taille doivent être >0"); st.stop()
@@ -519,7 +492,6 @@ with tab_patient:
     volume, bsa = calculate_volume(weight, height, kv_scanner, float(cfg.get("concentration_mg_ml",350)), imc, cfg.get("calc_mode","Charge iodée"), cfg.get("charges",{}), float(cfg.get("volume_max_limit",200.0)))
     injection_rate, injection_time, time_adjusted = adjust_injection_rate(volume, float(base_time), float(cfg.get("max_debit",6.0)))
 
-    # Calcul pour injection simultanée (si activée)
     if cfg.get("simultaneous_enabled",False):
         target = float(cfg.get("target_concentration",350))
         current_conc = float(cfg.get("concentration_mg_ml",350))
@@ -531,66 +503,49 @@ with tab_patient:
         perc_contrast = (vol_contrast/volume*100) if volume>0 else 0
         perc_nacl_dilution = (vol_nacl_dilution/volume*100) if volume>0 else 0
         contrast_text = f"{int(round(vol_contrast))} mL ({int(round(perc_contrast))}%)"
+        nacl_rincage_volume = float(cfg.get("rincage_volume",35.0))
+        nacl_rincage_debit = max(0.1, injection_rate - float(cfg.get("rincage_delta_debit",0.5)))
+        nacl_text = f"<div class='sub-item-large'>Dilution : {int(round(vol_nacl_dilution))} mL ({int(round(perc_nacl_dilution))}%)</div>"
+        nacl_text += f"<div class='sub-item-large'>Rinçage : {int(round(nacl_rincage_volume))} mL @ {injection_rate:.1f} mL/s</div>"
     else:
         vol_contrast = volume
         contrast_text = f"{int(round(vol_contrast))} mL"
-        vol_nacl_dilution = 0.0
+        nacl_text = f"{int(round(cfg.get('rincage_volume',35.0)))} mL"
 
-    # Débit contraste et débit NaCl (NaCl reprend débit contraste moins delta réglable)
-    contrast_rate = injection_rate
-    # delta (mL/s) configurable par utilisateur via cfg["rincage_delta_debit"]
-    delta_debit = float(cfg.get("rincage_delta_debit", 0.5))
-    nacl_rate_default = max(0.0, contrast_rate - delta_debit)
-    # Permettre ajustement dynamique (local UI control)
-    nacl_delta_user = st.number_input("Δ débit appliqué à NaCl (mL/s) — réduisez le débit par rapport au contraste", value=float(delta_debit), min_value=0.0, max_value=20.0, step=0.1, key="nacl_delta_ui")
-    nacl_rate = max(0.0, contrast_rate - float(nacl_delta_user))
-    # Volume NaCl proposé : si simultané -> vol_nacl_dilution, sinon rinçage
-    nacl_volume = int(round(vol_nacl_dilution)) if cfg.get("simultaneous_enabled", False) else int(round(cfg.get("rincage_volume", 35.0)))
-
-    # Cartes affichage : garder les couleurs/encadrés d'origine, remplacer icône goutte par verte
     col_contrast, col_nacl, col_rate = st.columns(3, gap="medium")
     with col_contrast:
         st.markdown(f"""<div style="background:#EAF1F8;padding:12px;border-radius:10px;text-align:center;">
-                         <h3>💧 <span style='color:green'>Volume contraste conseillé</span></h3><h1 style="margin:0">{contrast_text}</h1>
+                         <h3>💧 Volume contraste conseillé</h3><h1 style="margin:0">{contrast_text}</h1>
                        </div>""",unsafe_allow_html=True)
     with col_nacl:
         st.markdown(f"""<div style="background:#EAF1F8;padding:12px;border-radius:10px;text-align:center;">
-                         <h3>💧 NaCl — Volume conseillé</h3><h1 style="margin:0">{nacl_volume} mL</h1>
-                         <div class='small-note'>Δ débit appliqué : {nacl_delta_user:.2f} mL/s</div>
+                         <h3>💧 Volume NaCl conseillé</h3><h1 style="margin:0">{nacl_text}</h1>
                        </div>""",unsafe_allow_html=True)
     with col_rate:
         st.markdown(f"""<div style="background:#EAF1F8;padding:12px;border-radius:10px;text-align:center;">
-                         <h3>🚀 Débit(s) conseillé(s)</h3>
-                         <div style='font-size:1.1rem; font-weight:600;'>Contraste : {contrast_rate:.1f} mL/s</div>
-                         <div style='font-size:1.1rem; font-weight:600;'>NaCl : {nacl_rate:.1f} mL/s</div>
+                         <h3>🚀 Débit conseillé</h3><h1 style="margin:0">{injection_rate:.1f} mL/s</h1>
                        </div>""",unsafe_allow_html=True)
-
     if time_adjusted:
         st.warning(f"⚠️ Temps d’injection ajusté à {injection_time:.1f}s pour respecter le débit maximal de {cfg.get('max_debit',6.0)} mL/s.")
-
     st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
-
-    # Avertissement petit répété ailleurs (discret)
-    st.markdown("<div class='small-note'>⚠️⚠️ Pensez à ajuster votre départ d'acquisition manuellement si nécessaire.</div>", unsafe_allow_html=True)
-
     try:
-        audit_log(f"calc:user={user_id},age={age},kv={kv_scanner},mode={injection_mode},vol={volume},vol_contrast={vol_contrast},rate={contrast_rate:.2f},method={method},charge={charge_used}")
+        audit_log(f"calc:user={user_id},age={age},kv={kv_scanner},mode={injection_mode},vol={volume},vol_contrast={vol_contrast},rate={injection_rate:.2f}")
     except:
         pass
 
 # ------------------------
-# Onglet Tutoriel (mis à jour pour mentionner CIRTACI)
+# Onglet Tutoriel (inchangé)
 # ------------------------
 with tab_tutorial:
-    st.title("📘 Tutoriel — Mode d'emploi et principes cliniques (basé sur CIRTACI)")
-    st.markdown("Cette section explique **comment utiliser** la calculette et **pourquoi** chaque calcul est effectué. Le contenu se base sur les recommandations CIRTACI 5.3.0 (2020).")
+    st.title("📘 Tutoriel — Mode d'emploi et principes cliniques")
+    st.markdown("Bienvenue dans le tutoriel. Cette section explique **comment utiliser** la calculette et **pourquoi** chaque calcul est effectué.")
     st.header("🔧 Guide pas à pas — Utilisation")
     st.markdown("""
     1. **Patient** : saisissez poids, taille et année de naissance.
     2. **kV du scanner** : choisissez la valeur correspondant à votre machine.
     3. **Mode d’injection** : Portal / Artériel / Intermédiaire.
     4. **Paramètres** : vérifiez la concentration, le débit max et les temps.
-    5. **Injection simultanée** : si activée, définissez la concentration cible dans Paramètres.
+    5. **Injection simultanée** : si activée, définissez la concentration cible.
     6. **Validation** : relisez les résultats (volume contraste, NaCl, débit).
     """)
     st.header("🧠 Explications techniques et cliniques")
@@ -601,12 +556,13 @@ with tab_tutorial:
     - **Débit** = volume / temps; ajusté si dépasse max.
     - **Injection simultanée** : dilution pour atteindre concentration cible.
     """)
-    st.header("🔬 Bases — recommandations spécifiques en oncologie hépatique (CIRTACI)")
+    st.header("🔬 Bases — recommandations spécifiques en oncologie hépatique")
     st.markdown("""
-    Le guide et les recommandations sont basés sur le CIRTACI 5.3.0 (2020). Consultez le document officiel pour les détails et les indications locales.
+    Objectif : standardiser le rehaussement hépatique.
+    - Foie sain : ≥110 UH
+    - Foie stéatosique : ≥120 UH
+    ⚠️ Valeurs indicatives selon protocole local.
     """)
-    st.markdown(f"[Consulter le document officiel (CIRTACI 5.3.0 — 2020)](https://www.radiologie.fr/sites/www.radiologie.fr/files/medias/documents/CIRTACI%20Fiche%20Ge%CC%81ne%CC%81ralite%CC%81s%20VASCULAIRE_5_3_1.pdf)")
-
     st.header("🩺 Exemple de workflow clinique")
     st.markdown("""
     Patient 75 kg, 170 cm, kV=120, charge iodée 0.5, mode Portal, concentration 350 mg I/mL.
@@ -614,12 +570,10 @@ with tab_tutorial:
     """)
 
 # ------------------------
-# Footer (avec lien CIRTACI)
+# Footer
 # ------------------------
 st.markdown(f"""<div style='text-align:center; margin-top:20px; font-size:0.8rem; color:#666;'>
 © 2025 Guerbet | Développé par <b>Sébastien Partouche</b><br>
-Calculette de dose de produit de contraste — Oncologie CT adulte.<br>
+Calculette de dose de produit de contraste en oncologie adulte.<br>
 <div style='display:inline-block; background-color:#FCE8B2; border:1px solid #F5B800; padding:8px 15px; border-radius:10px; color:#5A4500; font-weight:600; margin-top:10px;'>🧪 Version BETA TEST – Usage interne / évaluation</div>
-<br><br>
-<a href="https://www.radiologie.fr/sites/www.radiologie.fr/files/medias/documents/CIRTACI%20Fiche%20Ge%CC%81ne%CC%81ralite%CC%81s%20VASCULAIRE_5_3_1.pdf" target="_blank" style="color:#0B67A9; text-decoration:underline;">Consulter le document CIRTACI 5.3.0 (2020)</a>
 </div>""", unsafe_allow_html=True)
