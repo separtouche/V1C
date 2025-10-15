@@ -166,9 +166,9 @@ st.set_page_config(page_title="Calculette Contraste Oncologie CT adulte", page_i
 st.markdown("""
 <style>
 .stApp { background-color: #F7FAFC; font-family: 'Segoe UI', sans-serif; }
-.small-note { font-size:0.85rem; color:#666; }
+.small-note { font-size:0.82rem; color:#666; }
 .link-muted { font-size:0.85rem; color:#0B67A9; text-decoration:underline; }
-.info-block { background:#F6F6F6; padding:8px 10px; border-radius:8px; border:1px solid #E8E8E8; }
+.info-block { background:#F6F6F6; padding:8px 10px; border-radius:6px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -311,6 +311,7 @@ with tab_params:
     # Show connected identifier
     st.markdown(f"**👤 Identifiant connecté :** `{user_id}`", unsafe_allow_html=True)
 
+    # Injection simultanée (maintenue ici)
     cfg["simultaneous_enabled"] = st.checkbox("Activer l'injection simultanée (paramètre personnel)", value=cfg.get("simultaneous_enabled", False))
     if cfg["simultaneous_enabled"]:
         cfg["target_concentration"] = st.number_input("Concentration cible (mg I/mL)", value=int(cfg.get("target_concentration", 350)), min_value=200, max_value=500, step=10)
@@ -350,6 +351,9 @@ with tab_params:
 
     st.markdown("---")
     st.subheader("Paramètres (enregistrés dans votre espace personnel)")
+    # auto_acquisition_by_age moved to parameters (user scope)
+    cfg["auto_acquisition_by_age"] = st.checkbox("Activer ajustement automatique du départ d'acquisition selon l'âge (paramètre personnel)", value=bool(cfg.get("auto_acquisition_by_age", True)))
+
     cfg["concentration_mg_ml"] = st.selectbox("Concentration (mg I/mL)", [300, 320, 350, 370, 400], index=[300, 320, 350, 370, 400].index(int(cfg.get("concentration_mg_ml", 350))))
     cfg["calc_mode"] = st.selectbox("Méthode de calcul", ["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"], index=["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"].index(cfg.get("calc_mode", "Charge iodée")))
     cfg["max_debit"] = st.number_input("Débit maximal autorisé (mL/s)", value=float(cfg.get("max_debit", 6.0)), min_value=1.0, max_value=20.0, step=0.1)
@@ -359,7 +363,7 @@ with tab_params:
     if cfg["intermediate_enabled"]:
         cfg["intermediate_time"] = st.number_input("Intermédiaire (s)", value=float(cfg.get("intermediate_time", 28.0)), min_value=5.0, max_value=120.0, step=1.0)
     cfg["rincage_volume"] = st.number_input("Volume rinçage (mL)", value=float(cfg.get("rincage_volume", 35.0)), min_value=10.0, max_value=100.0, step=1.0)
-    cfg["rincage_delta_debit"] = st.number_input("Δ débit NaCl vs contraste (mL/s)", value=float(cfg.get("rincage_delta_debit", 0.5)), min_value=0.1, max_value=5.0, step=0.1)
+    cfg["rincage_delta_debit"] = st.number_input("Δ débit (NaCl vs contraste) (mL/s) — réglable", value=float(cfg.get("rincage_delta_debit", 0.5)), min_value=0.0, max_value=10.0, step=0.1)
     cfg["volume_max_limit"] = st.number_input("Plafond volume (mL) - seringue", value=float(cfg.get("volume_max_limit", 200.0)), min_value=50.0, max_value=500.0, step=10.0)
 
     st.markdown("**Charges en iode par kV (g I/kg)**")
@@ -470,14 +474,11 @@ with tab_patient:
     with col_kv:
         kv_scanner = st.radio("kV du scanner",[80,90,100,110,120],index=4,horizontal=True,key="kv_patient")
 
-        # --- Bloc Méthode de calcul + Charge iodée (sous les kV, au-dessus des volumes) ---
+        # Méthode de calcul + charge iodée (texte simple, pas d'encadré pour ne pas décaler)
         method = cfg.get("calc_mode", "Charge iodée")
-        # determine displayed charge for the selected kV
         charge_used = float(cfg.get("charges", {}).get(str(kv_scanner), 0.0))
-        st.markdown("<div class='info-block' style='margin-top:8px;'>", unsafe_allow_html=True)
         st.markdown(f"**🧮 Méthode utilisée :** {method}")
         st.markdown(f"**💊 Charge iodée appliquée (kV {kv_scanner}) :** {charge_used:.2f} g I/kg")
-        st.markdown("</div>", unsafe_allow_html=True)
 
     with col_mode_time:
         col_mode, col_times = st.columns([1.2,1])
@@ -495,19 +496,20 @@ with tab_patient:
                 base_time = st.number_input("Temps Intermédiaire (s)", value=float(cfg.get("intermediate_time",28.0)), min_value=5.0,max_value=120.0,step=1.0,key="intermediate_time_input")
             st.markdown(f"**Temps {injection_mode} :** {base_time:.0f} s")
 
-            # Checkbox pour activer/désactiver l'ajustement par âge (sauvegardé dans la config utilisateur)
-            auto_age = st.checkbox("Activer ajustement du départ d'acquisition selon l'âge", value=bool(cfg.get("auto_acquisition_by_age", True)))
-            if auto_age != cfg.get("auto_acquisition_by_age", True):
-                cfg["auto_acquisition_by_age"] = bool(auto_age)
-                set_cfg_and_persist(user_id, cfg)
+            # Indicateurs (ajustement par âge + simultané) - affichés ici suivant paramètres enregistrés
+            if cfg.get("auto_acquisition_by_age", True):
+                st.markdown("<div class='small-note'>🕒 Ajustement automatique du départ d'acquisition selon l'âge activé (paramètres)</div>", unsafe_allow_html=True)
+
+            if cfg.get("simultaneous_enabled", False):
+                st.markdown("<div class='small-note'>💧 Injection simultanée activée (voir Paramètres)</div>", unsafe_allow_html=True)
 
             acquisition_start = calculate_acquisition_start(age, cfg)
             st.markdown(f"**Départ d'acquisition :** {acquisition_start:.1f} s")
             st.markdown(f"**Concentration utilisée :** {int(cfg.get('concentration_mg_ml',350))} mg I/mL")
 
-    # Alerte si temps intermédiaire utilisé : inciter à ajuster départ acquisition
-    if injection_mode == "Intermédiaire" or (cfg.get("intermediate_enabled", False) and injection_mode == "Intermédiaire"):
-        st.warning("⚠️ Pensez à ajuster votre départ d'acquisition manuellement.", icon="⚠️")
+    # Petit avertissement (en plus petit) si mode intermédiaire
+    if injection_mode == "Intermédiaire":
+        st.markdown("<div class='small-note'>⚠️⚠️ Pensez à ajuster votre départ d'acquisition manuellement.</div>", unsafe_allow_html=True)
 
     if weight <= 0 or height <= 0: 
         st.error("Poids et taille doivent être >0"); st.stop()
@@ -517,6 +519,7 @@ with tab_patient:
     volume, bsa = calculate_volume(weight, height, kv_scanner, float(cfg.get("concentration_mg_ml",350)), imc, cfg.get("calc_mode","Charge iodée"), cfg.get("charges",{}), float(cfg.get("volume_max_limit",200.0)))
     injection_rate, injection_time, time_adjusted = adjust_injection_rate(volume, float(base_time), float(cfg.get("max_debit",6.0)))
 
+    # Calcul pour injection simultanée (si activée)
     if cfg.get("simultaneous_enabled",False):
         target = float(cfg.get("target_concentration",350))
         current_conc = float(cfg.get("concentration_mg_ml",350))
@@ -528,43 +531,52 @@ with tab_patient:
         perc_contrast = (vol_contrast/volume*100) if volume>0 else 0
         perc_nacl_dilution = (vol_nacl_dilution/volume*100) if volume>0 else 0
         contrast_text = f"{int(round(vol_contrast))} mL ({int(round(perc_contrast))}%)"
-        nacl_rincage_volume = float(cfg.get("rincage_volume",35.0))
-        nacl_rincage_debit = max(0.1, injection_rate - float(cfg.get("rincage_delta_debit",0.5)))
-        nacl_text = f"<div class='sub-item-large'>Dilution : {int(round(vol_nacl_dilution))} mL ({int(round(perc_nacl_dilution))}%)</div>"
-        nacl_text += f"<div class='sub-item-large'>Rinçage : {int(round(nacl_rincage_volume))} mL @ {injection_rate:.1f} mL/s</div>"
     else:
         vol_contrast = volume
         contrast_text = f"{int(round(vol_contrast))} mL"
-        nacl_text = f"{int(round(cfg.get('rincage_volume',35.0)))} mL"
+        vol_nacl_dilution = 0.0
 
+    # Débit contraste et débit NaCl (NaCl reprend débit contraste moins delta réglable)
+    contrast_rate = injection_rate
+    # delta (mL/s) configurable par utilisateur via cfg["rincage_delta_debit"]
+    delta_debit = float(cfg.get("rincage_delta_debit", 0.5))
+    nacl_rate_default = max(0.0, contrast_rate - delta_debit)
+    # Permettre ajustement dynamique (local UI control)
+    nacl_delta_user = st.number_input("Δ débit appliqué à NaCl (mL/s) — réduisez le débit par rapport au contraste", value=float(delta_debit), min_value=0.0, max_value=20.0, step=0.1, key="nacl_delta_ui")
+    nacl_rate = max(0.0, contrast_rate - float(nacl_delta_user))
+    # Volume NaCl proposé : si simultané -> vol_nacl_dilution, sinon rinçage
+    nacl_volume = int(round(vol_nacl_dilution)) if cfg.get("simultaneous_enabled", False) else int(round(cfg.get("rincage_volume", 35.0)))
+
+    # Cartes affichage : garder les couleurs/encadrés d'origine, remplacer icône goutte par verte
     col_contrast, col_nacl, col_rate = st.columns(3, gap="medium")
     with col_contrast:
-        # Keep existing encadré color/style (per request)
         st.markdown(f"""<div style="background:#EAF1F8;padding:12px;border-radius:10px;text-align:center;">
-                         <h3>💧 Volume contraste conseillé</h3><h1 style="margin:0">{contrast_text}</h1>
+                         <h3>💧 <span style='color:green'>Volume contraste conseillé</span></h3><h1 style="margin:0">{contrast_text}</h1>
                        </div>""",unsafe_allow_html=True)
     with col_nacl:
         st.markdown(f"""<div style="background:#EAF1F8;padding:12px;border-radius:10px;text-align:center;">
-                         <h3>💧 Volume NaCl conseillé</h3><h1 style="margin:0">{nacl_text}</h1>
+                         <h3>💧 NaCl — Volume conseillé</h3><h1 style="margin:0">{nacl_volume} mL</h1>
+                         <div class='small-note'>Δ débit appliqué : {nacl_delta_user:.2f} mL/s</div>
                        </div>""",unsafe_allow_html=True)
     with col_rate:
         st.markdown(f"""<div style="background:#EAF1F8;padding:12px;border-radius:10px;text-align:center;">
-                         <h3>🚀 Débit conseillé</h3><h1 style="margin:0">{injection_rate:.1f} mL/s</h1>
+                         <h3>🚀 Débit(s) conseillé(s)</h3>
+                         <div style='font-size:1.1rem; font-weight:600;'>Contraste : {contrast_rate:.1f} mL/s</div>
+                         <div style='font-size:1.1rem; font-weight:600;'>NaCl : {nacl_rate:.1f} mL/s</div>
                        </div>""",unsafe_allow_html=True)
+
     if time_adjusted:
         st.warning(f"⚠️ Temps d’injection ajusté à {injection_time:.1f}s pour respecter le débit maximal de {cfg.get('max_debit',6.0)} mL/s.")
+
     st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
+
+    # Avertissement petit répété ailleurs (discret)
+    st.markdown("<div class='small-note'>⚠️⚠️ Pensez à ajuster votre départ d'acquisition manuellement si nécessaire.</div>", unsafe_allow_html=True)
+
     try:
-        audit_log(f"calc:user={user_id},age={age},kv={kv_scanner},mode={injection_mode},vol={volume},vol_contrast={vol_contrast},rate={injection_rate:.2f},method={method},charge={charge_used}")
+        audit_log(f"calc:user={user_id},age={age},kv={kv_scanner},mode={injection_mode},vol={volume},vol_contrast={vol_contrast},rate={contrast_rate:.2f},method={method},charge={charge_used}")
     except:
         pass
-
-    # Lien CIRTACI en bas de la page Patient
-    st.markdown("---")
-    st.markdown("<div style='text-align:center; font-size:0.9rem; color:#666;'>", unsafe_allow_html=True)
-    st.markdown("Selon les recommandations du CIRTACI 5.3.0 (2020).")
-    st.markdown(f"[Consulter le document officiel (CIRTACI 5.3.0 — 2020)](https://www.radiologie.fr/sites/www.radiologie.fr/files/medias/documents/CIRTACI%20Fiche%20Ge%CC%81ne%CC%81ralite%CC%81s%20VASCULAIRE_5_3_1.pdf)")
-    st.markdown("</div>", unsafe_allow_html=True)
 
 # ------------------------
 # Onglet Tutoriel (mis à jour pour mentionner CIRTACI)
@@ -602,10 +614,12 @@ with tab_tutorial:
     """)
 
 # ------------------------
-# Footer
+# Footer (avec lien CIRTACI)
 # ------------------------
 st.markdown(f"""<div style='text-align:center; margin-top:20px; font-size:0.8rem; color:#666;'>
 © 2025 Guerbet | Développé par <b>Sébastien Partouche</b><br>
 Calculette de dose de produit de contraste — Oncologie CT adulte.<br>
 <div style='display:inline-block; background-color:#FCE8B2; border:1px solid #F5B800; padding:8px 15px; border-radius:10px; color:#5A4500; font-weight:600; margin-top:10px;'>🧪 Version BETA TEST – Usage interne / évaluation</div>
+<br><br>
+<a href="https://www.radiologie.fr/sites/www.radiologie.fr/files/medias/documents/CIRTACI%20Fiche%20Ge%CC%81ne%CC%81ralite%CC%81s%20VASCULAIRE_5_3_1.pdf" target="_blank" style="color:#0B67A9; text-decoration:underline;">Consulter le document CIRTACI 5.3.0 (2020)</a>
 </div>""", unsafe_allow_html=True)
