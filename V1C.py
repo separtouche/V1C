@@ -430,50 +430,14 @@ with tab_params:
 # ------------------------
 with tab_patient:
     st.header("🧍 Informations patient (adulte en oncologie)")
-    # compact style optionnel (similaire à la capture)
-    st.markdown("""
-    <style>
-    [data-testid="stMarkdownContainer"] h3 { margin-bottom: 0.2rem; }
-    .stSlider > div { padding-top: 0 !important; }
-    </style>
-    """, unsafe_allow_html=True)
-
-    # working config
-    cfg = get_cfg()
-
-    # Checkbox pour précharger les valeurs de la capture d'écran (mode démo)
-    demo = st.checkbox("Charger valeurs capture d’écran (70 kg, 170 cm, 1985, kV 120, Intermédiaire)", value=False)
-
-    # Si demo activé, on pré-remplit certains éléments de la session et cfg (sans supprimer la possibilité de modifier)
-    if demo:
-        # Pré-remplir dans la session pour controls (les keys sont ceux utilisés dans les widgets plus bas)
-        st.session_state["weight_patient"] = 70
-        st.session_state["height_patient"] = 170
-        current_year = datetime.now().year
-        st.session_state["birth_patient"] = 1985
-        st.session_state["kv_patient"] = 120
-        # config updates (persistées uniquement en session, pas forcées sur disque)
-        cfg["intermediate_enabled"] = True
-        cfg["intermediate_time"] = 28.0
-        cfg["acquisition_start_param"] = 70.0
-        cfg["concentration_mg_ml"] = 350
-        cfg["simultaneous_enabled"] = True
-        # override specific charge for 120 kV
-        charges_local = cfg.get("charges", config_global.get("charges", {})).copy()
-        charges_local["120"] = 0.45
-        cfg["charges"] = charges_local
-        # apply to session config
-        st.session_state["user_config"] = cfg.copy()
-
     col_w, col_h, col_birth, col_prog = st.columns([1,1,1,1.2])
     with col_w:
-        # garde les mêmes keys que l'original pour compatibilité
-        weight = st.select_slider("Poids (kg)", options=list(range(20,201)), value=st.session_state.get("weight_patient", 70), key="weight_patient")
+        weight = st.select_slider("Poids (kg)", options=list(range(20,201)), value=70, key="weight_patient")
     with col_h:
-        height = st.select_slider("Taille (cm)", options=list(range(100,221)), value=st.session_state.get("height_patient", 170), key="height_patient")
+        height = st.select_slider("Taille (cm)", options=list(range(100,221)), value=170, key="height_patient")
     current_year = datetime.now().year
     with col_birth:
-        birth_year = st.select_slider("Année de naissance", options=list(range(current_year-120,current_year+1)), value=st.session_state.get("birth_patient", current_year-40), key="birth_patient")
+        birth_year = st.select_slider("Année de naissance", options=list(range(current_year-120,current_year+1)), value=current_year-40, key="birth_patient")
     with col_prog:
         user_id = st.session_state["user_id"]
         user_programs = user_sessions.get(user_id, {}).get("programs", {})
@@ -500,14 +464,13 @@ with tab_patient:
     imc = weight / ((height/100)**2)
     col_kv, col_mode_time = st.columns([1.2,2])
     with col_kv:
-        kv_scanner = st.radio("kV du scanner",[80,90,100,110,120],index=[80,90,100,110,120].index(st.session_state.get("kv_patient", 120)),horizontal=True,key="kv_patient")
+        kv_scanner = st.radio("kV du scanner",[80,90,100,110,120],index=4,horizontal=True,key="kv_patient")
     with col_mode_time:
         col_mode, col_times = st.columns([1.2,1])
         with col_mode:
             injection_modes=["Portal","Artériel"]
             if cfg.get("intermediate_enabled",False):
                 injection_modes.append("Intermédiaire")
-            # si l'utilisateur avait coché demo et veut voir Intermédiaire pré-sélectionné, on ne force pas la valeur du widget
             injection_mode = st.radio("Mode d’injection", injection_modes,horizontal=True,key="mode_inj_patient")
         with col_times:
             if injection_mode=="Portal": 
