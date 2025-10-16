@@ -81,7 +81,7 @@ config_global = load_json_safe(CONFIG_FILE, default_config)
 libraries = load_json_safe(LIB_FILE, {"programs": {}})
 user_sessions = load_json_safe(USER_SESSIONS_FILE, {})
 
-# Normalize user_sessions shape
+# Normaliser la forme des sessions utilisateur existantes
 for uid, data in list(user_sessions.items()):
     if not isinstance(data, dict):
         user_sessions[uid] = {
@@ -200,7 +200,7 @@ if not st.session_state["accepted_legal"] or st.session_state["user_id"] is None
     st.markdown("**Créer un nouvel identifiant**")
     new_user_id = st.text_input("Créez un nouvel identifiant", key="new_id_input")
     new_user_email = st.text_input("(Facultatif) Email pour récupération d'identifiant", key="new_user_email")
-    st.caption("Astuce : si vous oubliez votre identifiant, utilisez 'Identifiant oublié ?' pour le retrouver via votre email (si ajouté).")
+    st.caption("Astuce : si vous oubliez votre identifiant, utilisez 'Identifiant oublié ?' pour le retrouver via email (si ajouté).")
 
     with st.expander("🔑 Identifiant oublié ?"):
         forget_email = st.text_input("Entrez l'email associé à votre identifiant", key="forget_email")
@@ -505,8 +505,12 @@ with tab_patient:
     st.markdown(f"**💊 Charge iodée appliquée (kV {kv_scanner}) :** {charge_used:.2f} g I/kg")
     if cfg.get("auto_acquisition_by_age", True):
         st.markdown("<div class='small-note'>🕒 Ajustement automatique du départ d'acquisition selon l'âge activé</div>", unsafe_allow_html=True)
+    else:
+        st.markdown("<div class='small-note'>🕒 Ajustement automatique du départ d'acquisition selon l'âge désactivé</div>", unsafe_allow_html=True)
     if cfg.get("simultaneous_enabled", False):
         st.markdown("<div class='small-note'>💧 Injection simultanée activée</div>", unsafe_allow_html=True)
+    else:
+        st.markdown("<div class='small-note'>💧 Injection simultanée désactivée</div>", unsafe_allow_html=True)
 
     # acquisition start and times displayed near mode/time info
     if injection_mode == "Portal":
@@ -515,7 +519,11 @@ with tab_patient:
         base_time = float(cfg.get("arterial_time",25.0))
     else:
         base_time = st.number_input("Temps Intermédiaire (s)", value=float(cfg.get("intermediate_time",28.0)), min_value=5.0, max_value=120.0, step=1.0, key="intermediate_time_input")
-    st.markdown(f"**Temps {injection_mode} :** {base_time:.0f} s")
+
+    # Block under program selection: show intermediate time / depart / concentration
+    st.markdown("")
+    # show times near injection mode
+    st.markdown(f"**Temps {injection_mode} :** {base_time:.2f} s")
     acquisition_start = calculate_acquisition_start(age, cfg)
     st.markdown(f"**Départ d'acquisition :** {acquisition_start:.1f} s")
     st.markdown(f"**Concentration utilisée :** {int(cfg.get('concentration_mg_ml',350))} mg I/mL")
@@ -559,10 +567,9 @@ with tab_patient:
         rincage_rate = float(cfg.get("rincage_rate_param", cfg.get("rincage_rate_param", 3.0)))
 
     contrast_rate = injection_rate
-    # NaCl rate: display rinçage rate; overall NaCl delivery could be considered per segment
     nacl_rate_display = rincage_rate
 
-    # SVG droplets: green for contrast, blue for NaCl
+    # SVG droplets: green for contrast, blue for NaCl (kept visual)
     green_drop_svg = """<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
 <path d="M12 2C12 2 18 8 18 13.5C18 18.1944 14.4183 21.7761 9.724 21.9999C9.488 22.0199 9.259 22.0299 9.038 22.0299C8.813 22.0299 8.588 22.0199 8.361 21.9999C3.663 21.7759 0 18.1534 0 13.5C0 8 6 2 12 2Z" fill="#2ECC71"/>
 </svg>"""
@@ -584,7 +591,6 @@ with tab_patient:
         </div>""", unsafe_allow_html=True)
 
     with col_n:
-        # If simultaneous: show dilution + rinçage lines
         if cfg.get("simultaneous_enabled", False):
             st.markdown(f"""<div style="background:#EAF1F8;padding:14px;border-radius:10px;text-align:center;">
                 <div style="display:flex; align-items:center; justify-content:center; gap:8px;">
