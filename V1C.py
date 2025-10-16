@@ -511,36 +511,20 @@ with tab_patient:
         vol_contrast = volume
         contrast_text = f"{int(round(vol_contrast))} mL"
         nacl_text = f"{int(round(cfg.get('rincage_volume',35.0)))} mL"
-col_contrast, col_nacl = st.columns(2, gap="medium")
 
-with col_contrast:
-    st.markdown(f"""
-    <div style="background:#EAF1F8;padding:12px;border-radius:10px;text-align:center;">
-        <h3>💧 Contraste conseillé</h3>
-        <div style="display:flex; justify-content:center; gap:20px; font-size:1.2rem;">
-            <div>Volume : <b>{int(round(vol_contrast))} mL</b></div>
-            <div>Débit : <b>{injection_rate:.1f} mL/s</b></div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col_nacl:
-    nacl_debit = injection_rate - float(cfg.get("rincage_delta_debit", 0.5))
-    nacl_debit = max(0.1, nacl_debit)
-    st.markdown(f"""
-    <div style="background:#EAF1F8;padding:12px;border-radius:10px;text-align:center;">
-        <h3>💧 NaCl conseillé</h3>
-        <div style="display:flex; justify-content:center; gap:20px; font-size:1.2rem;">
-            <div>Volume : <b>{int(round(cfg.get('rincage_volume',35.0)))} mL</b></div>
-            <div>Débit : <b>{nacl_debit:.1f} mL/s</b></div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-if time_adjusted:
-    st.warning(f"⚠️ Temps d’injection ajusté à {injection_time:.1f}s pour respecter le débit maximal de {cfg.get('max_debit',6.0)} mL/s.")
-st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
-
+    col_contrast, col_nacl, col_rate = st.columns(3, gap="medium")
+    with col_contrast:
+        st.markdown(f"""<div style="background:#EAF1F8;padding:12px;border-radius:10px;text-align:center;">
+                         <h3>💧 Volume contraste conseillé</h3><h1 style="margin:0">{contrast_text}</h1>
+                       </div>""",unsafe_allow_html=True)
+    with col_nacl:
+        st.markdown(f"""<div style="background:#EAF1F8;padding:12px;border-radius:10px;text-align:center;">
+                         <h3>💧 Volume NaCl conseillé</h3><h1 style="margin:0">{nacl_text}</h1>
+                       </div>""",unsafe_allow_html=True)
+    with col_rate:
+        st.markdown(f"""<div style="background:#EAF1F8;padding:12px;border-radius:10px;text-align:center;">
+                         <h3>🚀 Débit conseillé</h3><h1 style="margin:0">{injection_rate:.1f} mL/s</h1>
+                       </div>""",unsafe_allow_html=True)
     if time_adjusted:
         st.warning(f"⚠️ Temps d’injection ajusté à {injection_time:.1f}s pour respecter le débit maximal de {cfg.get('max_debit',6.0)} mL/s.")
     st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
