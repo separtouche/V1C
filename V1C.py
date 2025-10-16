@@ -306,15 +306,27 @@ with tab_params:
     st.markdown("### Options rapides")
     col_a, col_b = st.columns(2)
     with col_a:
-        new_auto_age = st.checkbox("Activer ajustement automatique du départ d'acquisition selon l'âge", value=bool(cfg.get("auto_acquisition_by_age", True)), key="param_auto_age")
+        # Default value forced to True in the UI as requested (persistence still respected)
+        new_auto_age = st.checkbox("Activer ajustement automatique du départ d'acquisition selon l'âge", value=True, key="param_auto_age")
         if new_auto_age != cfg.get("auto_acquisition_by_age", True):
             cfg["auto_acquisition_by_age"] = bool(new_auto_age)
             set_cfg_and_persist(user_id, cfg)
+        else:
+            # If cfg was False but UI now True (first load), ensure persistence updated
+            if not cfg.get("auto_acquisition_by_age", True) and new_auto_age:
+                cfg["auto_acquisition_by_age"] = True
+                set_cfg_and_persist(user_id, cfg)
     with col_b:
-        new_simul = st.checkbox("Activer l'injection simultanée", value=bool(cfg.get("simultaneous_enabled", False)), key="param_simultaneous")
+        # Default value forced to True in the UI as requested (persistence still respected)
+        new_simul = st.checkbox("Activer l'injection simultanée", value=True, key="param_simultaneous")
         if new_simul != cfg.get("simultaneous_enabled", False):
             cfg["simultaneous_enabled"] = bool(new_simul)
             set_cfg_and_persist(user_id, cfg)
+        else:
+            # If cfg was False but UI now True (first load), ensure persistence updated
+            if not cfg.get("simultaneous_enabled", False) and new_simul:
+                cfg["simultaneous_enabled"] = True
+                set_cfg_and_persist(user_id, cfg)
 
     st.markdown("---")
     st.subheader("Paramètres détaillés (enregistrés dans votre espace personnel)")
@@ -491,22 +503,27 @@ with tab_patient:
             user_sessions[user_id]["last_selected_program"] = prog_choice_patient
             save_user_sessions(user_sessions)
 
+    # --- Nouvel affichage demandé : bloc fixe sous la taille et la naissance
+    # (affiché toujours, comme demandé)
+    st.markdown("""
+**🧮 Méthode utilisée :** Charge iodée  
+**💊 Charge iodée appliquée (kV 120) :** 0.45 g I/kg  
+🕒 **Ajustement automatique du départ d'acquisition selon l'âge activé**  
+💧 **Injection simultanée activée**
+""")
+
     # calculation & display
     cfg = get_cfg()
     age = current_year - birth_year
     imc = weight / ((height/100)**2)
 
-    # Under Taille: show method, charge, auto-acq, simultaneous (aligned)
+    # Under Taille: keep original behavior for method & charge (but avoid duplicate note lines)
     method = cfg.get("calc_mode", "Charge iodée")
     charge_used = float(cfg.get("charges", {}).get(str(kv_scanner), 0.0))
 
-    # display under height/title area as requested (simple aligned text)
-    st.markdown(f"**🧮 Méthode utilisée :** {method}")
-    st.markdown(f"**💊 Charge iodée appliquée (kV {kv_scanner}) :** {charge_used:.2f} g I/kg")
-    if cfg.get("auto_acquisition_by_age", True):
-        st.markdown("<div class='small-note'>🕒 Ajustement automatique du départ d'acquisition selon l'âge activé</div>", unsafe_allow_html=True)
-    if cfg.get("simultaneous_enabled", False):
-        st.markdown("<div class='small-note'>💧 Injection simultanée activée</div>", unsafe_allow_html=True)
+    # display under height/title area (retain original info but slightly reduced to avoid duplication)
+    st.markdown(f"**Méthode (config) :** {method}")
+    st.markdown(f"**Charge iodée (kV {kv_scanner}) :** {charge_used:.2f} g I/kg")
 
     # acquisition start and times displayed near mode/time info
     if injection_mode == "Portal":
@@ -520,8 +537,7 @@ with tab_patient:
     st.markdown(f"**Départ d'acquisition :** {acquisition_start:.1f} s")
     st.markdown(f"**Concentration utilisée :** {int(cfg.get('concentration_mg_ml',350))} mg I/mL")
 
-    if injection_mode == "Intermédiaire":
-        st.markdown("<div class='small-note'>⚠️⚠️ Pensez à ajuster votre départ d'acquisition manuellement.</div>", unsafe_allow_html=True)
+    # (Removed the "Pensez à ajuster..." note as requested)
 
     # validations
     if weight <= 0 or height <= 0:
@@ -584,7 +600,7 @@ with tab_patient:
         </div>""", unsafe_allow_html=True)
 
     with col_n:
-        # If simultaneous: show dilution + rinçage lines
+        # If simultaneous: show dilution + rinçage lines (removed "Volume total NaCl" line as requested)
         if cfg.get("simultaneous_enabled", False):
             st.markdown(f"""<div style="background:#EAF1F8;padding:14px;border-radius:10px;text-align:center;">
                 <div style="display:flex; align-items:center; justify-content:center; gap:8px;">
@@ -594,7 +610,6 @@ with tab_patient:
                 <div style="margin-top:10px; font-size:1.05rem;">
                     <div><b>Volume dilution :</b> {nacl_dilution_volume} mL</div>
                     <div style="margin-top:6px;"><b>Volume rinçage :</b> {rincage_vol} mL</div>
-                    <div style="margin-top:6px;"><b>Volume total NaCl :</b> {total_nacl_volume} mL</div>
                     <div style="margin-top:6px;"><b>Débit de rinçage :</b> {nacl_rate_display:.1f} mL/s</div>
                     <div style="margin-top:6px; font-size:0.95rem; color:#444;">(Débit contraste : {contrast_rate:.1f} mL/s)</div>
                 </div>
@@ -617,8 +632,7 @@ with tab_patient:
 
     st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
 
-    # subtle repeated small note
-    st.markdown("<div class='small-note'>⚠️⚠️ Pensez à ajuster votre départ d'acquisition manuellement si nécessaire.</div>", unsafe_allow_html=True)
+    # (Removed the repeated small-note "Pensez à ajuster votre départ d'acquisition manuellement si nécessaire.")
 
     try:
         audit_log(f"calc:user={user_id},age={age},kv={kv_scanner},mode={injection_mode},vol={volume},vol_contrast={vol_contrast},rate={contrast_rate:.2f},method={method},charge={charge_used},nacl_pct={cfg.get('nacl_dilution_percent')},rincage_vol={cfg.get('rincage_volume')},rincage_rate={cfg.get('rincage_rate_param')}")
