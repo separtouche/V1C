@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-oncologie_ct_adulte.py
-Calculette complète (une page) de dose de produit de contraste - Oncologie CT adulte
-Usage : streamlit run oncologie_ct_adulte.py
+Calculette complète (une page) de dose de produit de contraste - Oncologie adulte
+Adaptée pour Sébastien Partouche — version consolidée optimisée
+Usage : streamlit run calculatrice_contraste_oncologie.py
 """
 
 import streamlit as st
@@ -17,7 +17,7 @@ import pandas as pd
 # Fichiers de config
 # ------------------------
 CONFIG_FILE = "iodine_config.json"
-LIB_FILE = "libraries.json"
+LIB_FILE = "libraries.json"  # conservé si besoin futur, mais programmes globaux désactivés
 USER_SESSIONS_FILE = "user_sessions.json"
 LOG_FILE = "calc_audit.log"
 
@@ -40,10 +40,7 @@ default_config = {
     "simultaneous_enabled": False,
     "target_concentration": 350,
     "volume_max_limit": 200.0,
-    # NaCl specific params (user-scoped)
-    "nacl_dilution_percent": 0,        # percentage of contrast volume to be NaCl dilution when simultaneous
-    "rincage_volume_param": 35.0,      # rinse volume (mL)
-    "rincage_rate_param": 3.0,         # rinse rate (mL/s)
+    # super_user configurable ici si besoin
     "super_user": "admin"
 }
 
@@ -67,6 +64,7 @@ def save_json_atomic(path, data):
     os.replace(tmp, path)
 
 def audit_log(msg):
+    """Ajoute une ligne d'audit (anonymisé) localement."""
     try:
         ts = datetime.utcnow().isoformat()
         with open(LOG_FILE, "a", encoding="utf-8") as f:
@@ -78,10 +76,11 @@ def audit_log(msg):
 # Charger config & libs
 # ------------------------
 config_global = load_json_safe(CONFIG_FILE, default_config)
+# libraries left for future but global programs disabled per request
 libraries = load_json_safe(LIB_FILE, {"programs": {}})
 user_sessions = load_json_safe(USER_SESSIONS_FILE, {})
 
-# Normalize user_sessions shape
+# Normalize older data shapes: ensure each user has keys
 for uid, data in list(user_sessions.items()):
     if not isinstance(data, dict):
         user_sessions[uid] = {
@@ -164,36 +163,35 @@ def img_to_base64(path):
 # ------------------------
 # Streamlit UI init
 # ------------------------
-st.set_page_config(page_title="Calculette Contraste Oncologie CT adulte", page_icon="💉", layout="wide")
+st.set_page_config(page_title="Calculette Contraste Oncologie adulte", page_icon="💉", layout="wide")
 st.markdown("""
 <style>
 .stApp { background-color: #F7FAFC; font-family: 'Segoe UI', sans-serif; }
-.small-note { font-size:0.82rem; color:#666; margin:4px 0; }
-.center-muted { text-align:center; color:#666; font-size:0.9rem; }
-.info-block { background:#F6F6F6; padding:8px 10px; border-radius:6px; }
 </style>
 """, unsafe_allow_html=True)
 
-# session state
+# session state inits
 if "accepted_legal" not in st.session_state:
     st.session_state["accepted_legal"] = False
 if "user_id" not in st.session_state:
     st.session_state["user_id"] = None
-if "user_config" not in st.session_state:
-    st.session_state["user_config"] = config_global.copy()
 if "selected_program" not in st.session_state:
     st.session_state["selected_program"] = None
+if "user_config" not in st.session_state:
+    st.session_state["user_config"] = config_global.copy()
 
+# helper: active super user name (configurable in config_global)
 SUPER_USER = config_global.get("super_user", "admin")
 
 # ------------------------
-# Login / création identifiant
+# Page d'accueil : Mentions légales + session utilisateur
 # ------------------------
 if not st.session_state["accepted_legal"] or st.session_state["user_id"] is None:
     st.markdown("### ⚠️ Mentions légales — acceptation requise")
     st.markdown("Avant utilisation, acceptez la mention légale et créez ou entrez votre identifiant utilisateur. Résultats indicatifs à valider par un professionnel de santé.")
     accept = st.checkbox("✅ J’accepte les mentions légales.", key="accept_checkbox")
-
+    
+    # Connexion : entrer IDENTIFIANT EXISTANT uniquement
     st.markdown("**Se connecter**")
     existing_id_input = st.text_input("Entrez un identifiant existant (si vous le connaissez)", key="existing_id_input")
     st.markdown("— ou —")
@@ -201,7 +199,8 @@ if not st.session_state["accepted_legal"] or st.session_state["user_id"] is None
     new_user_id = st.text_input("Créez un nouvel identifiant", key="new_id_input")
     new_user_email = st.text_input("(Facultatif) Email pour récupération d'identifiant", key="new_user_email")
     st.caption("Astuce : si vous oubliez votre identifiant, utilisez 'Identifiant oublié ?' pour le retrouver via votre email (si ajouté).")
-
+    
+    # Identification oubliée (affichée dans la page d'accueil)
     with st.expander("🔑 Identifiant oublié ?"):
         forget_email = st.text_input("Entrez l'email associé à votre identifiant", key="forget_email")
         if st.button("🔍 Rechercher identifiant par email"):
@@ -214,7 +213,7 @@ if not st.session_state["accepted_legal"] or st.session_state["user_id"] is None
                     st.success(f"Identifiant(s) associé(s) à {email} : {', '.join(found)}")
                 else:
                     st.error("Aucun identifiant n'est associé à cet email.")
-
+    
     if st.button("Entrer dans la session"):
         if not accept:
             st.warning("Vous devez accepter les mentions légales.")
@@ -223,24 +222,30 @@ if not st.session_state["accepted_legal"] or st.session_state["user_id"] is None
             chosen_new = new_user_id.strip()
             email_new = new_user_email.strip() if new_user_email else None
 
+            # 1) If user filled both, prefer explicit creation? We'll disallow: require only one action
             if chosen_existing and chosen_new:
                 st.warning("Veuillez soit entrer un identifiant existant, soit créer un nouvel identifiant, pas les deux.")
             elif chosen_existing:
+                # Connecting to existing id only allowed
                 if chosen_existing not in user_sessions:
                     st.error("❌ Identifiant introuvable. Veuillez saisir un identifiant existant ou créer un nouvel identifiant.")
                 else:
                     st.session_state["accepted_legal"] = True
                     st.session_state["user_id"] = chosen_existing
+                    # load user's config into session
                     st.session_state["user_config"] = user_sessions[chosen_existing].get("config", config_global.copy()).copy()
             elif chosen_new:
+                # Creating new id: must not already exist, email maybe provided but must be unique
                 if chosen_new in user_sessions:
                     st.error("❌ Cet identifiant existe déjà. Choisissez un autre nom.")
                 else:
+                    # if email provided, ensure unique
                     if email_new:
                         emails = [info.get("email") for info in user_sessions.values() if info.get("email")]
                         if email_new in emails:
                             st.error("❌ Cet email est déjà associé à un autre identifiant.")
                             st.stop()
+                    # create
                     ts = datetime.utcnow().isoformat()
                     user_sessions[chosen_new] = {
                         "programs": {},
@@ -256,10 +261,10 @@ if not st.session_state["accepted_legal"] or st.session_state["user_id"] is None
                     st.success(f"Identifiant '{chosen_new}' créé. Vous êtes connecté.")
             else:
                 st.warning("Veuillez saisir un identifiant existant ou créer un nouvel identifiant.")
-    st.stop()
+    st.stop()  # bloque la suite jusqu'à validation
 
 # ------------------------
-# Header
+# Header réduit
 # ------------------------
 logo_path = "guerbet_logo.png"
 if os.path.exists(logo_path):
@@ -268,25 +273,26 @@ if os.path.exists(logo_path):
         st.markdown(f"""
         <div style="display:flex; align-items:center; gap:8px; background:#124F7A; padding:8px; border-radius:8px">
             <img src="data:image/png;base64,{img_b64}" style="height:60px"/>
-            <h2 style="color:white; margin:0;">Calculette de dose de produit de contraste — Oncologie CT adulte</h2>
+            <h2 style="color:white; margin:0;">Calculette de dose de produit de contraste — Oncologie adulte</h2>
         </div>
         """, unsafe_allow_html=True)
     except Exception:
-        st.title("Calculette de dose de produit de contraste — Oncologie CT adulte")
+        st.title("Calculette de dose de produit de contraste — Oncologie adulte")
 else:
-    st.title("Calculette de dose de produit de contraste — Oncologie CT adulte")
+    st.title("Calculette de dose de produit de contraste — Oncologie adulte")
 
 # ------------------------
 # Tabs
 # ------------------------
 tab_patient, tab_params, tab_tutorial = st.tabs(["🧍 Patient", "⚙️ Paramètres", "📘 Tutoriel"])
 
-# helper functions for config persistence
+# Use working config that refers to the logged-in user's config (kept in session_state)
 def get_cfg():
     return st.session_state.get("user_config", config_global.copy())
 
 def set_cfg_and_persist(user_id, new_cfg):
     st.session_state["user_config"] = new_cfg.copy()
+    # persist in user_sessions
     if user_id not in user_sessions:
         user_sessions[user_id] = {"programs": {}, "config": new_cfg.copy(), "email": None, "created": datetime.utcnow().isoformat()}
     else:
@@ -294,59 +300,17 @@ def set_cfg_and_persist(user_id, new_cfg):
     save_user_sessions(user_sessions)
 
 # ------------------------
-# Paramètres tab (détaillés)
+# Onglet Paramètres (gestion sessions + programmes personnels uniquement)
 # ------------------------
 with tab_params:
     st.header("⚙️ Paramètres et Bibliothèque (personnelle)")
     user_id = st.session_state["user_id"]
     cfg = get_cfg()
 
-    st.markdown(f"**👤 Identifiant connecté :** `{user_id}`")
+    cfg["simultaneous_enabled"] = st.checkbox("Activer l'injection simultanée", value=cfg.get("simultaneous_enabled", False))
+    if cfg["simultaneous_enabled"]:
+        cfg["target_concentration"] = st.number_input("Concentration cible (mg I/mL)", value=int(cfg.get("target_concentration", 350)), min_value=200, max_value=500, step=10)
 
-    st.markdown("### Options rapides")
-    col_a, col_b = st.columns(2)
-    with col_a:
-        # Default value forced to True in the UI as requested (persistence still respected)
-        new_auto_age = st.checkbox("Activer ajustement automatique du départ d'acquisition selon l'âge", value=True, key="param_auto_age")
-        if new_auto_age != cfg.get("auto_acquisition_by_age", True):
-            cfg["auto_acquisition_by_age"] = bool(new_auto_age)
-            set_cfg_and_persist(user_id, cfg)
-        else:
-            # If cfg was False but UI now True (first load), ensure persistence updated
-            if not cfg.get("auto_acquisition_by_age", True) and new_auto_age:
-                cfg["auto_acquisition_by_age"] = True
-                set_cfg_and_persist(user_id, cfg)
-    with col_b:
-        # Default value forced to True in the UI as requested (persistence still respected)
-        new_simul = st.checkbox("Activer l'injection simultanée", value=True, key="param_simultaneous")
-        if new_simul != cfg.get("simultaneous_enabled", False):
-            cfg["simultaneous_enabled"] = bool(new_simul)
-            set_cfg_and_persist(user_id, cfg)
-        else:
-            # If cfg was False but UI now True (first load), ensure persistence updated
-            if not cfg.get("simultaneous_enabled", False) and new_simul:
-                cfg["simultaneous_enabled"] = True
-                set_cfg_and_persist(user_id, cfg)
-
-    st.markdown("---")
-    st.subheader("Paramètres détaillés (enregistrés dans votre espace personnel)")
-    # NaCl dilution percent, rinse volume and rinse rate in parameters
-    new_nacl_pct = st.number_input("Pourcentage de NaCl de dilution (entier %) — appliqué au volume de contraste", value=int(cfg.get("nacl_dilution_percent", 0)), min_value=0, max_value=100, step=1)
-    if new_nacl_pct != cfg.get("nacl_dilution_percent", 0):
-        cfg["nacl_dilution_percent"] = int(new_nacl_pct)
-        set_cfg_and_persist(user_id, cfg)
-
-    new_rincage_vol = st.number_input("Volume de rinçage (mL)", value=float(cfg.get("rincage_volume", cfg.get("rincage_volume_param", 35.0))), min_value=0.0, max_value=1000.0, step=1.0)
-    if new_rincage_vol != cfg.get("rincage_volume", cfg.get("rincage_volume_param", 35.0)):
-        cfg["rincage_volume"] = float(new_rincage_vol)
-        set_cfg_and_persist(user_id, cfg)
-
-    new_rincage_rate = st.number_input("Débit de rinçage (mL/s)", value=float(cfg.get("rincage_rate_param", 3.0)), min_value=0.1, max_value=50.0, step=0.1)
-    if new_rincage_rate != cfg.get("rincage_rate_param", 3.0):
-        cfg["rincage_rate_param"] = float(new_rincage_rate)
-        set_cfg_and_persist(user_id, cfg)
-
-    st.markdown("---")
     st.subheader("📚 Vos programmes personnels")
     personal_programs = user_sessions.get(user_id, {}).get("programs", {})
     program_choice = st.selectbox("Programme (Personnel)", ["Aucun"] + list(personal_programs.keys()), key="prog_params_personal")
@@ -354,7 +318,6 @@ with tab_params:
         prog_conf = personal_programs.get(program_choice, {})
         for key, val in prog_conf.items():
             cfg[key] = val
-        set_cfg_and_persist(user_id, cfg)
 
     new_prog_name = st.text_input("Nom du nouveau programme (sera enregistré dans vos programmes personnels)")
     if st.button("💾 Ajouter/Mise à jour programme"):
@@ -367,42 +330,33 @@ with tab_params:
         else:
             st.warning("Donnez un nom au programme.")
 
+    st.markdown("**Gérer mes programmes personnels**")
+    personal_prog_list = list(user_sessions.get(user_id, {}).get("programs", {}).keys())
+    if personal_prog_list:
+        del_prog_personal = st.selectbox("Supprimer un programme personnel", [""] + personal_prog_list, key="del_prog_personal")
+        if st.button("🗑 Supprimer programme (Personnel)"):
+            if del_prog_personal and del_prog_personal in user_sessions[user_id].get("programs", {}):
+                del user_sessions[user_id]["programs"][del_prog_personal]
+                save_user_sessions(user_sessions)
+                st.success(f"Programme personnel '{del_prog_personal}' supprimé pour l'identifiant '{user_id}'.")
+            else:
+                st.error("Programme introuvable.")
+    else:
+        st.info("Vous n'avez pas encore de programmes personnels enregistrés.")
+
     st.markdown("---")
-    st.subheader("Paramètres techniques")
-    new_conc = st.selectbox("Concentration (mg I/mL)", [300, 320, 350, 370, 400], index=[300,320,350,370,400].index(int(cfg.get("concentration_mg_ml",350))))
-    if new_conc != cfg.get("concentration_mg_ml",350):
-        cfg["concentration_mg_ml"] = int(new_conc)
-        set_cfg_and_persist(user_id, cfg)
-
-    new_mode = st.selectbox("Méthode de calcul", ["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"], index=["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"].index(cfg.get("calc_mode","Charge iodée")))
-    if new_mode != cfg.get("calc_mode","Charge iodée"):
-        cfg["calc_mode"] = new_mode
-        set_cfg_and_persist(user_id, cfg)
-
-    new_max_debit = st.number_input("Débit maximal autorisé (mL/s)", value=float(cfg.get("max_debit",6.0)), min_value=1.0, max_value=20.0, step=0.1)
-    if new_max_debit != cfg.get("max_debit",6.0):
-        cfg["max_debit"] = float(new_max_debit)
-        set_cfg_and_persist(user_id, cfg)
-
-    new_portal = st.number_input("Portal (s)", value=float(cfg.get("portal_time",30.0)), min_value=5.0, max_value=120.0, step=1.0)
-    if new_portal != cfg.get("portal_time",30.0):
-        cfg["portal_time"] = float(new_portal)
-        set_cfg_and_persist(user_id, cfg)
-
-    new_arterial = st.number_input("Artériel (s)", value=float(cfg.get("arterial_time",25.0)), min_value=5.0, max_value=120.0, step=1.0)
-    if new_arterial != cfg.get("arterial_time",25.0):
-        cfg["arterial_time"] = float(new_arterial)
-        set_cfg_and_persist(user_id, cfg)
-
-    new_inter_enabled = st.checkbox("Activer temps intermédiaire (paramètre personnel)", value=bool(cfg.get("intermediate_enabled",False)))
-    if new_inter_enabled != cfg.get("intermediate_enabled",False):
-        cfg["intermediate_enabled"] = bool(new_inter_enabled)
-        set_cfg_and_persist(user_id, cfg)
-    if cfg.get("intermediate_enabled",False):
-        new_inter_time = st.number_input("Intermédiaire (s)", value=float(cfg.get("intermediate_time",28.0)), min_value=5.0, max_value=120.0, step=1.0)
-        if new_inter_time != cfg.get("intermediate_time",28.0):
-            cfg["intermediate_time"] = float(new_inter_time)
-            set_cfg_and_persist(user_id, cfg)
+    st.subheader("Paramètres (enregistrés dans votre espace personnel)")
+    cfg["concentration_mg_ml"] = st.selectbox("Concentration (mg I/mL)", [300, 320, 350, 370, 400], index=[300, 320, 350, 370, 400].index(int(cfg.get("concentration_mg_ml", 350))))
+    cfg["calc_mode"] = st.selectbox("Méthode de calcul", ["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"], index=["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"].index(cfg.get("calc_mode", "Charge iodée")))
+    cfg["max_debit"] = st.number_input("Débit maximal autorisé (mL/s)", value=float(cfg.get("max_debit", 6.0)), min_value=1.0, max_value=20.0, step=0.1)
+    cfg["portal_time"] = st.number_input("Portal (s)", value=float(cfg.get("portal_time", 30.0)), min_value=5.0, max_value=120.0, step=1.0)
+    cfg["arterial_time"] = st.number_input("Artériel (s)", value=float(cfg.get("arterial_time", 25.0)), min_value=5.0, max_value=120.0, step=1.0)
+    cfg["intermediate_enabled"] = st.checkbox("Activer temps intermédiaire", value=bool(cfg.get("intermediate_enabled", False)))
+    if cfg["intermediate_enabled"]:
+        cfg["intermediate_time"] = st.number_input("Intermédiaire (s)", value=float(cfg.get("intermediate_time", 28.0)), min_value=5.0, max_value=120.0, step=1.0)
+    cfg["rincage_volume"] = st.number_input("Volume rinçage (mL)", value=float(cfg.get("rincage_volume", 35.0)), min_value=10.0, max_value=100.0, step=1.0)
+    cfg["rincage_delta_debit"] = st.number_input("Δ débit NaCl vs contraste (mL/s)", value=float(cfg.get("rincage_delta_debit", 0.5)), min_value=0.1, max_value=5.0, step=0.1)
+    cfg["volume_max_limit"] = st.number_input("Plafond volume (mL) - seringue", value=float(cfg.get("volume_max_limit", 200.0)), min_value=50.0, max_value=500.0, step=10.0)
 
     st.markdown("**Charges en iode par kV (g I/kg)**")
     df_charges = pd.DataFrame({
@@ -413,25 +367,34 @@ with tab_params:
     if st.button("💾 Sauvegarder les paramètres"):
         try:
             cfg["charges"] = {str(int(row.kV)): float(row["Charge (g I/kg)"]) for _, row in edited_df.iterrows()}
+            # Persister dans l'espace utilisateur (indépendant)
             set_cfg_and_persist(user_id, cfg)
             st.success("✅ Paramètres sauvegardés dans votre espace utilisateur !")
         except Exception as e:
             st.error(f"Erreur lors de la sauvegarde : {e}")
 
+    # gestion des sessions / suppression (ici dans Paramètres)
     st.markdown("---")
     st.subheader("🗂 Gestion des sessions / identifiants")
+    st.markdown("Les identifiants sont indépendants. Vos programmes et paramètres personnels ne sont accessibles qu'avec votre identifiant.")
+
     all_user_ids = sorted(list(user_sessions.keys()))
+
+    # Si super user : voir tout, supprimer tout (sauf protection suppression identifiant en cours d'utilisation)
     if user_id == SUPER_USER:
         st.markdown("**Super-utilisateur : accès à tous les identifiants**")
+        st.write("Liste des identifiants existants :")
+        # display with optional email column
         df_users = pd.DataFrame([{"identifiant": uid, "email": user_sessions[uid].get("email")} for uid in all_user_ids])
         st.dataframe(df_users, use_container_width=True)
+        st.markdown("**Supprimer un identifiant** — saisissez le nom exact de l'identifiant à supprimer")
         del_input = st.text_input("Identifiant à supprimer (exact)", key="del_input_admin")
         if st.button("🗑 Supprimer identifiant (super-utilisateur)"):
             target = del_input.strip()
             if not target:
                 st.warning("Veuillez saisir l'identifiant à supprimer.")
             elif target == user_id:
-                st.error("⚠️ Impossible de supprimer l'identifiant en cours (super-utilisateur connecté).")
+                st.error("⚠️ Impossible de supprimer l'identifiant en cours (super-utilateur connecté).")
             elif target not in user_sessions:
                 st.error("Identifiant introuvable.")
             else:
@@ -449,6 +412,7 @@ with tab_params:
             elif target != user_id:
                 st.error("Le nom saisi ne correspond pas à l'identifiant connecté.")
             else:
+                # suppression autorisée — supprimer puis déconnecter
                 try:
                     if user_id in user_sessions:
                         del user_sessions[user_id]
@@ -462,27 +426,17 @@ with tab_params:
                     st.error(f"Erreur suppression identifiant : {e}")
 
 # ------------------------
-# Patient tab
+# Onglet Patient (correspond aux programmes personnels)
 # ------------------------
 with tab_patient:
-    st.header("🧍 Informations patient")
-    # layout: weight -> mode injection -> kv all in left column to satisfy user ordering
+    st.header("🧍 Informations patient (adulte en oncologie)")
     col_w, col_h, col_birth, col_prog = st.columns([1,1,1,1.2])
     with col_w:
         weight = st.select_slider("Poids (kg)", options=list(range(20,201)), value=70, key="weight_patient")
-        # mode d'injection under weight
-        cfg = get_cfg()
-        injection_modes = ["Portal","Artériel"]
-        if cfg.get("intermediate_enabled", False):
-            injection_modes.append("Intermédiaire")
-        injection_mode = st.radio("Mode d’injection", injection_modes, horizontal=True, key="mode_inj_patient")
-        # kv under mode
-        kv_scanner = st.radio("kV du scanner", [80,90,100,110,120], index=4, horizontal=True, key="kv_patient")
-
     with col_h:
         height = st.select_slider("Taille (cm)", options=list(range(100,221)), value=170, key="height_patient")
+    current_year = datetime.now().year
     with col_birth:
-        current_year = datetime.now().year
         birth_year = st.select_slider("Année de naissance", options=list(range(current_year-120,current_year+1)), value=current_year-40, key="birth_patient")
     with col_prog:
         user_id = st.session_state["user_id"]
@@ -496,6 +450,7 @@ with tab_patient:
         )
         if prog_choice_patient != "Sélection d'un programme":
             prog_conf = user_programs.get(prog_choice_patient, {})
+            # appliquer les paramètres du programme sélectionné sur la config en session
             cfg = get_cfg()
             for key, val in prog_conf.items():
                 cfg[key] = val
@@ -503,167 +458,122 @@ with tab_patient:
             user_sessions[user_id]["last_selected_program"] = prog_choice_patient
             save_user_sessions(user_sessions)
 
-    # --- Nouvel affichage demandé : bloc fixe sous la taille et la naissance
-    # (affiché toujours, comme demandé)
-    st.markdown("""
-**🧮 Méthode utilisée :** Charge iodée  
-**💊 Charge iodée appliquée (kV 120) :** 0.45 g I/kg  
-🕒 **Ajustement automatique du départ d'acquisition selon l'âge activé**  
-💧 **Injection simultanée activée**
-""")
-
-    # calculation & display
+    # Calculs et affichage
     cfg = get_cfg()
     age = current_year - birth_year
     imc = weight / ((height/100)**2)
+    col_kv, col_mode_time = st.columns([1.2,2])
+    with col_kv:
+        kv_scanner = st.radio("kV du scanner",[80,90,100,110,120],index=4,horizontal=True,key="kv_patient")
+    with col_mode_time:
+        col_mode, col_times = st.columns([1.2,1])
+        with col_mode:
+            injection_modes=["Portal","Artériel"]
+            if cfg.get("intermediate_enabled",False):
+                injection_modes.append("Intermédiaire")
+            injection_mode = st.radio("Mode d’injection", injection_modes,horizontal=True,key="mode_inj_patient")
+        with col_times:
+            if injection_mode=="Portal": 
+                base_time = float(cfg.get("portal_time",30.0))
+            elif injection_mode=="Artériel": 
+                base_time = float(cfg.get("arterial_time",25.0))
+            else:
+                base_time = st.number_input("Temps Intermédiaire (s)", value=float(cfg.get("intermediate_time",28.0)), min_value=5.0,max_value=120.0,step=1.0,key="intermediate_time_input")
+            st.markdown(f"**Temps {injection_mode} :** {base_time:.0f} s")
+            acquisition_start = calculate_acquisition_start(age, cfg)
+            st.markdown(f"**Départ d'acquisition :** {acquisition_start:.1f} s")
+            st.markdown(f"**Concentration utilisée :** {int(cfg.get('concentration_mg_ml',350))} mg I/mL")
 
-    # Under Taille: keep original behavior for method & charge (but avoid duplicate note lines)
-    method = cfg.get("calc_mode", "Charge iodée")
-    charge_used = float(cfg.get("charges", {}).get(str(kv_scanner), 0.0))
-
-    # display under height/title area (retain original info but slightly reduced to avoid duplication)
-    st.markdown(f"**Méthode (config) :** {method}")
-    st.markdown(f"**Charge iodée (kV {kv_scanner}) :** {charge_used:.2f} g I/kg")
-
-    # acquisition start and times displayed near mode/time info
-    if injection_mode == "Portal":
-        base_time = float(cfg.get("portal_time",30.0))
-    elif injection_mode == "Artériel":
-        base_time = float(cfg.get("arterial_time",25.0))
-    else:
-        base_time = st.number_input("Temps Intermédiaire (s)", value=float(cfg.get("intermediate_time",28.0)), min_value=5.0, max_value=120.0, step=1.0, key="intermediate_time_input")
-    st.markdown(f"**Temps {injection_mode} :** {base_time:.0f} s")
-    acquisition_start = calculate_acquisition_start(age, cfg)
-    st.markdown(f"**Départ d'acquisition :** {acquisition_start:.1f} s")
-    st.markdown(f"**Concentration utilisée :** {int(cfg.get('concentration_mg_ml',350))} mg I/mL")
-
-    # (Removed the "Pensez à ajuster..." note as requested)
-
-    # validations
-    if weight <= 0 or height <= 0:
-        st.error("Poids et taille doivent être >0")
-        st.stop()
-    if float(cfg.get("concentration_mg_ml",0)) <= 0:
-        st.error("La concentration doit être >0 mg I/mL")
-        st.stop()
+    if weight <= 0 or height <= 0: 
+        st.error("Poids et taille doivent être >0"); st.stop()
+    if float(cfg.get("concentration_mg_ml",0)) <= 0: 
+        st.error("La concentration doit être >0 mg I/mL"); st.stop()
 
     volume, bsa = calculate_volume(weight, height, kv_scanner, float(cfg.get("concentration_mg_ml",350)), imc, cfg.get("calc_mode","Charge iodée"), cfg.get("charges",{}), float(cfg.get("volume_max_limit",200.0)))
     injection_rate, injection_time, time_adjusted = adjust_injection_rate(volume, float(base_time), float(cfg.get("max_debit",6.0)))
 
-    # simultaneous calculations and NaCl breakdown using parameters from cfg
-    if cfg.get("simultaneous_enabled", False):
+    if cfg.get("simultaneous_enabled",False):
         target = float(cfg.get("target_concentration",350))
         current_conc = float(cfg.get("concentration_mg_ml",350))
         if target > current_conc:
             st.warning(f"La concentration cible ({target:.0f}) est supérieure à la concentration du flacon ({current_conc:.0f})")
             target = current_conc
         vol_contrast = volume * (target/current_conc) if current_conc > 0 else volume
-        # NaCl dilution volume computed by percentage
-        nacl_pct = int(cfg.get("nacl_dilution_percent", 0))
-        nacl_dilution_volume = round(vol_contrast * (nacl_pct / 100.0))
-        rincage_vol = int(round(cfg.get("rincage_volume", cfg.get("rincage_volume_param", 35.0))))
-        total_nacl_volume = int(round(nacl_dilution_volume + rincage_vol))
-        # rinçage rate from params
-        rincage_rate = float(cfg.get("rincage_rate_param", cfg.get("rincage_rate_param", 3.0)))
-        contrast_text = f"{int(round(vol_contrast))} mL ({int(round((vol_contrast/volume*100) if volume>0 else 100))}% du calcul)"
+        vol_nacl_dilution = max(0.0, volume - vol_contrast)
+        perc_contrast = (vol_contrast/volume*100) if volume>0 else 0
+        perc_nacl_dilution = (vol_nacl_dilution/volume*100) if volume>0 else 0
+        contrast_text = f"{int(round(vol_contrast))} mL ({int(round(perc_contrast))}%)"
+        nacl_rincage_volume = float(cfg.get("rincage_volume",35.0))
+        nacl_rincage_debit = max(0.1, injection_rate - float(cfg.get("rincage_delta_debit",0.5)))
+        nacl_text = f"<div class='sub-item-large'>Dilution : {int(round(vol_nacl_dilution))} mL ({int(round(perc_nacl_dilution))}%)</div>"
+        nacl_text += f"<div class='sub-item-large'>Rinçage : {int(round(nacl_rincage_volume))} mL @ {injection_rate:.1f} mL/s</div>"
     else:
         vol_contrast = volume
         contrast_text = f"{int(round(vol_contrast))} mL"
-        nacl_dilution_volume = 0
-        rincage_vol = int(round(cfg.get("rincage_volume", cfg.get("rincage_volume_param", 35.0))))
-        total_nacl_volume = int(round(rincage_vol))
-        rincage_rate = float(cfg.get("rincage_rate_param", cfg.get("rincage_rate_param", 3.0)))
+        nacl_text = f"{int(round(cfg.get('rincage_volume',35.0)))} mL"
 
-    contrast_rate = injection_rate
-    # NaCl rate: display rinçage rate; overall NaCl delivery could be considered per segment
-    nacl_rate_display = rincage_rate
-
-    # SVG droplets: green for contrast, blue for NaCl
-    green_drop_svg = """<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
-<path d="M12 2C12 2 18 8 18 13.5C18 18.1944 14.4183 21.7761 9.724 21.9999C9.488 22.0199 9.259 22.0299 9.038 22.0299C8.813 22.0299 8.588 22.0199 8.361 21.9999C3.663 21.7759 0 18.1534 0 13.5C0 8 6 2 12 2Z" fill="#2ECC71"/>
-</svg>"""
-    blue_drop_svg = """<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
-<path d="M12 2C12 2 18 8 18 13.5C18 18.1944 14.4183 21.7761 9.724 21.9999C9.488 22.0199 9.259 22.0299 9.038 22.0299C8.813 22.0299 8.588 22.0199 8.361 21.9999C3.663 21.7759 0 18.1534 0 13.5C0 8 6 2 12 2Z" fill="#3E8ED0"/>
-</svg>"""
-
-    # bottom display: two cards side-by-side with volume+debit on same line
-    col_c, col_n = st.columns(2, gap="medium")
-    with col_c:
-        st.markdown(f"""<div style="background:#EAF1F8;padding:14px;border-radius:10px;text-align:center;">
-            <div style="display:flex; align-items:center; justify-content:center; gap:8px;">
-                <div>{green_drop_svg}</div>
-                <h3 style="margin:0;">Volume et Débit de contraste conseillé</h3>
-            </div>
-            <div style="margin-top:10px; font-size:1.1rem;">
-                <span style="font-weight:700;">{contrast_text}</span> — Débit : <b>{contrast_rate:.1f} mL/s</b>
-            </div>
-        </div>""", unsafe_allow_html=True)
-
-    with col_n:
-        # If simultaneous: show dilution + rinçage lines (removed "Volume total NaCl" line as requested)
-        if cfg.get("simultaneous_enabled", False):
-            st.markdown(f"""<div style="background:#EAF1F8;padding:14px;border-radius:10px;text-align:center;">
-                <div style="display:flex; align-items:center; justify-content:center; gap:8px;">
-                    <div>{blue_drop_svg}</div>
-                    <h3 style="margin:0;">Volume et Débit de NaCl conseillé</h3>
-                </div>
-                <div style="margin-top:10px; font-size:1.05rem;">
-                    <div><b>Volume dilution :</b> {nacl_dilution_volume} mL</div>
-                    <div style="margin-top:6px;"><b>Volume rinçage :</b> {rincage_vol} mL</div>
-                    <div style="margin-top:6px;"><b>Débit de rinçage :</b> {nacl_rate_display:.1f} mL/s</div>
-                    <div style="margin-top:6px; font-size:0.95rem; color:#444;">(Débit contraste : {contrast_rate:.1f} mL/s)</div>
-                </div>
-            </div>""", unsafe_allow_html=True)
-        else:
-            st.markdown(f"""<div style="background:#EAF1F8;padding:14px;border-radius:10px;text-align:center;">
-                <div style="display:flex; align-items:center; justify-content:center; gap:8px;">
-                    <div>{blue_drop_svg}</div>
-                    <h3 style="margin:0;">Volume et Débit de NaCl conseillé</h3>
-                </div>
-                <div style="margin-top:10px; font-size:1.1rem;">
-                    <span style="font-weight:700;">{total_nacl_volume} mL</span> — Débit rinçage : <b>{nacl_rate_display:.1f} mL/s</b>
-                </div>
-            </div>""", unsafe_allow_html=True)
-
-    st.markdown("<div class='center-muted'>Résultats indicatifs — à valider par un professionnel de santé.</div>", unsafe_allow_html=True)
-
+    col_contrast, col_nacl, col_rate = st.columns(3, gap="medium")
+    with col_contrast:
+        st.markdown(f"""<div style="background:#EAF1F8;padding:12px;border-radius:10px;text-align:center;">
+                         <h3>💧 Volume contraste conseillé</h3><h1 style="margin:0">{contrast_text}</h1>
+                       </div>""",unsafe_allow_html=True)
+    with col_nacl:
+        st.markdown(f"""<div style="background:#EAF1F8;padding:12px;border-radius:10px;text-align:center;">
+                         <h3>💧 Volume NaCl conseillé</h3><h1 style="margin:0">{nacl_text}</h1>
+                       </div>""",unsafe_allow_html=True)
+    with col_rate:
+        st.markdown(f"""<div style="background:#EAF1F8;padding:12px;border-radius:10px;text-align:center;">
+                         <h3>🚀 Débit conseillé</h3><h1 style="margin:0">{injection_rate:.1f} mL/s</h1>
+                       </div>""",unsafe_allow_html=True)
     if time_adjusted:
         st.warning(f"⚠️ Temps d’injection ajusté à {injection_time:.1f}s pour respecter le débit maximal de {cfg.get('max_debit',6.0)} mL/s.")
-
     st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
-
-    # (Removed the repeated small-note "Pensez à ajuster votre départ d'acquisition manuellement si nécessaire.")
-
     try:
-        audit_log(f"calc:user={user_id},age={age},kv={kv_scanner},mode={injection_mode},vol={volume},vol_contrast={vol_contrast},rate={contrast_rate:.2f},method={method},charge={charge_used},nacl_pct={cfg.get('nacl_dilution_percent')},rincage_vol={cfg.get('rincage_volume')},rincage_rate={cfg.get('rincage_rate_param')}")
+        audit_log(f"calc:user={user_id},age={age},kv={kv_scanner},mode={injection_mode},vol={volume},vol_contrast={vol_contrast},rate={injection_rate:.2f}")
     except:
         pass
 
 # ------------------------
-# Tutoriel tab (référence CIRTACI)
+# Onglet Tutoriel (inchangé)
 # ------------------------
 with tab_tutorial:
     st.title("📘 Tutoriel — Mode d'emploi et principes cliniques")
-    st.markdown("Cette section explique **comment utiliser** la calculette et **pourquoi** chaque calcul est effectué. Le contenu peut être adapté localement selon protocole.")
+    st.markdown("Bienvenue dans le tutoriel. Cette section explique **comment utiliser** la calculette et **pourquoi** chaque calcul est effectué.")
     st.header("🔧 Guide pas à pas — Utilisation")
     st.markdown("""
     1. **Patient** : saisissez poids, taille et année de naissance.
-    2. **Mode d'injection** : placé sous le poids.
-    3. **kV du scanner** : placé sous le mode d'injection.
-    4. **Paramètres** : activez l'injection simultanée et définissez la dilution NaCl si besoin.
-    5. **Validation** : relisez les résultats (volume contraste, NaCl, débit).
+    2. **kV du scanner** : choisissez la valeur correspondant à votre machine.
+    3. **Mode d’injection** : Portal / Artériel / Intermédiaire.
+    4. **Paramètres** : vérifiez la concentration, le débit max et les temps.
+    5. **Injection simultanée** : si activée, définissez la concentration cible.
+    6. **Validation** : relisez les résultats (volume contraste, NaCl, débit).
     """)
-    st.header("🔬 Références")
-    st.markdown("Ce tutoriel se réfère aux recommandations du CIRTACI 5.3.0 (2020).")
-    st.markdown(f"[Consulter le document officiel (CIRTACI 5.3.0 — 2020)](https://www.radiologie.fr/sites/www.radiologie.fr/files/medias/documents/CIRTACI%20Fiche%20Ge%CC%81ne%CC%81ralite%CC%81s%20VASCULAIRE_5_3_1.pdf)")
+    st.header("🧠 Explications techniques et cliniques")
+    st.markdown("""
+    - **Charge iodée** : dose proportionnelle au poids.
+    - **Surface corporelle (BSA)** : dose selon m².
+    - **IMC>30** : règle “Charge iodée sauf IMC>30 → Surface corporelle”.
+    - **Débit** = volume / temps; ajusté si dépasse max.
+    - **Injection simultanée** : dilution pour atteindre concentration cible.
+    """)
+    st.header("🔬 Bases — recommandations spécifiques en oncologie hépatique")
+    st.markdown("""
+    Objectif : standardiser le rehaussement hépatique.
+    - Foie sain : ≥110 UH
+    - Foie stéatosique : ≥120 UH
+    ⚠️ Valeurs indicatives selon protocole local.
+    """)
+    st.header("🩺 Exemple de workflow clinique")
+    st.markdown("""
+    Patient 75 kg, 170 cm, kV=120, charge iodée 0.5, mode Portal, concentration 350 mg I/mL.
+    Exemple volume : (75x0.5)/0.35 ≈ 107 mL
+    """)
 
 # ------------------------
-# Footer with CIRTACI link
+# Footer
 # ------------------------
 st.markdown(f"""<div style='text-align:center; margin-top:20px; font-size:0.8rem; color:#666;'>
 © 2025 Guerbet | Développé par <b>Sébastien Partouche</b><br>
-Calculette de dose de produit de contraste — Oncologie CT adulte.<br>
+Calculette de dose de produit de contraste en oncologie adulte.<br>
 <div style='display:inline-block; background-color:#FCE8B2; border:1px solid #F5B800; padding:8px 15px; border-radius:10px; color:#5A4500; font-weight:600; margin-top:10px;'>🧪 Version BETA TEST – Usage interne / évaluation</div>
-<br><br>
-<a href="https://www.radiologie.fr/sites/www.radiologie.fr/files/medias/documents/CIRTACI%20Fiche%20Ge%CC%81ne%CC%81ralite%CC%81s%20VASCULAIRE_5_3_1.pdf" target="_blank" style="color:#0B67A9; text-decoration:underline;">Consulter le document CIRTACI 5.3.0 (2020)</a>
 </div>""", unsafe_allow_html=True)
