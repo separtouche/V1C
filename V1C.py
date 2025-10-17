@@ -503,20 +503,14 @@ with tab_patient:
     # === LIGNE 2 : Trois blocs avec lignes de séparation ===
     col_left, col_div1, col_center, col_div2, col_right = st.columns([1.2, 0.05, 1.2, 0.05, 1.2])
 
-# Bloc gauche : Mode d’injection + kV
-with col_left:
-    st.markdown("""
-    <div style="height:100%; display:flex; flex-direction:column; justify-content:space-between;">
-    """, unsafe_allow_html=True)
+    # Bloc gauche : Mode d’injection + kV
+    with col_left:
+        st.markdown("### Mode d’injection")
+        injection_modes = ["Portal", "Artériel", "Intermédiaire"]
+        injection_mode = st.radio("", injection_modes, horizontal=True, index=2)
 
-    st.markdown("### Mode d’injection")
-    injection_modes = ["Portal", "Artériel", "Intermédiaire"]
-    injection_mode = st.radio("", injection_modes, horizontal=True, key="injection_mode")
-
-    st.markdown("### kV du scanner")
-    kv_scanner = st.radio("", [80, 90, 100, 110, 120], horizontal=True, key="kv_scanner")
-
-    st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown("### kV du scanner")
+        kv_scanner = st.radio("", [80, 90, 100, 110, 120], horizontal=True, index=4)
 
     # Ligne de séparation
     with col_div1:
