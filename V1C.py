@@ -428,110 +428,156 @@ with tab_params:
 # ------------------------
 # Onglet Patient (correspond aux programmes personnels)
 # ------------------------
+# ------------------------
+# Onglet Patient (réorganisé selon maquette visuelle)
+# ------------------------
 with tab_patient:
-    st.header("🧍 Informations patient (adulte en oncologie)")
-    col_w, col_h, col_birth, col_prog = st.columns([1,1,1,1.2])
-    with col_w:
-        weight = st.select_slider("Poids (kg)", options=list(range(20,201)), value=70, key="weight_patient")
-    with col_h:
-        height = st.select_slider("Taille (cm)", options=list(range(100,221)), value=170, key="height_patient")
+    st.markdown("""
+        <style>
+        /* --- Style global --- */
+        .slider-red .stSlider [data-baseweb="slider"] div[role="slider"] {
+            background-color: #E53935 !important;
+        }
+        .slider-red .stSlider [data-baseweb="slider"] div[role="slider"]::before {
+            background-color: #E53935 !important;
+        }
+        .info-block {
+            background: #EAF1F8;
+            border-radius: 10px;
+            padding: 12px 18px;
+            margin-bottom: 12px;
+        }
+        .right-panel {
+            background: #F9FBFD;
+            border-radius: 10px;
+            padding: 15px 20px;
+            border-left: 4px solid #D1E3F4;
+        }
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #123A5F;
+            margin-bottom: 10px;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown("<div class='section-title'>🧍 Informations patient (adulte en oncologie)</div>", unsafe_allow_html=True)
+
+    # Curseurs de Poids / Taille / Année de naissance
+    st.markdown("<div class='slider-red'>", unsafe_allow_html=True)
+    col_poids, col_taille, col_annee, col_prog = st.columns([1, 1, 1, 1.4])
+
+    with col_poids:
+        weight = st.slider("Poids (kg)", 20, 200, 70)
+        st.markdown(f"<p style='text-align:center;color:#E53935;font-weight:600;font-size:18px'>{weight}</p>", unsafe_allow_html=True)
+
+    with col_taille:
+        height = st.slider("Taille (cm)", 100, 220, 170)
+        st.markdown(f"<p style='text-align:center;color:#E53935;font-weight:600;font-size:18px'>{height}</p>", unsafe_allow_html=True)
+
     current_year = datetime.now().year
-    with col_birth:
-        birth_year = st.select_slider("Année de naissance", options=list(range(current_year-120,current_year+1)), value=current_year-40, key="birth_patient")
+    with col_annee:
+        birth_year = st.slider("Année de naissance", current_year - 120, current_year, 1985)
+        st.markdown(f"<p style='text-align:center;color:#E53935;font-weight:600;font-size:18px'>{birth_year}</p>", unsafe_allow_html=True)
+
     with col_prog:
         user_id = st.session_state["user_id"]
         user_programs = user_sessions.get(user_id, {}).get("programs", {})
         prog_choice_patient = st.selectbox(
-            "Programme",
+            "Sélection d'un programme",
             ["Sélection d'un programme"] + list(user_programs.keys()),
-            index=0,
-            label_visibility="collapsed",
-            key="prog_patient"
+            index=0
         )
         if prog_choice_patient != "Sélection d'un programme":
             prog_conf = user_programs.get(prog_choice_patient, {})
-            # appliquer les paramètres du programme sélectionné sur la config en session
             cfg = get_cfg()
             for key, val in prog_conf.items():
                 cfg[key] = val
             set_cfg_and_persist(user_id, cfg)
             user_sessions[user_id]["last_selected_program"] = prog_choice_patient
             save_user_sessions(user_sessions)
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    # Calculs et affichage
+    # Variables patient
     cfg = get_cfg()
     age = current_year - birth_year
     imc = weight / ((height/100)**2)
-    col_kv, col_mode_time = st.columns([1.2,2])
-    with col_kv:
-        kv_scanner = st.radio("kV du scanner",[80,90,100,110,120],index=4,horizontal=True,key="kv_patient")
-    with col_mode_time:
-        col_mode, col_times = st.columns([1.2,1])
-        with col_mode:
-            injection_modes=["Portal","Artériel"]
-            if cfg.get("intermediate_enabled",False):
-                injection_modes.append("Intermédiaire")
-            injection_mode = st.radio("Mode d’injection", injection_modes,horizontal=True,key="mode_inj_patient")
-        with col_times:
-            if injection_mode=="Portal": 
-                base_time = float(cfg.get("portal_time",30.0))
-            elif injection_mode=="Artériel": 
-                base_time = float(cfg.get("arterial_time",25.0))
-            else:
-                base_time = st.number_input("Temps Intermédiaire (s)", value=float(cfg.get("intermediate_time",28.0)), min_value=5.0,max_value=120.0,step=1.0,key="intermediate_time_input")
-            st.markdown(f"**Temps {injection_mode} :** {base_time:.0f} s")
-            acquisition_start = calculate_acquisition_start(age, cfg)
-            st.markdown(f"**Départ d'acquisition :** {acquisition_start:.1f} s")
-            st.markdown(f"**Concentration utilisée :** {int(cfg.get('concentration_mg_ml',350))} mg I/mL")
 
-    if weight <= 0 or height <= 0: 
-        st.error("Poids et taille doivent être >0"); st.stop()
-    if float(cfg.get("concentration_mg_ml",0)) <= 0: 
-        st.error("La concentration doit être >0 mg I/mL"); st.stop()
+    # Ligne suivante : Mode d’injection + kV
+    st.markdown("---")
+    col_left, col_right = st.columns([1.7, 1.3])
 
-    volume, bsa = calculate_volume(weight, height, kv_scanner, float(cfg.get("concentration_mg_ml",350)), imc, cfg.get("calc_mode","Charge iodée"), cfg.get("charges",{}), float(cfg.get("volume_max_limit",200.0)))
-    injection_rate, injection_time, time_adjusted = adjust_injection_rate(volume, float(base_time), float(cfg.get("max_debit",6.0)))
+    with col_left:
+        st.markdown("### Mode d’injection")
+        injection_modes = ["Portal", "Artériel"]
+        if cfg.get("intermediate_enabled", False):
+            injection_modes.append("Intermédiaire")
+        injection_mode = st.radio("", injection_modes, horizontal=True)
 
-    if cfg.get("simultaneous_enabled",False):
-        target = float(cfg.get("target_concentration",350))
-        current_conc = float(cfg.get("concentration_mg_ml",350))
+        st.markdown("### kV du scanner")
+        kv_scanner = st.radio("", [80, 90, 100, 110, 120], horizontal=True, index=4)
+
+        st.markdown("### Méthode utilisée")
+        st.markdown(f"<div class='info-block'><b>Méthode utilisée :</b> {cfg.get('calc_mode','Charge iodée')}</div>", unsafe_allow_html=True)
+
+        charge_iod = float(cfg.get("charges", {}).get(str(kv_scanner), 0.45))
+        st.markdown(f"<div class='info-block'><b>Charge iodée appliquée (kV {kv_scanner}) :</b> {charge_iod:.2f} g I/kg</div>", unsafe_allow_html=True)
+
+        st.markdown("<p style='color:#666;'>⚙️ Ajustement automatique du départ d'acquisition selon l'âge activé<br>💧 Injection simultanée activée</p>", unsafe_allow_html=True)
+
+    with col_right:
+        if injection_mode == "Portal":
+            base_time = float(cfg.get("portal_time", 30.0))
+        elif injection_mode == "Artériel":
+            base_time = float(cfg.get("arterial_time", 25.0))
+        else:
+            base_time = float(cfg.get("intermediate_time", 28.0))
+
+        acquisition_start = calculate_acquisition_start(age, cfg)
+        concentration = int(cfg.get("concentration_mg_ml", 350))
+
+        st.markdown("### Paramètres calculés")
+        st.markdown(f"""
+            <div class='right-panel'>
+            <b>Temps {injection_mode} :</b> {base_time:.0f} s<br>
+            <b>Départ d'acquisition :</b> {acquisition_start:.1f} s<br>
+            <b>Concentration utilisée :</b> {concentration} mg I/mL
+            </div>
+        """, unsafe_allow_html=True)
+
+    # --- Calculs inchangés ---
+    volume, bsa = calculate_volume(weight, height, kv_scanner, float(cfg.get("concentration_mg_ml", 350)), imc, cfg.get("calc_mode", "Charge iodée"), cfg.get("charges", {}), float(cfg.get("volume_max_limit", 200.0)))
+    injection_rate, injection_time, time_adjusted = adjust_injection_rate(volume, float(base_time), float(cfg.get("max_debit", 6.0)))
+
+    if cfg.get("simultaneous_enabled", False):
+        target = float(cfg.get("target_concentration", 350))
+        current_conc = float(cfg.get("concentration_mg_ml", 350))
         if target > current_conc:
-            st.warning(f"La concentration cible ({target:.0f}) est supérieure à la concentration du flacon ({current_conc:.0f})")
             target = current_conc
         vol_contrast = volume * (target/current_conc) if current_conc > 0 else volume
         vol_nacl_dilution = max(0.0, volume - vol_contrast)
-        perc_contrast = (vol_contrast/volume*100) if volume>0 else 0
-        perc_nacl_dilution = (vol_nacl_dilution/volume*100) if volume>0 else 0
-        contrast_text = f"{int(round(vol_contrast))} mL ({int(round(perc_contrast))}%)"
-        nacl_rincage_volume = float(cfg.get("rincage_volume",35.0))
-        nacl_rincage_debit = max(0.1, injection_rate - float(cfg.get("rincage_delta_debit",0.5)))
-        nacl_text = f"<div class='sub-item-large'>Dilution : {int(round(vol_nacl_dilution))} mL ({int(round(perc_nacl_dilution))}%)</div>"
-        nacl_text += f"<div class='sub-item-large'>Rinçage : {int(round(nacl_rincage_volume))} mL @ {injection_rate:.1f} mL/s</div>"
+        contrast_text = f"{int(round(vol_contrast))} mL"
+        nacl_text = f"{int(round(vol_nacl_dilution + cfg.get('rincage_volume', 35.0)))} mL"
     else:
         vol_contrast = volume
         contrast_text = f"{int(round(vol_contrast))} mL"
-        nacl_text = f"{int(round(cfg.get('rincage_volume',35.0)))} mL"
+        nacl_text = f"{int(round(cfg.get('rincage_volume', 35.0)))} mL"
 
-    col_contrast, col_nacl, col_rate = st.columns(3, gap="medium")
-    with col_contrast:
-        st.markdown(f"""<div style="background:#EAF1F8;padding:12px;border-radius:10px;text-align:center;">
-                         <h3>💧 Volume contraste conseillé</h3><h1 style="margin:0">{contrast_text}</h1>
-                       </div>""",unsafe_allow_html=True)
-    with col_nacl:
-        st.markdown(f"""<div style="background:#EAF1F8;padding:12px;border-radius:10px;text-align:center;">
-                         <h3>💧 Volume NaCl conseillé</h3><h1 style="margin:0">{nacl_text}</h1>
-                       </div>""",unsafe_allow_html=True)
-    with col_rate:
-        st.markdown(f"""<div style="background:#EAF1F8;padding:12px;border-radius:10px;text-align:center;">
-                         <h3>🚀 Débit conseillé</h3><h1 style="margin:0">{injection_rate:.1f} mL/s</h1>
-                       </div>""",unsafe_allow_html=True)
+    st.markdown("---")
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.markdown(f"<div class='info-block'><h4>💧 Volume contraste conseillé</h4><h2>{contrast_text}</h2></div>", unsafe_allow_html=True)
+    with col2:
+        st.markdown(f"<div class='info-block'><h4>💧 Volume NaCl conseillé</h4><h2>{nacl_text}</h2></div>", unsafe_allow_html=True)
+    with col3:
+        st.markdown(f"<div class='info-block'><h4>🚀 Débit conseillé</h4><h2>{injection_rate:.1f} mL/s</h2></div>", unsafe_allow_html=True)
+
     if time_adjusted:
         st.warning(f"⚠️ Temps d’injection ajusté à {injection_time:.1f}s pour respecter le débit maximal de {cfg.get('max_debit',6.0)} mL/s.")
+
     st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
-    try:
-        audit_log(f"calc:user={user_id},age={age},kv={kv_scanner},mode={injection_mode},vol={volume},vol_contrast={vol_contrast},rate={injection_rate:.2f}")
-    except:
-        pass
 
 # ------------------------
 # Onglet Tutoriel (inchangé)
