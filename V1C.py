@@ -431,26 +431,50 @@ with tab_params:
                     st.error(f"Erreur suppression identifiant : {e}")
 
 # ------------------------
-# Onglet Patient (version finale réorganisée avec largeur équilibrée)
+# Onglet Patient — Mise en page finale compacte
 # ------------------------
 with tab_patient:
-    # CSS additionnel (sécurisé ici aussi pour isolation)
+    import datetime
     st.markdown("""
         <style>
-        .slider-red .stSlider [data-baseweb="slider"] div[role="slider"] { background-color: #E53935 !important; }
-        .slider-red .stSlider [data-baseweb="slider"] div[role="slider"]::before { background-color: #E53935 !important; }
-        .divider { border-left: 1px solid #d9d9d9; height: 100%; margin: 0 20px; }
-        .info-block { background: #F5F8FC; border-radius: 10px; padding: 15px 20px; text-align: center; color: #123A5F; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-        .section-title { font-size: 22px; font-weight: 700; color: #123A5F; margin-bottom: 15px; }
-        div[role="radiogroup"] label { padding: 2px 6px !important; margin: 0 2px !important; font-size: 0.85rem !important; }
+        .slider-red .stSlider [data-baseweb="slider"] div[role="slider"] {
+            background-color: #E53935 !important;
+        }
+        .slider-red .stSlider [data-baseweb="slider"] div[role="slider"]::before {
+            background-color: #E53935 !important;
+        }
+        .info-block {
+            background: #F5F8FC;
+            border-radius: 10px;
+            padding: 15px 20px;
+            text-align: center;
+            color: #123A5F;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .section-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: #123A5F;
+            margin-bottom: 15px;
+        }
+        /* Supprime l'espace blanc entre sliders et colonnes */
+        div[data-testid="stVerticalBlock"] > div:has(> section[data-testid="stHorizontalBlock"]) {
+            margin-top: -45px !important;
+            padding-top: 0 !important;
+        }
+        section[data-testid="stHorizontalBlock"] {
+            margin-top: 0 !important;
+            padding-top: 0 !important;
+            background: transparent !important;
+        }
         </style>
     """, unsafe_allow_html=True)
 
+    # 🧍 Titre principal
     st.markdown("<div class='section-title'>🧍 Informations patient (adulte en oncologie)</div>", unsafe_allow_html=True)
 
-    # === LIGNE 1 : Poids / Taille / Année / Programme ===
+    # === Sliders : Poids / Taille / Année / Programme ===
     st.markdown("<div class='slider-red'>", unsafe_allow_html=True)
-    current_year = datetime.now().year
     col_poids, col_taille, col_annee, col_prog = st.columns([1, 1, 1, 1.3])
 
     with col_poids:
@@ -459,6 +483,7 @@ with tab_patient:
     with col_taille:
         height = st.slider("Taille (cm)", 100, 220, 170)
 
+    current_year = datetime.datetime.now().year
     with col_annee:
         birth_year = st.slider("Année de naissance", current_year - 120, current_year, 1985)
 
@@ -480,20 +505,19 @@ with tab_patient:
             save_user_sessions(user_sessions)
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # Variables de base
+    # Variables patient
     cfg = get_cfg()
     age = current_year - birth_year
     imc = weight / ((height / 100) ** 2)
 
-       # === LIGNE 2 : Trois blocs avec lignes de séparation ===
-    col_left, col_div1, col_center, col_div2, col_right = st.columns([1.2, 0.05, 1.2, 0.05, 1.2])
+    # 🧱 Trois colonnes principales
+    col_left, col_center, col_right = st.columns([1, 1, 1], gap="small")
 
-    # 🧭 Bloc gauche : KV, charge iodée, concentration, méthode utilisée
+    # Bloc gauche — Paramètres principaux
     with col_left:
         st.markdown("<div class='info-block'>", unsafe_allow_html=True)
         st.markdown("<div style='font-weight:700; color:#123A5F; text-align:center; margin-bottom:10px;'>Paramètres principaux</div>", unsafe_allow_html=True)
 
-        # Sélecteur KV
         kv_scanner = st.radio(
             "kV",
             [80, 90, 100, 110, 120],
@@ -503,12 +527,10 @@ with tab_patient:
             label_visibility="collapsed"
         )
 
-        # Valeurs dépendantes
         charge_iod = float(cfg.get("charges", {}).get(str(kv_scanner), 0.45))
         concentration = int(cfg.get("concentration_mg_ml", 350))
         calc_mode_label = cfg.get("calc_mode", "Charge iodée")
 
-        # Infos affichées
         st.markdown(f"""
         <div style='text-align:center; margin-top:10px;'>
             <b>Charge iodée :</b> {charge_iod:.2f} g I/kg<br>
@@ -519,16 +541,11 @@ with tab_patient:
 
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # Séparateur
-    with col_div1:
-        st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
-
-    # 💉 Bloc centre : mode d'injection, temps d'injection, départ d'acquisition
+    # Bloc centre — Injection & timing
     with col_center:
         st.markdown("<div class='info-block'>", unsafe_allow_html=True)
         st.markdown("<div style='font-weight:700; color:#123A5F; text-align:center; margin-bottom:10px;'>Injection et timing</div>", unsafe_allow_html=True)
 
-        # Mode d'injection
         injection_modes = ["Portal", "Artériel", "Intermédiaire"]
         injection_mode = st.radio(
             "Mode d'injection",
@@ -539,17 +556,15 @@ with tab_patient:
             label_visibility="collapsed"
         )
 
-        # Temps selon mode choisi
         if injection_mode == "Portal":
             base_time = float(cfg.get("portal_time", 30.0))
         elif injection_mode == "Artériel":
             base_time = float(cfg.get("arterial_time", 25.0))
         else:
-            base_time = float(cfg.get("intermediate_time", cfg.get("portal_time", 30.0)))
+            base_time = float(cfg.get("intermediate_time", 28.0))
 
         acquisition_start = calculate_acquisition_start(age, cfg)
 
-        # Infos affichées
         st.markdown(f"""
         <div style='text-align:center; margin-top:10px;'>
             <b>Temps {injection_mode.lower()} :</b> {base_time:.0f} s<br>
@@ -559,11 +574,7 @@ with tab_patient:
 
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # Séparateur
-    with col_div2:
-        st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
-
-    # ⚙️ Bloc droit : options automatiques et simultanées
+    # Bloc droit — Options avancées
     with col_right:
         st.markdown("<div class='info-block'>", unsafe_allow_html=True)
         st.markdown("<div style='font-weight:700; color:#123A5F; text-align:center; margin-bottom:10px;'>Options avancées</div>", unsafe_allow_html=True)
@@ -582,16 +593,9 @@ with tab_patient:
 
         st.markdown("</div>", unsafe_allow_html=True)
 
-
-    # --- Calculs ---
-    volume, bsa = calculate_volume(
-        weight, height, kv_scanner, float(cfg.get("concentration_mg_ml", 350)),
-        imc, cfg.get("calc_mode", "Charge iodée"), cfg.get("charges", {}),
-        float(cfg.get("volume_max_limit", 200.0))
-    )
-    injection_rate, injection_time, time_adjusted = adjust_injection_rate(
-        volume, float(base_time), float(cfg.get("max_debit", 6.0))
-    )
+    # 💧 Calculs volumes / débit
+    volume, bsa = calculate_volume(weight, height, kv_scanner, float(cfg.get("concentration_mg_ml", 350)), imc, cfg.get("calc_mode", "Charge iodée"), cfg.get("charges", {}), float(cfg.get("volume_max_limit", 200.0)))
+    injection_rate, injection_time, time_adjusted = adjust_injection_rate(volume, float(base_time), float(cfg.get("max_debit", 6.0)))
 
     if cfg.get("simultaneous_enabled", False):
         target = float(cfg.get("target_concentration", 350))
@@ -618,7 +622,7 @@ with tab_patient:
         st.markdown(f"<div class='info-block'><h4>🚀 Débit conseillé</h4><h2>{injection_rate:.1f} mL/s</h2></div>", unsafe_allow_html=True)
 
     if time_adjusted:
-        st.warning(f"⚠️ Temps d’injection ajusté à {injection_time:.1f}s pour respecter le débit maximal de {float(cfg.get('max_debit',6.0)):.1f} mL/s.")
+        st.warning(f"⚠️ Temps d’injection ajusté à {injection_time:.1f}s pour respecter le débit maximal de {cfg.get('max_debit',6.0)} mL/s.")
 
     st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
 
