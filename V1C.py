@@ -431,7 +431,7 @@ with tab_params:
                     st.error(f"Erreur suppression identifiant : {e}")
 
 # ------------------------
-# Onglet Patient (version finale compacte et propre)
+# Onglet Patient — Version compacte sans titre intermédiaire
 # ------------------------
 with tab_patient:
     import datetime
@@ -500,22 +500,19 @@ with tab_patient:
     age = current_year - birth_year
     imc = weight / ((height / 100) ** 2)
 
-    # 📊 Titre au-dessus des blocs
-    st.markdown("<div class='section-title' style='margin-top:20px;'>📊 Paramètres d'injection</div>", unsafe_allow_html=True)
-
-    # 🧼 Réduction de l'espace vertical entre sliders et colonnes
+    # 🧼 Supprime l'espace entre les sliders et les colonnes → blocs directement collés
     st.markdown("""
     <style>
     section[data-testid="stHorizontalBlock"] {
-        margin-top: -35px !important; /* 👈 ajuste ici pour remonter plus ou moins */
+        margin-top: -20px !important;  /* 👈 ajuste ici pour coller plus ou moins */
     }
     </style>
     """, unsafe_allow_html=True)
 
-    # 🧱 Trois colonnes principales
+    # 🧱 Trois colonnes principales (collées sous les sliders)
     col_left, col_center, col_right = st.columns([1, 1, 1], gap="small")
 
-    # 🧭 Bloc gauche : KV, charge iodée, concentration, méthode
+    # 🧭 Bloc gauche
     with col_left:
         st.markdown("<div class='info-block' style='margin-top:0;'>", unsafe_allow_html=True)
         st.markdown("<div style='font-weight:700; color:#123A5F; text-align:center; margin-bottom:10px;'>Paramètres principaux</div>", unsafe_allow_html=True)
@@ -543,7 +540,7 @@ with tab_patient:
 
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # 💉 Bloc centre : mode d'injection, temps, départ d'acquisition
+    # 💉 Bloc centre
     with col_center:
         st.markdown("<div class='info-block' style='margin-top:0;'>", unsafe_allow_html=True)
         st.markdown("<div style='font-weight:700; color:#123A5F; text-align:center; margin-bottom:10px;'>Injection et timing</div>", unsafe_allow_html=True)
@@ -576,7 +573,7 @@ with tab_patient:
 
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # ⚙️ Bloc droit : options avancées
+    # ⚙️ Bloc droit
     with col_right:
         st.markdown("<div class='info-block' style='margin-top:0;'>", unsafe_allow_html=True)
         st.markdown("<div style='font-weight:700; color:#123A5F; text-align:center; margin-bottom:10px;'>Options avancées</div>", unsafe_allow_html=True)
