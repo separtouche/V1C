@@ -503,14 +503,30 @@ with tab_patient:
     # === LIGNE 2 : Trois blocs avec lignes de séparation ===
     col_left, col_div1, col_center, col_div2, col_right = st.columns([1.2, 0.05, 1.2, 0.05, 1.2])
 
-    # Bloc gauche : Mode d’injection + kV
-    with col_left:
-        st.markdown("### Mode d’injection")
-        injection_modes = ["Portal", "Artériel", "Intermédiaire"]
-        injection_mode = st.radio("", injection_modes, horizontal=True, index=2)
+   
+# Bloc gauche : Mode d’injection + kV (visuellement identique au bloc central)
+with col_left:
+    # On réutilise le même style visuel que la classe .info-block du centre
+    # (fond, padding, arrondis). Ici on fixe aussi une min-height pour que la hauteur
+    # corresponde visuellement au bloc central.
+    st.markdown("<div class='info-block' style='min-height:150px; display:flex; flex-direction:column; justify-content:center;'>", unsafe_allow_html=True)
 
-        st.markdown("### kV du scanner")
-        kv_scanner = st.radio("", [80, 90, 100, 110, 120], horizontal=True, index=4)
+    # Titre compact
+    st.markdown("<div style='font-weight:700; color:#123A5F; margin-bottom:6px; text-align:center;'>Mode d’injection</div>", unsafe_allow_html=True)
+
+    # Choix mode d'injection (widget Streamlit : inchangé fonctionnellement)
+    injection_modes = ["Portal", "Artériel", "Intermédiaire"]
+    injection_mode = st.radio("", injection_modes, horizontal=True, index=2, label_visibility="collapsed")
+
+    # séparation visuelle fine
+    st.markdown("<hr style='border:0;border-top:1px solid rgba(0,0,0,0.06); margin:8px 0;'>", unsafe_allow_html=True)
+
+    # kV
+    st.markdown("<div style='font-weight:700; color:#123A5F; margin-bottom:6px; text-align:center;'>kV du scanner</div>", unsafe_allow_html=True)
+    kv_scanner = st.radio("", [80, 90, 100, 110, 120], horizontal=True, index=4, label_visibility="collapsed")
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
 
     # Ligne de séparation
     with col_div1:
