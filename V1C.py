@@ -484,16 +484,27 @@ with tab_patient:
     cfg = get_cfg()
     age = current_year - birth_year
     imc = weight / ((height / 100) ** 2)
+    # === LIGNE 2 : Trois blocs alignés en haut, sans séparateurs ===
 
-          # === LIGNE 2 : Trois blocs (sans barres verticales) ===
-    col_left, col_center, col_right = st.columns([1, 1, 1])
+    # CSS pour supprimer les marges verticales
+    st.markdown("""
+    <style>
+    .block-container {
+        padding-top: 0rem !important;
+    }
+    div[data-testid="column"] {
+        padding-top: 0 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    col_left, col_center, col_right = st.columns([1, 1, 1], gap="small")
 
     # 🧭 Bloc gauche : KV, charge iodée, concentration, méthode utilisée
     with col_left:
         st.markdown("<div class='info-block' style='margin-top:0;'>", unsafe_allow_html=True)
         st.markdown("<div style='font-weight:700; color:#123A5F; text-align:center; margin-bottom:10px;'>Paramètres principaux</div>", unsafe_allow_html=True)
 
-        # Sélecteur KV
         kv_scanner = st.radio(
             "kV",
             [80, 90, 100, 110, 120],
@@ -503,12 +514,10 @@ with tab_patient:
             label_visibility="collapsed"
         )
 
-        # Valeurs dépendantes
         charge_iod = float(cfg.get("charges", {}).get(str(kv_scanner), 0.45))
         concentration = int(cfg.get("concentration_mg_ml", 350))
         calc_mode_label = cfg.get("calc_mode", "Charge iodée")
 
-        # Infos affichées
         st.markdown(f"""
         <div style='text-align:center; margin-top:10px;'>
             <b>Charge iodée :</b> {charge_iod:.2f} g I/kg<br>
@@ -516,10 +525,9 @@ with tab_patient:
             <b>Méthode :</b> {calc_mode_label}
         </div>
         """, unsafe_allow_html=True)
-
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # 💉 Bloc centre : mode d'injection, temps d'injection, départ d'acquisition
+    # 💉 Bloc centre
     with col_center:
         st.markdown("<div class='info-block' style='margin-top:0;'>", unsafe_allow_html=True)
         st.markdown("<div style='font-weight:700; color:#123A5F; text-align:center; margin-bottom:10px;'>Injection et timing</div>", unsafe_allow_html=True)
@@ -534,7 +542,6 @@ with tab_patient:
             label_visibility="collapsed"
         )
 
-        # Temps selon mode choisi
         if injection_mode == "Portal":
             base_time = float(cfg.get("portal_time", 30.0))
         elif injection_mode == "Artériel":
@@ -550,10 +557,9 @@ with tab_patient:
             <b>Départ d'acquisition :</b> {acquisition_start:.1f} s
         </div>
         """, unsafe_allow_html=True)
-
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # ⚙️ Bloc droit : options automatiques et simultanées
+    # ⚙️ Bloc droit
     with col_right:
         st.markdown("<div class='info-block' style='margin-top:0;'>", unsafe_allow_html=True)
         st.markdown("<div style='font-weight:700; color:#123A5F; text-align:center; margin-bottom:10px;'>Options avancées</div>", unsafe_allow_html=True)
@@ -569,9 +575,7 @@ with tab_patient:
             {"✅ activée" if sim_enabled else "❌ désactivée"}
         </div>
         """, unsafe_allow_html=True)
-
         st.markdown("</div>", unsafe_allow_html=True)
-
     # --- Calculs ---
     volume, bsa = calculate_volume(
         weight, height, kv_scanner, float(cfg.get("concentration_mg_ml", 350)),
