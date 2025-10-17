@@ -500,11 +500,17 @@ with tab_patient:
     age = current_year - birth_year
     imc = weight / ((height / 100) ** 2)
 
-    # 🧼 Supprime l'espace entre les sliders et les colonnes → blocs directement collés
+    # 🧼 Supprime complètement l'espace blanc entre sliders et colonnes
     st.markdown("""
     <style>
+    div[data-testid="stVerticalBlock"] > div:has(> section[data-testid="stHorizontalBlock"]) {
+        margin-top: -45px !important;  /* 👈 ajuste cette valeur si besoin */
+        padding-top: 0 !important;
+    }
     section[data-testid="stHorizontalBlock"] {
-        margin-top: -20px !important;  /* 👈 ajuste ici pour coller plus ou moins */
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+        background: transparent !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -538,59 +544,7 @@ with tab_patient:
         </div>
         """, unsafe_allow_html=True)
 
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    # 💉 Bloc centre
-    with col_center:
-        st.markdown("<div class='info-block' style='margin-top:0;'>", unsafe_allow_html=True)
-        st.markdown("<div style='font-weight:700; color:#123A5F; text-align:center; margin-bottom:10px;'>Injection et timing</div>", unsafe_allow_html=True)
-
-        injection_modes = ["Portal", "Artériel", "Intermédiaire"]
-        injection_mode = st.radio(
-            "Mode d'injection",
-            injection_modes,
-            horizontal=True,
-            index=2,
-            key="injection_mode_patient",
-            label_visibility="collapsed"
-        )
-
-        if injection_mode == "Portal":
-            base_time = float(cfg.get("portal_time", 30.0))
-        elif injection_mode == "Artériel":
-            base_time = float(cfg.get("arterial_time", 25.0))
-        else:
-            base_time = float(cfg.get("intermediate_time", cfg.get("portal_time", 30.0)))
-
-        acquisition_start = calculate_acquisition_start(age, cfg)
-
-        st.markdown(f"""
-        <div style='text-align:center; margin-top:10px;'>
-            <b>Temps {injection_mode.lower()} :</b> {base_time:.0f} s<br>
-            <b>Départ d'acquisition :</b> {acquisition_start:.1f} s
-        </div>
-        """, unsafe_allow_html=True)
-
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    # ⚙️ Bloc droit
-    with col_right:
-        st.markdown("<div class='info-block' style='margin-top:0;'>", unsafe_allow_html=True)
-        st.markdown("<div style='font-weight:700; color:#123A5F; text-align:center; margin-bottom:10px;'>Options avancées</div>", unsafe_allow_html=True)
-
-        auto_age = bool(cfg.get("auto_acquisition_by_age", True))
-        sim_enabled = bool(cfg.get("simultaneous_enabled", False))
-
-        st.markdown(f"""
-        <div style='text-align:center;'>
-            <b>Ajustement automatique du départ d'acquisition selon l'âge :</b><br>
-            {"✅ activé" if auto_age else "❌ désactivé"}<br><br>
-            <b>Injection simultanée :</b><br>
-            {"✅ activée" if sim_enabled else "❌ désactivée"}
-        </div>
-        """, unsafe_allow_html=True)
-
-        st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_all_
 
     # --- Calculs ---
     volume, bsa = calculate_volume(
