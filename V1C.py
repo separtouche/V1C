@@ -544,7 +544,7 @@ with tab_patient:
         </div>
         """, unsafe_allow_html=True)
 
-        st.markdown("</div>", unsafe_all_
+        st.markdown("</div>", unsafe_allow_html=True)
 
     # --- Calculs ---
     volume, bsa = calculate_volume(
