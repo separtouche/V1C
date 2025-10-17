@@ -488,37 +488,38 @@ with tab_patient:
     # === LIGNE 2 : Trois blocs avec lignes de séparation ===
     col_left, col_div1, col_center, col_div2, col_right = st.columns([1.2, 0.05, 1.2, 0.05, 1.2])
 
-    # Bloc gauche : Mode d’injection + kV — DANS le conteneur
+       # Bloc gauche : Mode d’injection + kV — intégrés dans le carré
     with col_left:
         st.markdown("""
-            <div class='info-block' style='min-height:150px; display:flex; flex-direction:column; justify-content:center;'>
-                <div style='font-weight:700; color:#123A5F; text-align:center; margin-bottom:6px;'>Mode d’injection</div>
+            <div class='info-block' style='min-height:180px; display:flex; flex-direction:column; justify-content:flex-start; align-items:center;'>
+                <div style='font-weight:700; color:#123A5F; text-align:center; margin-bottom:10px;'>Mode d’injection et kV</div>
             </div>
         """, unsafe_allow_html=True)
 
-        col_inj, col_kv = st.columns(2)
-        with col_inj:
-            injection_modes = ["Portal", "Artériel", "Intermédiaire"]
-            injection_mode = st.radio(
-                "",
-                injection_modes,
-                horizontal=True,
-                index=2,  # valeur par défaut comme l'original
-                key="injection_mode_patient",
-                label_visibility="collapsed"
-            )
-
-        with col_kv:
-            st.markdown("<div style='font-weight:700; color:#123A5F; text-align:center;'>kV du scanner</div>", unsafe_allow_html=True)
-            kv_scanner = st.radio(
-                "",
-                [80, 90, 100, 110, 120],
-                horizontal=True,
-                index=4,
-                key="kv_scanner_patient",
-                label_visibility="collapsed"
-            )
-
+        # Conteneur interne pour les choix
+        with st.container():
+            col_inj, col_kv = st.columns(2)
+            with col_inj:
+                st.markdown("<div style='text-align:center; font-weight:600; color:#123A5F;'>Injection</div>", unsafe_allow_html=True)
+                injection_modes = ["Portal", "Artériel", "Intermédiaire"]
+                injection_mode = st.radio(
+                    "",
+                    injection_modes,
+                    horizontal=True,
+                    index=2,
+                    key="injection_mode_patient",
+                    label_visibility="collapsed"
+                )
+            with col_kv:
+                st.markdown("<div style='text-align:center; font-weight:600; color:#123A5F;'>kV</div>", unsafe_allow_html=True)
+                kv_scanner = st.radio(
+                    "",
+                    [80, 90, 100, 110, 120],
+                    horizontal=True,
+                    index=4,
+                    key="kv_scanner_patient",
+                    label_visibility="collapsed"
+                )
     # Ligne de séparation
     with col_div1:
         st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
