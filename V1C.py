@@ -431,7 +431,7 @@ with tab_params:
                     st.error(f"Erreur suppression identifiant : {e}")
 
 # ------------------------
-# Onglet Patient — Mise en page finale compacte
+# Onglet Patient — Version finale compacte sans espace blanc
 # ------------------------
 with tab_patient:
     import datetime
@@ -457,15 +457,13 @@ with tab_patient:
             color: #123A5F;
             margin-bottom: 15px;
         }
-        /* Supprime l'espace blanc entre sliders et colonnes */
-        div[data-testid="stVerticalBlock"] > div:has(> section[data-testid="stHorizontalBlock"]) {
-            margin-top: -45px !important;
-            padding-top: 0 !important;
-        }
-        section[data-testid="stHorizontalBlock"] {
+        /* ✅ Supprime l'espace vertical entre sliders et colonnes */
+        div[data-testid="stHorizontalBlock"] {
             margin-top: 0 !important;
             padding-top: 0 !important;
-            background: transparent !important;
+        }
+        div[data-testid="stVerticalBlock"] > div:nth-child(3) {
+            margin-top: -50px !important;  /* Ajuste ici si besoin (-40 à -55) */
         }
         </style>
     """, unsafe_allow_html=True)
