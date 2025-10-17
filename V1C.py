@@ -485,89 +485,103 @@ with tab_patient:
     age = current_year - birth_year
     imc = weight / ((height / 100) ** 2)
 
-    # === LIGNE 2 : Trois blocs avec lignes de séparation ===
+       # === LIGNE 2 : Trois blocs avec lignes de séparation ===
     col_left, col_div1, col_center, col_div2, col_right = st.columns([1.2, 0.05, 1.2, 0.05, 1.2])
 
-
-    # Bloc gauche : Mode d’injection + kV — entièrement dans le carré
+    # 🧭 Bloc gauche : KV, charge iodée, concentration, méthode utilisée
     with col_left:
-        # On ouvre le bloc visuel
-        st.markdown("<div class='info-block' style='padding-top:10px; padding-bottom:10px;'>", unsafe_allow_html=True)
+        st.markdown("<div class='info-block'>", unsafe_allow_html=True)
+        st.markdown("<div style='font-weight:700; color:#123A5F; text-align:center; margin-bottom:10px;'>Paramètres principaux</div>", unsafe_allow_html=True)
 
-        st.markdown("<div style='font-weight:700; color:#123A5F; text-align:center; margin-bottom:10px;'>Mode d’injection et kV</div>", unsafe_allow_html=True)
+        # Sélecteur KV
+        kv_scanner = st.radio(
+            "kV",
+            [80, 90, 100, 110, 120],
+            horizontal=True,
+            index=4,
+            key="kv_scanner_patient",
+            label_visibility="collapsed"
+        )
 
-        # Colonnes internes dans le même conteneur
-        inj_col, kv_col = st.columns(2)
+        # Valeurs dépendantes
+        charge_iod = float(cfg.get("charges", {}).get(str(kv_scanner), 0.45))
+        concentration = int(cfg.get("concentration_mg_ml", 350))
+        calc_mode_label = cfg.get("calc_mode", "Charge iodée")
 
-        with inj_col:
-            st.markdown("<div style='text-align:center; font-weight:600; color:#123A5F;'>Injection</div>", unsafe_allow_html=True)
-            injection_modes = ["Portal", "Artériel", "Intermédiaire"]
-            injection_mode = st.radio(
-                "Injection",
-                injection_modes,
-                horizontal=True,
-                index=2,
-                key="injection_mode_patient",
-                label_visibility="collapsed"
-            )
+        # Infos affichées
+        st.markdown(f"""
+        <div style='text-align:center; margin-top:10px;'>
+            <b>Charge iodée :</b> {charge_iod:.2f} g I/kg<br>
+            <b>Concentration :</b> {concentration} mg I/mL<br>
+            <b>Méthode :</b> {calc_mode_label}
+        </div>
+        """, unsafe_allow_html=True)
 
-        with kv_col:
-            st.markdown("<div style='text-align:center; font-weight:600; color:#123A5F;'>kV</div>", unsafe_allow_html=True)
-            kv_scanner = st.radio(
-                "kV",
-                [80, 90, 100, 110, 120],
-                horizontal=True,
-                index=4,
-                key="kv_scanner_patient",
-                label_visibility="collapsed"
-            )
-
-        # On referme le bloc visuel
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # Ligne de séparation
+    # Séparateur
     with col_div1:
         st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
 
-    # Bloc central : Méthode utilisée (dynamique)
+    # 💉 Bloc centre : mode d'injection, temps d'injection, départ d'acquisition
     with col_center:
-        calc_mode_label = cfg.get("calc_mode", "Charge iodée")
-        charge_iod = float(cfg.get("charges", {}).get(str(kv_scanner), 0.45))
-        auto_age = bool(cfg.get("auto_acquisition_by_age", True))
-        sim_enabled = bool(cfg.get("simultaneous_enabled", False))
-        st.markdown(f"""
-            <div class='info-block'>
-                <b>Méthode utilisée :</b> {calc_mode_label}<br>
-                Charge iodée appliquée (kV {kv_scanner}) : {charge_iod:.2f} g I/kg<br>
-                <span style='color:#555;'>Ajustement automatique du départ d'acquisition selon l'âge : {"activé" if auto_age else "désactivé"}</span><br>
-                <span style='color:#555;'>Injection simultanée : {"activée" if sim_enabled else "désactivée"}</span>
-            </div>
-        """, unsafe_allow_html=True)
+        st.markdown("<div class='info-block'>", unsafe_allow_html=True)
+        st.markdown("<div style='font-weight:700; color:#123A5F; text-align:center; margin-bottom:10px;'>Injection et timing</div>", unsafe_allow_html=True)
 
-    # Ligne de séparation
-    with col_div2:
-        st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
+        # Mode d'injection
+        injection_modes = ["Portal", "Artériel", "Intermédiaire"]
+        injection_mode = st.radio(
+            "Mode d'injection",
+            injection_modes,
+            horizontal=True,
+            index=2,
+            key="injection_mode_patient",
+            label_visibility="collapsed"
+        )
 
-    # Bloc droit : Temps / Concentration
-    with col_right:
+        # Temps selon mode choisi
         if injection_mode == "Portal":
             base_time = float(cfg.get("portal_time", 30.0))
         elif injection_mode == "Artériel":
             base_time = float(cfg.get("arterial_time", 25.0))
         else:
-            # si temps intermédiaire désactivé, retomber sur un temps par défaut (portal)
             base_time = float(cfg.get("intermediate_time", cfg.get("portal_time", 30.0)))
 
         acquisition_start = calculate_acquisition_start(age, cfg)
-        concentration = int(cfg.get("concentration_mg_ml", 350))
+
+        # Infos affichées
+        st.markdown(f"""
+        <div style='text-align:center; margin-top:10px;'>
+            <b>Temps {injection_mode.lower()} :</b> {base_time:.0f} s<br>
+            <b>Départ d'acquisition :</b> {acquisition_start:.1f} s
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # Séparateur
+    with col_div2:
+        st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
+
+    # ⚙️ Bloc droit : options automatiques et simultanées
+    with col_right:
+        st.markdown("<div class='info-block'>", unsafe_allow_html=True)
+        st.markdown("<div style='font-weight:700; color:#123A5F; text-align:center; margin-bottom:10px;'>Options avancées</div>", unsafe_allow_html=True)
+
+        auto_age = bool(cfg.get("auto_acquisition_by_age", True))
+        sim_enabled = bool(cfg.get("simultaneous_enabled", False))
 
         st.markdown(f"""
-            <div class='info-block'>
-                <b>Temps {injection_mode.lower()} :</b> {base_time:.0f} s<br>
-                <b>Départ d'acquisition :</b> {acquisition_start:.1f} s<br>
-                <b>Concentration utilisée :</b> {concentration} mg I/mL
-            </div>
+        <div style='text-align:center;'>
+            <b>Ajustement automatique du départ d'acquisition selon l'âge :</b><br>
+            {"✅ activé" if auto_age else "❌ désactivé"}<br><br>
+            <b>Injection simultanée :</b><br>
+            {"✅ activée" if sim_enabled else "❌ désactivée"}
+        </div>
         """, unsafe_allow_html=True)
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
 
     # --- Calculs ---
     volume, bsa = calculate_volume(
