@@ -516,17 +516,21 @@ with tab_patient:
     with col_div1:
         st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
 
-    # Bloc central : Méthode utilisée
-    with col_center:
-        charge_iod = float(cfg.get("charges", {}).get(str(kv_scanner), 0.45))
-        st.markdown(f"""
-            <div class='info-block'>
-                <b>Méthode utilisée :</b> Charge iodée<br>
-                Charge iodée appliquée (kV {kv_scanner}) : {charge_iod:.2f} g I/kg<br>
-                <span style='color:#555;'>Ajustement automatique du départ d'acquisition selon l'âge activé</span><br>
-                <span style='color:#555;'>Injection simultanée activée</span>
-            </div>
-        """, unsafe_allow_html=True)
+# Bloc gauche : Mode d’injection + kV
+with col_left:
+    st.markdown("""
+    <div style="height:100%; display:flex; flex-direction:column; justify-content:space-between;">
+    """, unsafe_allow_html=True)
+
+    st.markdown("### Mode d’injection")
+    injection_modes = ["Portal", "Artériel", "Intermédiaire"]
+    injection_mode = st.radio("", injection_modes, horizontal=True, key="injection_mode")
+
+    st.markdown("### kV du scanner")
+    kv_scanner = st.radio("", [80, 90, 100, 110, 120], horizontal=True, key="kv_scanner")
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
 
     # Ligne de séparation
     with col_div2:
