@@ -485,12 +485,12 @@ with tab_patient:
     age = current_year - birth_year
     imc = weight / ((height / 100) ** 2)
 
-       # === LIGNE 2 : Trois blocs avec lignes de séparation ===
-    col_left, col_div1, col_center, col_div2, col_right = st.columns([1.2, 0.05, 1.2, 0.05, 1.2])
+          # === LIGNE 2 : Trois blocs (sans barres verticales) ===
+    col_left, col_center, col_right = st.columns([1, 1, 1])
 
     # 🧭 Bloc gauche : KV, charge iodée, concentration, méthode utilisée
     with col_left:
-        st.markdown("<div class='info-block'>", unsafe_allow_html=True)
+        st.markdown("<div class='info-block' style='margin-top:0;'>", unsafe_allow_html=True)
         st.markdown("<div style='font-weight:700; color:#123A5F; text-align:center; margin-bottom:10px;'>Paramètres principaux</div>", unsafe_allow_html=True)
 
         # Sélecteur KV
@@ -519,16 +519,11 @@ with tab_patient:
 
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # Séparateur
-    with col_div1:
-        st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
-
     # 💉 Bloc centre : mode d'injection, temps d'injection, départ d'acquisition
     with col_center:
-        st.markdown("<div class='info-block'>", unsafe_allow_html=True)
+        st.markdown("<div class='info-block' style='margin-top:0;'>", unsafe_allow_html=True)
         st.markdown("<div style='font-weight:700; color:#123A5F; text-align:center; margin-bottom:10px;'>Injection et timing</div>", unsafe_allow_html=True)
 
-        # Mode d'injection
         injection_modes = ["Portal", "Artériel", "Intermédiaire"]
         injection_mode = st.radio(
             "Mode d'injection",
@@ -549,7 +544,6 @@ with tab_patient:
 
         acquisition_start = calculate_acquisition_start(age, cfg)
 
-        # Infos affichées
         st.markdown(f"""
         <div style='text-align:center; margin-top:10px;'>
             <b>Temps {injection_mode.lower()} :</b> {base_time:.0f} s<br>
@@ -559,13 +553,9 @@ with tab_patient:
 
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # Séparateur
-    with col_div2:
-        st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
-
     # ⚙️ Bloc droit : options automatiques et simultanées
     with col_right:
-        st.markdown("<div class='info-block'>", unsafe_allow_html=True)
+        st.markdown("<div class='info-block' style='margin-top:0;'>", unsafe_allow_html=True)
         st.markdown("<div style='font-weight:700; color:#123A5F; text-align:center; margin-bottom:10px;'>Options avancées</div>", unsafe_allow_html=True)
 
         auto_age = bool(cfg.get("auto_acquisition_by_age", True))
@@ -581,7 +571,6 @@ with tab_patient:
         """, unsafe_allow_html=True)
 
         st.markdown("</div>", unsafe_allow_html=True)
-
 
     # --- Calculs ---
     volume, bsa = calculate_volume(
