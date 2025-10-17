@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 Calculette complète (une page) de dose de produit de contraste - Oncologie adulte
-Adaptée pour Sébastien Partouche — version consolidée optimisée
-Usage : streamlit run calculatrice_contraste_oncologie.py
+Adaptée pour Sébastien Partouche — version consolidée optimisée (corrigée)
+Usage : streamlit run calculatrice_contraste_oncologie_corrigee.py
 """
 
 import streamlit as st
@@ -167,6 +167,11 @@ st.set_page_config(page_title="Calculette Contraste Oncologie adulte", page_icon
 st.markdown("""
 <style>
 .stApp { background-color: #F7FAFC; font-family: 'Segoe UI', sans-serif; }
+.slider-red .stSlider [data-baseweb="slider"] div[role="slider"] { background-color: #E53935 !important; }
+.slider-red .stSlider [data-baseweb="slider"] div[role="slider"]::before { background-color: #E53935 !important; }
+.divider { border-left: 1px solid #d9d9d9; height: 100%; margin: 0 20px; }
+.info-block { background: #F5F8FC; border-radius: 10px; padding: 15px 20px; text-align: center; color: #123A5F; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+.section-title { font-size: 22px; font-weight: 700; color: #123A5F; margin-bottom: 15px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -421,7 +426,7 @@ with tab_params:
                     st.session_state["user_id"] = None
                     st.session_state["user_config"] = config_global.copy()
                     st.success("Votre identifiant a été supprimé. Vous avez été déconnecté.")
-                    st.experimental_rerun()
+                    st.rerun()
                 except Exception as e:
                     st.error(f"Erreur suppression identifiant : {e}")
 
@@ -429,35 +434,15 @@ with tab_params:
 # Onglet Patient (version finale réorganisée avec largeur équilibrée)
 # ------------------------
 with tab_patient:
-    import datetime
+    # CSS additionnel (sécurisé ici aussi pour isolation)
     st.markdown("""
         <style>
-        /* === STYLE === */
-        .slider-red .stSlider [data-baseweb="slider"] div[role="slider"] {
-            background-color: #E53935 !important;
-        }
-        .slider-red .stSlider [data-baseweb="slider"] div[role="slider"]::before {
-            background-color: #E53935 !important;
-        }
-        .divider {
-            border-left: 1px solid #d9d9d9;
-            height: 100%;
-            margin: 0 20px;
-        }
-        .info-block {
-            background: #F5F8FC;
-            border-radius: 10px;
-            padding: 15px 20px;
-            text-align: center;
-            color: #123A5F;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        }
-        .section-title {
-            font-size: 22px;
-            font-weight: 700;
-            color: #123A5F;
-            margin-bottom: 15px;
-        }
+        .slider-red .stSlider [data-baseweb="slider"] div[role="slider"] { background-color: #E53935 !important; }
+        .slider-red .stSlider [data-baseweb="slider"] div[role="slider"]::before { background-color: #E53935 !important; }
+        .divider { border-left: 1px solid #d9d9d9; height: 100%; margin: 0 20px; }
+        .info-block { background: #F5F8FC; border-radius: 10px; padding: 15px 20px; text-align: center; color: #123A5F; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .section-title { font-size: 22px; font-weight: 700; color: #123A5F; margin-bottom: 15px; }
+        div[role="radiogroup"] label { padding: 2px 6px !important; margin: 0 2px !important; font-size: 0.85rem !important; }
         </style>
     """, unsafe_allow_html=True)
 
@@ -465,6 +450,7 @@ with tab_patient:
 
     # === LIGNE 1 : Poids / Taille / Année / Programme ===
     st.markdown("<div class='slider-red'>", unsafe_allow_html=True)
+    current_year = datetime.now().year
     col_poids, col_taille, col_annee, col_prog = st.columns([1, 1, 1, 1.3])
 
     with col_poids:
@@ -473,7 +459,6 @@ with tab_patient:
     with col_taille:
         height = st.slider("Taille (cm)", 100, 220, 170)
 
-    current_year = datetime.datetime.now().year
     with col_annee:
         birth_year = st.slider("Année de naissance", current_year - 120, current_year, 1985)
 
@@ -503,65 +488,53 @@ with tab_patient:
     # === LIGNE 2 : Trois blocs avec lignes de séparation ===
     col_left, col_div1, col_center, col_div2, col_right = st.columns([1.2, 0.05, 1.2, 0.05, 1.2])
 
-   
-# Bloc gauche : Mode d’injection + kV — désormais DANS le carré du haut
-with col_left:
-    # Carré contenant les sélecteurs — même style visuel, mais ajusté pour tout rentrer
-    st.markdown("""
-        <div class='info-block' style='min-height:150px; display:flex; flex-direction:column; justify-content:center;'>
-            <div style='font-weight:700; color:#123A5F; text-align:center; margin-bottom:6px;'>Mode d’injection</div>
-        </div>
-    """, unsafe_allow_html=True)
+    # Bloc gauche : Mode d’injection + kV — DANS le conteneur
+    with col_left:
+        st.markdown("""
+            <div class='info-block' style='min-height:150px; display:flex; flex-direction:column; justify-content:center;'>
+                <div style='font-weight:700; color:#123A5F; text-align:center; margin-bottom:6px;'>Mode d’injection</div>
+            </div>
+        """, unsafe_allow_html=True)
 
-    # CSS pour compacter les boutons radio afin qu’ils tiennent bien dans le carré
-    st.markdown("""
-        <style>
-        div[role="radiogroup"] label {
-            padding: 2px 6px !important;
-            margin: 0 2px !important;
-            font-size: 0.85rem !important;
-        }
-        </style>
-    """, unsafe_allow_html=True)
+        col_inj, col_kv = st.columns(2)
+        with col_inj:
+            injection_modes = ["Portal", "Artériel", "Intermédiaire"]
+            injection_mode = st.radio(
+                "",
+                injection_modes,
+                horizontal=True,
+                index=2,  # valeur par défaut comme l'original
+                key="injection_mode_patient",
+                label_visibility="collapsed"
+            )
 
-    # On crée deux lignes dans le même carré : la première pour l’injection, la seconde pour le kV
-    col_inj, col_kv = st.columns(2)
-
-    with col_inj:
-        injection_modes = ["Portal", "Artériel", "Intermédiaire"]
-        injection_mode = st.radio(
-            "",
-            injection_modes,
-            horizontal=True,
-            index=2,
-            key="injection_mode_patient",
-            label_visibility="collapsed"
-        )
-
-    with col_kv:
-        st.markdown("<div style='font-weight:700; color:#123A5F; text-align:center;'>kV du scanner</div>", unsafe_allow_html=True)
-        kv_scanner = st.radio(
-            "",
-            [80, 90, 100, 110, 120],
-            horizontal=True,
-            index=4,
-            key="kv_scanner_patient",
-            label_visibility="collapsed"
-        )
+        with col_kv:
+            st.markdown("<div style='font-weight:700; color:#123A5F; text-align:center;'>kV du scanner</div>", unsafe_allow_html=True)
+            kv_scanner = st.radio(
+                "",
+                [80, 90, 100, 110, 120],
+                horizontal=True,
+                index=4,
+                key="kv_scanner_patient",
+                label_visibility="collapsed"
+            )
 
     # Ligne de séparation
     with col_div1:
         st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
 
-    # Bloc central : Méthode utilisée
+    # Bloc central : Méthode utilisée (dynamique)
     with col_center:
+        calc_mode_label = cfg.get("calc_mode", "Charge iodée")
         charge_iod = float(cfg.get("charges", {}).get(str(kv_scanner), 0.45))
+        auto_age = bool(cfg.get("auto_acquisition_by_age", True))
+        sim_enabled = bool(cfg.get("simultaneous_enabled", False))
         st.markdown(f"""
             <div class='info-block'>
-                <b>Méthode utilisée :</b> Charge iodée<br>
+                <b>Méthode utilisée :</b> {calc_mode_label}<br>
                 Charge iodée appliquée (kV {kv_scanner}) : {charge_iod:.2f} g I/kg<br>
-                <span style='color:#555;'>Ajustement automatique du départ d'acquisition selon l'âge activé</span><br>
-                <span style='color:#555;'>Injection simultanée activée</span>
+                <span style='color:#555;'>Ajustement automatique du départ d'acquisition selon l'âge : {"activé" if auto_age else "désactivé"}</span><br>
+                <span style='color:#555;'>Injection simultanée : {"activée" if sim_enabled else "désactivée"}</span>
             </div>
         """, unsafe_allow_html=True)
 
@@ -576,7 +549,8 @@ with col_left:
         elif injection_mode == "Artériel":
             base_time = float(cfg.get("arterial_time", 25.0))
         else:
-            base_time = float(cfg.get("intermediate_time", 28.0))
+            # si temps intermédiaire désactivé, retomber sur un temps par défaut (portal)
+            base_time = float(cfg.get("intermediate_time", cfg.get("portal_time", 30.0)))
 
         acquisition_start = calculate_acquisition_start(age, cfg)
         concentration = int(cfg.get("concentration_mg_ml", 350))
@@ -589,10 +563,15 @@ with col_left:
             </div>
         """, unsafe_allow_html=True)
 
-
-    # --- Calculs inchangés ---
-    volume, bsa = calculate_volume(weight, height, kv_scanner, float(cfg.get("concentration_mg_ml", 350)), imc, cfg.get("calc_mode", "Charge iodée"), cfg.get("charges", {}), float(cfg.get("volume_max_limit", 200.0)))
-    injection_rate, injection_time, time_adjusted = adjust_injection_rate(volume, float(base_time), float(cfg.get("max_debit", 6.0)))
+    # --- Calculs ---
+    volume, bsa = calculate_volume(
+        weight, height, kv_scanner, float(cfg.get("concentration_mg_ml", 350)),
+        imc, cfg.get("calc_mode", "Charge iodée"), cfg.get("charges", {}),
+        float(cfg.get("volume_max_limit", 200.0))
+    )
+    injection_rate, injection_time, time_adjusted = adjust_injection_rate(
+        volume, float(base_time), float(cfg.get("max_debit", 6.0))
+    )
 
     if cfg.get("simultaneous_enabled", False):
         target = float(cfg.get("target_concentration", 350))
@@ -619,7 +598,7 @@ with col_left:
         st.markdown(f"<div class='info-block'><h4>🚀 Débit conseillé</h4><h2>{injection_rate:.1f} mL/s</h2></div>", unsafe_allow_html=True)
 
     if time_adjusted:
-        st.warning(f"⚠️ Temps d’injection ajusté à {injection_time:.1f}s pour respecter le débit maximal de {cfg.get('max_debit',6.0)} mL/s.")
+        st.warning(f"⚠️ Temps d’injection ajusté à {injection_time:.1f}s pour respecter le débit maximal de {float(cfg.get('max_debit',6.0)):.1f} mL/s.")
 
     st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
 
