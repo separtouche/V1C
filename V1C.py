@@ -504,26 +504,57 @@ with tab_patient:
     col_left, col_div1, col_center, col_div2, col_right = st.columns([1.2, 0.05, 1.2, 0.05, 1.2])
 
    
-# Bloc gauche : Mode d’injection + kV (visuellement identique au bloc central)
+# Bloc gauche : Mode d’injection + kV du scanner dans le même encart
 with col_left:
-    # On réutilise le même style visuel que la classe .info-block du centre
-    # (fond, padding, arrondis). Ici on fixe aussi une min-height pour que la hauteur
-    # corresponde visuellement au bloc central.
-    st.markdown("<div class='info-block' style='min-height:150px; display:flex; flex-direction:column; justify-content:center;'>", unsafe_allow_html=True)
+    st.markdown("""
+        <style>
+        .left-panel {
+            background-color: #EAF1F8;
+            padding: 15px 20px;
+            border-radius: 10px;
+            min-height: 230px; /* même hauteur que le bloc du milieu */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .left-panel h3 {
+            font-size: 1rem;
+            color: #123A5F;
+            text-align: center;
+            margin-bottom: 0.5rem;
+        }
+        .left-panel hr {
+            border: 0;
+            border-top: 1px solid rgba(0,0,0,0.08);
+            margin: 10px 0;
+        }
+        .compact-radio label {
+            font-size: 0.85rem !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
 
-    # Titre compact
-    st.markdown("<div style='font-weight:700; color:#123A5F; margin-bottom:6px; text-align:center;'>Mode d’injection</div>", unsafe_allow_html=True)
+    # --- Bloc visuel homogène ---
+    st.markdown("<div class='left-panel'>", unsafe_allow_html=True)
 
-    # Choix mode d'injection (widget Streamlit : inchangé fonctionnellement)
-    injection_modes = ["Portal", "Artériel", "Intermédiaire"]
-    injection_mode = st.radio("", injection_modes, horizontal=True, index=2, label_visibility="collapsed")
+    # ---- Mode d’injection ----
+    st.markdown("<h3>Mode d’injection</h3>", unsafe_allow_html=True)
+    injection_modes = ["Portal", "Artériel"]
+    if cfg.get("intermediate_enabled", False):
+        injection_modes.append("Intermédiaire")
 
-    # séparation visuelle fine
-    st.markdown("<hr style='border:0;border-top:1px solid rgba(0,0,0,0.06); margin:8px 0;'>", unsafe_allow_html=True)
+    st.markdown("<div class='compact-radio'>", unsafe_allow_html=True)
+    injection_mode = st.radio("", injection_modes, horizontal=True, label_visibility="collapsed")
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    # kV
-    st.markdown("<div style='font-weight:700; color:#123A5F; margin-bottom:6px; text-align:center;'>kV du scanner</div>", unsafe_allow_html=True)
+    # ---- Séparateur visuel ----
+    st.markdown("<hr>", unsafe_allow_html=True)
+
+    # ---- kV du scanner ----
+    st.markdown("<h3>kV du scanner</h3>", unsafe_allow_html=True)
+    st.markdown("<div class='compact-radio'>", unsafe_allow_html=True)
     kv_scanner = st.radio("", [80, 90, 100, 110, 120], horizontal=True, index=4, label_visibility="collapsed")
+    st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("</div>", unsafe_allow_html=True)
 
