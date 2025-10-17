@@ -428,11 +428,12 @@ with tab_params:
 # ------------------------
 # Onglet Patient (version réorganisée finale)
 # ------------------------
+
 with tab_patient:
     import datetime
     st.markdown("""
         <style>
-        /* === STYLE GÉNÉRAL === */
+        /* === STYLE === */
         .slider-red .stSlider [data-baseweb="slider"] div[role="slider"] {
             background-color: #E53935 !important;
         }
@@ -469,16 +470,13 @@ with tab_patient:
 
     with col_poids:
         weight = st.slider("Poids (kg)", 20, 200, 70)
-        st.markdown(f"<p style='text-align:center;color:#E53935;font-weight:600;font-size:18px'>{weight}</p>", unsafe_allow_html=True)
 
     with col_taille:
         height = st.slider("Taille (cm)", 100, 220, 170)
-        st.markdown(f"<p style='text-align:center;color:#E53935;font-weight:600;font-size:18px'>{height}</p>", unsafe_allow_html=True)
 
     current_year = datetime.datetime.now().year
     with col_annee:
         birth_year = st.slider("Année de naissance", current_year - 120, current_year, 1985)
-        st.markdown(f"<p style='text-align:center;color:#E53935;font-weight:600;font-size:18px'>{birth_year}</p>", unsafe_allow_html=True)
 
     with col_prog:
         user_id = st.session_state["user_id"]
@@ -503,7 +501,7 @@ with tab_patient:
     age = current_year - birth_year
     imc = weight / ((height / 100) ** 2)
 
-    # === LIGNE 2 : Trois blocs (séparés par lignes grises) ===
+    # === LIGNE 2 : Trois blocs avec lignes de séparation ===
     col_left, col_div1, col_center, col_div2, col_right = st.columns([1.2, 0.05, 1.2, 0.05, 1.2])
 
     # Bloc gauche : Mode d’injection + kV
@@ -554,7 +552,6 @@ with tab_patient:
                 <b>Concentration utilisée :</b> {concentration} mg I/mL
             </div>
         """, unsafe_allow_html=True)
-
     # --- Calculs inchangés ---
     volume, bsa = calculate_volume(weight, height, kv_scanner, float(cfg.get("concentration_mg_ml", 350)), imc, cfg.get("calc_mode", "Charge iodée"), cfg.get("charges", {}), float(cfg.get("volume_max_limit", 200.0)))
     injection_rate, injection_time, time_adjusted = adjust_injection_rate(volume, float(base_time), float(cfg.get("max_debit", 6.0)))
