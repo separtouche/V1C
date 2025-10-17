@@ -484,23 +484,32 @@ with tab_patient:
     cfg = get_cfg()
     age = current_year - birth_year
     imc = weight / ((height / 100) ** 2)
-    # === LIGNE 2 : Trois blocs alignés en haut, sans séparateurs ===
+        # === LIGNE 2 : Trois blocs alignés en haut, sans séparateurs ni barre ===
 
-    # CSS pour supprimer les marges verticales
+    # 🔧 CSS global pour supprimer l’espace au-dessus et enlever la barre horizontale
     st.markdown("""
     <style>
     .block-container {
         padding-top: 0rem !important;
     }
+    section[data-testid="stHorizontalBlock"] {
+        padding-top: 0 !important;
+        margin-top: 0 !important;
+    }
     div[data-testid="column"] {
         padding-top: 0 !important;
+        margin-top: 0 !important;
+    }
+    hr {
+        display: none !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
+    # 💠 Colonnes principales sans séparateurs
     col_left, col_center, col_right = st.columns([1, 1, 1], gap="small")
 
-    # 🧭 Bloc gauche : KV, charge iodée, concentration, méthode utilisée
+    # 🧭 Bloc gauche : KV, charge iodée, concentration, méthode
     with col_left:
         st.markdown("<div class='info-block' style='margin-top:0;'>", unsafe_allow_html=True)
         st.markdown("<div style='font-weight:700; color:#123A5F; text-align:center; margin-bottom:10px;'>Paramètres principaux</div>", unsafe_allow_html=True)
@@ -525,9 +534,10 @@ with tab_patient:
             <b>Méthode :</b> {calc_mode_label}
         </div>
         """, unsafe_allow_html=True)
+
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # 💉 Bloc centre
+    # 💉 Bloc centre : mode d'injection, temps, départ d'acquisition
     with col_center:
         st.markdown("<div class='info-block' style='margin-top:0;'>", unsafe_allow_html=True)
         st.markdown("<div style='font-weight:700; color:#123A5F; text-align:center; margin-bottom:10px;'>Injection et timing</div>", unsafe_allow_html=True)
@@ -557,9 +567,10 @@ with tab_patient:
             <b>Départ d'acquisition :</b> {acquisition_start:.1f} s
         </div>
         """, unsafe_allow_html=True)
+
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # ⚙️ Bloc droit
+    # ⚙️ Bloc droit : options avancées
     with col_right:
         st.markdown("<div class='info-block' style='margin-top:0;'>", unsafe_allow_html=True)
         st.markdown("<div style='font-weight:700; color:#123A5F; text-align:center; margin-bottom:10px;'>Options avancées</div>", unsafe_allow_html=True)
@@ -575,7 +586,9 @@ with tab_patient:
             {"✅ activée" if sim_enabled else "❌ désactivée"}
         </div>
         """, unsafe_allow_html=True)
+
         st.markdown("</div>", unsafe_allow_html=True)
+
     # --- Calculs ---
     volume, bsa = calculate_volume(
         weight, height, kv_scanner, float(cfg.get("concentration_mg_ml", 350)),
