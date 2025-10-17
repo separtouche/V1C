@@ -505,75 +505,81 @@ with tab_patient:
     st.markdown("---")
     col_left, col_right = st.columns([1.7, 1.3])
 
-    # =========================
-    # Bloc gauche compacté
-    # =========================
-    with col_left:
-        st.markdown("""
-            <style>
-            .compact-section h3, .compact-section label {
-                font-size: 0.9rem !important;
-                margin-bottom: 0.2rem !important;
-            }
-            .compact-radio div[role="radiogroup"] label {
-                font-size: 0.85rem !important;
-                margin-right: 12px !important;
-            }
-            .compact-section {
-                line-height: 1.1;
-                margin-bottom: 0.5rem !important;
-            }
-            </style>
-        """, unsafe_allow_html=True)
+    # --- Ligne 2 : trois blocs alignés et uniformes ---
+st.markdown("""
+    <style>
+    .panel {
+        background-color: #EAF1F8;
+        padding: 15px;
+        border-radius: 10px;
+        min-height: 230px; /* hauteur uniforme */
+    }
+    .panel h3 {
+        font-size: 1rem;
+        color: #124F7A;
+        margin-bottom: 0.4rem;
+        text-align: center;
+    }
+    .compact-radio label {
+        font-size: 0.85rem !important;
+    }
+    .info-line {
+        font-size: 0.9rem;
+        margin-bottom: 0.3rem;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
-        st.markdown("<div class='compact-section'><h3>Mode d’injection</h3></div>", unsafe_allow_html=True)
+col_left, col_middle, col_right = st.columns([1.2, 1.1, 1.1])
+
+# --- Bloc gauche : Mode d’injection / kV ---
+with col_left:
+    st.markdown("<div class='panel'>", unsafe_allow_html=True)
+    st.markdown("<h3>Mode d’injection & kV du scanner</h3>", unsafe_allow_html=True)
+
+    col_inj, col_kv = st.columns(2)
+    with col_inj:
+        st.markdown("<div style='font-size:0.85rem; font-weight:600;'>Mode</div>", unsafe_allow_html=True)
         injection_modes = ["Portal", "Artériel"]
         if cfg.get("intermediate_enabled", False):
             injection_modes.append("Intermédiaire")
+        injection_mode = st.radio("", injection_modes, horizontal=False, label_visibility="collapsed")
 
-        st.markdown("<div class='compact-radio'>", unsafe_allow_html=True)
-        injection_mode = st.radio("", injection_modes, horizontal=True, label_visibility="collapsed")
-        st.markdown("</div>", unsafe_allow_html=True)
+    with col_kv:
+        st.markdown("<div style='font-size:0.85rem; font-weight:600;'>kV</div>", unsafe_allow_html=True)
+        kv_scanner = st.radio("", [80, 90, 100, 110, 120], horizontal=False, index=4, label_visibility="collapsed")
 
-        st.markdown("<div style='margin-top:-10px'></div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
-        st.markdown("<div class='compact-section'><h3>kV du scanner</h3></div>", unsafe_allow_html=True)
-        st.markdown("<div class='compact-radio'>", unsafe_allow_html=True)
-        kv_scanner = st.radio("", [80, 90, 100, 110, 120], horizontal=True, index=4, label_visibility="collapsed")
-        st.markdown("</div>", unsafe_allow_html=True)
+# --- Bloc du milieu : Méthode utilisée / Charge iodée ---
+with col_middle:
+    st.markdown("<div class='panel'>", unsafe_allow_html=True)
+    st.markdown("<h3>Méthode utilisée</h3>", unsafe_allow_html=True)
 
-        st.markdown("<div style='margin-top:5px'></div>", unsafe_allow_html=True)
+    method = cfg.get('calc_mode', 'Charge iodée')
+    charge_iod = float(cfg.get("charges", {}).get(str(kv_scanner), 0.45))
 
-        st.markdown("### Méthode utilisée")
-        st.markdown(f"<div class='info-block'><b>Méthode utilisée :</b> {cfg.get('calc_mode','Charge iodée')}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='info-line'><b>Méthode :</b> {method}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='info-line'><b>Charge iodée (kV {kv_scanner}) :</b> {charge_iod:.2f} g I/kg</div>", unsafe_allow_html=True)
 
-        charge_iod = float(cfg.get("charges", {}).get(str(kv_scanner), 0.45))
-        st.markdown(f"<div class='info-block'><b>Charge iodée appliquée (kV {kv_scanner}) :</b> {charge_iod:.2f} g I/kg</div>", unsafe_allow_html=True)
+    st.markdown("<hr style='border: 0.5px solid #B5CFEA;'>", unsafe_allow_html=True)
+    st.markdown("<p style='color:#666;font-size:0.85rem;'>⚙️ Ajustement automatique du départ d'acquisition selon l'âge activé<br>💧 Injection simultanée activée</p>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
-        st.markdown("<p style='color:#666;font-size:0.85rem;'>⚙️ Ajustement automatique du départ d'acquisition selon l'âge activé<br>💧 Injection simultanée activée</p>", unsafe_allow_html=True)
+# --- Bloc de droite : Paramètres calculés ---
+with col_right:
+    st.markdown("<div class='panel'>", unsafe_allow_html=True)
+    st.markdown("<h3>Paramètres calculés</h3>", unsafe_allow_html=True)
 
-    # =========================
-    # Bloc droit (inchangé)
-    # =========================
-    with col_right:
-        if injection_mode == "Portal":
-            base_time = float(cfg.get("portal_time", 30.0))
-        elif injection_mode == "Artériel":
-            base_time = float(cfg.get("arterial_time", 25.0))
-        else:
-            base_time = float(cfg.get("intermediate_time", 28.0))
+    st.markdown("""
+        <div class='info-line'><b>Temps intermédiaire :</b> 32 s</div>
+        <div class='info-line'><b>Départ d’acquisition :</b> 40 s</div>
+        <div class='info-line'><b>Concentration utilisée :</b> 350 mg I/mL</div>
+        <div class='info-line'><b>Volume total injecté :</b> 92 mL</div>
+        <div class='info-line'><b>Débit d’injection :</b> 3.5 mL/s</div>
+    """, unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
-        acquisition_start = calculate_acquisition_start(age, cfg)
-        concentration = int(cfg.get("concentration_mg_ml", 350))
-
-        st.markdown("### Paramètres calculés")
-        st.markdown(f"""
-            <div class='right-panel' style='font-size:0.9rem;'>
-            <b>Temps {injection_mode} :</b> {base_time:.0f} s<br>
-            <b>Départ d'acquisition :</b> {acquisition_start:.1f} s<br>
-            <b>Concentration utilisée :</b> {concentration} mg I/mL
-            </div>
-        """, unsafe_allow_html=True)
 
     # --- Calculs inchangés ---
     volume, bsa = calculate_volume(weight, height, kv_scanner, float(cfg.get("concentration_mg_ml", 350)), imc, cfg.get("calc_mode", "Charge iodée"), cfg.get("charges", {}), float(cfg.get("volume_max_limit", 200.0)))
