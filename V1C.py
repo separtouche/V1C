@@ -484,9 +484,12 @@ with tab_patient:
     cfg = get_cfg()
     age = current_year - birth_year
     imc = weight / ((height / 100) ** 2)
-        # === LIGNE 2 : Trois blocs alignés en haut, sans séparateurs ni barre ===
+            # === 📊 Titre + 3 blocs alignés en haut ===
 
-    # 🔧 CSS global pour supprimer l’espace au-dessus et enlever la barre horizontale
+    # 🧍 Titre au-dessus des blocs
+    st.markdown("<div class='section-title' style='margin-top:20px;'>📊 Paramètres d'injection</div>", unsafe_allow_html=True)
+
+    # 🧼 CSS pour remonter les blocs et supprimer les barres horizontales
     st.markdown("""
     <style>
     .block-container {
@@ -506,7 +509,7 @@ with tab_patient:
     </style>
     """, unsafe_allow_html=True)
 
-    # 💠 Colonnes principales sans séparateurs
+    # 🧱 Trois colonnes principales
     col_left, col_center, col_right = st.columns([1, 1, 1], gap="small")
 
     # 🧭 Bloc gauche : KV, charge iodée, concentration, méthode
