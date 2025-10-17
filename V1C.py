@@ -505,13 +505,14 @@ with tab_patient:
     col_left, col_div1, col_center, col_div2, col_right = st.columns([1.2, 0.05, 1.2, 0.05, 1.2])
 
     # Bloc gauche : Mode d’injection + kV
-avec col_left:
+    with avec col_left:
     st.markdown("### Mode d'injection")
     injection_modes = ["Portal", "Artériel", "Intermédiaire"]
     injection_mode = st.radio("", injection_modes, horizontal=Vrai, clé="injection_mode")
 
     st.markdown ("### kV tu scanes")
     kv_scanner = st.radio("", [80, 90, 100, 110, 120], horizontal=Vrai, clé="kv_scanner")
+
 
     # Ligne de séparation
     with col_div1:
