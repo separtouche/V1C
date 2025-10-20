@@ -366,92 +366,106 @@ def set_cfg_and_persist(user_id, new_cfg):
     save_user_sessions(user_sessions)
 
 # ------------------------
-# Onglet Paramètres — Section "Vos programmes personnels" (avec verrouillage par identifiant)
+# Onglet Paramètres (version finale complète et corrigée)
 # ------------------------
-st.subheader("📚 Vos programmes personnels")
+with tab_params:
+    st.header("⚙️ Paramètres et Bibliothèque (personnelle)")
 
-personal_programs = user_sessions.get(user_id, {}).get("programs", {})
-program_choice = st.selectbox(
-    "Programme (Personnel)",
-    ["Aucun"] + list(personal_programs.keys()),
-    key="prog_params_personal"
-)
+    # ✅ On récupère l'identifiant utilisateur actif
+    user_id = st.session_state.get("user_id", None)
+    if not user_id:
+        st.error("⚠️ Aucun identifiant utilisateur actif. Veuillez vous reconnecter.")
+        st.stop()
 
-program_locked = False
-unlock_granted = False
+    cfg = get_cfg()
 
-if program_choice != "Aucun":
-    prog_conf = personal_programs.get(program_choice, {})
-    for key, val in prog_conf.items():
-        cfg[key] = val
+    # ----------------------------------------------------------------------
+    # 📚 SECTION 1 — Vos programmes personnels
+    # ----------------------------------------------------------------------
+    st.subheader("📚 Vos programmes personnels")
 
-    st.info(f"🔒 Programme sélectionné : **{program_choice}** — protégé contre les modifications directes.")
-    pwd_input = st.text_input("Entrez votre identifiant pour déverrouiller ce programme", type="password")
+    personal_programs = user_sessions.get(user_id, {}).get("programs", {})
+    program_choice = st.selectbox(
+        "Programme (Personnel)",
+        ["Aucun"] + list(personal_programs.keys()),
+        key="prog_params_personal"
+    )
 
-    if st.button("🔓 Déverrouiller le programme"):
-        if pwd_input.strip() == user_id:
-            unlock_granted = True
-            st.success(f"✅ Programme '{program_choice}' déverrouillé pour modification.")
+    program_locked = False
+    unlock_granted = False
+
+    if program_choice != "Aucun":
+        prog_conf = personal_programs.get(program_choice, {})
+        for key, val in prog_conf.items():
+            cfg[key] = val
+
+        st.info(f"🔒 Programme sélectionné : **{program_choice}** — protégé contre les modifications directes.")
+        pwd_input = st.text_input("Entrez votre identifiant pour déverrouiller ce programme", type="password")
+
+        if st.button("🔓 Déverrouiller le programme"):
+            if pwd_input.strip() == user_id:
+                unlock_granted = True
+                st.success(f"✅ Programme '{program_choice}' déverrouillé pour modification.")
+            else:
+                st.error("❌ Identifiant incorrect. Modifications interdites.")
+                program_locked = True
         else:
-            st.error("❌ Identifiant incorrect. Modifications interdites.")
             program_locked = True
     else:
-        program_locked = True
-else:
-    st.info("Aucun programme sélectionné — vous pouvez librement ajuster les paramètres et créer un nouveau programme.")
+        st.info("Aucun programme sélectionné — vous pouvez librement ajuster les paramètres et créer un nouveau programme.")
 
-# Nom du nouveau programme
-new_prog_name = st.text_input("Nom du nouveau programme (sera enregistré dans vos programmes personnels)")
+    # Nom du nouveau programme
+    new_prog_name = st.text_input("Nom du nouveau programme (sera enregistré dans vos programmes personnels)")
 
-# ✅ Création ou mise à jour d’un programme (uniquement si pas verrouillé)
-if st.button("💾 Ajouter/Mise à jour programme"):
-    if program_locked and not unlock_granted:
-        st.warning("⚠️ Programme protégé — entrez votre identifiant pour le modifier ou créez un nouveau programme.")
-    elif not new_prog_name.strip():
-        st.warning("Veuillez donner un nom au programme avant d’enregistrer.")
-    else:
-        current_values = {
-            "simultaneous_enabled": cfg.get("simultaneous_enabled", False),
-            "target_concentration": cfg.get("target_concentration", 350),
-            "concentration_mg_ml": cfg.get("concentration_mg_ml", 350),
-            "calc_mode": cfg.get("calc_mode", "Charge iodée"),
-            "max_debit": cfg.get("max_debit", 6.0),
-            "auto_acquisition_by_age": cfg.get("auto_acquisition_by_age", True),
-            "acquisition_start_param": cfg.get("acquisition_start_param", 70.0),
-            "portal_time": cfg.get("portal_time", 30.0),
-            "arterial_time": cfg.get("arterial_time", 25.0),
-            "intermediate_enabled": cfg.get("intermediate_enabled", False),
-            "intermediate_time": cfg.get("intermediate_time", 28.0),
-            "rincage_volume": cfg.get("rincage_volume", 35.0),
-            "rincage_delta_debit": cfg.get("rincage_delta_debit", 0.5),
-            "volume_max_limit": cfg.get("volume_max_limit", 200.0),
-            "charges": cfg.get("charges", {})
-        }
-        cfg.update(current_values)
-        user_sessions.setdefault(user_id, {}).setdefault("programs", {})[new_prog_name.strip()] = cfg.copy()
-        user_sessions[user_id]["config"] = cfg.copy()
-        save_user_sessions(user_sessions)
-
-        st.success(f"✅ Programme personnel '{new_prog_name}' sauvegardé avec tous les paramètres !")
-
-# 🗑 Gestion des programmes personnels
-st.markdown("**Gérer mes programmes personnels**")
-personal_prog_list = list(user_sessions.get(user_id, {}).get("programs", {}).keys())
-if personal_prog_list:
-    del_prog_personal = st.selectbox(
-        "Supprimer un programme personnel",
-        [""] + personal_prog_list,
-        key="del_prog_personal"
-    )
-    if st.button("🗑 Supprimer programme (Personnel)"):
-        if del_prog_personal and del_prog_personal in user_sessions[user_id]["programs"]:
-            del user_sessions[user_id]["programs"][del_prog_personal]
-            save_user_sessions(user_sessions)
-            st.success(f"Programme personnel '{del_prog_personal}' supprimé pour l'identifiant '{user_id}'.")
+    # ✅ Création ou mise à jour d’un programme
+    if st.button("💾 Ajouter/Mise à jour programme"):
+        if program_locked and not unlock_granted:
+            st.warning("⚠️ Programme protégé — entrez votre identifiant pour le modifier ou créez un nouveau programme.")
+        elif not new_prog_name.strip():
+            st.warning("Veuillez donner un nom au programme avant d’enregistrer.")
         else:
-            st.error("Programme introuvable.")
-else:
-    st.info("Vous n'avez pas encore de programmes personnels enregistrés.")
+            current_values = {
+                "simultaneous_enabled": cfg.get("simultaneous_enabled", False),
+                "target_concentration": cfg.get("target_concentration", 350),
+                "concentration_mg_ml": cfg.get("concentration_mg_ml", 350),
+                "calc_mode": cfg.get("calc_mode", "Charge iodée"),
+                "max_debit": cfg.get("max_debit", 6.0),
+                "auto_acquisition_by_age": cfg.get("auto_acquisition_by_age", True),
+                "acquisition_start_param": cfg.get("acquisition_start_param", 70.0),
+                "portal_time": cfg.get("portal_time", 30.0),
+                "arterial_time": cfg.get("arterial_time", 25.0),
+                "intermediate_enabled": cfg.get("intermediate_enabled", False),
+                "intermediate_time": cfg.get("intermediate_time", 28.0),
+                "rincage_volume": cfg.get("rincage_volume", 35.0),
+                "rincage_delta_debit": cfg.get("rincage_delta_debit", 0.5),
+                "volume_max_limit": cfg.get("volume_max_limit", 200.0),
+                "charges": cfg.get("charges", {})
+            }
+            cfg.update(current_values)
+            user_sessions.setdefault(user_id, {}).setdefault("programs", {})[new_prog_name.strip()] = cfg.copy()
+            user_sessions[user_id]["config"] = cfg.copy()
+            save_user_sessions(user_sessions)
+
+            st.success(f"✅ Programme personnel '{new_prog_name}' sauvegardé avec tous les paramètres !")
+
+    # 🗑 Gestion des programmes personnels
+    st.markdown("**Gérer mes programmes personnels**")
+    personal_prog_list = list(user_sessions.get(user_id, {}).get("programs", {}).keys())
+    if personal_prog_list:
+        del_prog_personal = st.selectbox(
+            "Supprimer un programme personnel",
+            [""] + personal_prog_list,
+            key="del_prog_personal"
+        )
+        if st.button("🗑 Supprimer programme (Personnel)"):
+            if del_prog_personal and del_prog_personal in user_sessions[user_id]["programs"]:
+                del user_sessions[user_id]["programs"][del_prog_personal]
+                save_user_sessions(user_sessions)
+                st.success(f"Programme personnel '{del_prog_personal}' supprimé pour l'identifiant '{user_id}'.")
+            else:
+                st.error("Programme introuvable.")
+    else:
+        st.info("Vous n'avez pas encore de programmes personnels enregistrés.")
 
     # ----------------------------------------------------------------------
     # 💉 SECTION 2 — Paramètres d’injection
@@ -459,9 +473,12 @@ else:
     st.markdown("---")
     st.subheader("💉 Paramètres d’injection et calculs")
 
+    disabled = program_locked and not unlock_granted
+
     cfg["simultaneous_enabled"] = st.checkbox(
         "Activer l'injection simultanée",
-        value=cfg.get("simultaneous_enabled", False)
+        value=cfg.get("simultaneous_enabled", False),
+        disabled=disabled
     )
     if cfg["simultaneous_enabled"]:
         cfg["target_concentration"] = st.number_input(
@@ -469,25 +486,29 @@ else:
             value=int(cfg.get("target_concentration", 350)),
             min_value=200,
             max_value=500,
-            step=10
+            step=10,
+            disabled=disabled
         )
 
     cfg["concentration_mg_ml"] = st.selectbox(
         "Concentration (mg I/mL)",
         [300, 320, 350, 370, 400],
-        index=[300, 320, 350, 370, 400].index(int(cfg.get("concentration_mg_ml", 350)))
+        index=[300, 320, 350, 370, 400].index(int(cfg.get("concentration_mg_ml", 350))),
+        disabled=disabled
     )
     cfg["calc_mode"] = st.selectbox(
         "Méthode de calcul",
         ["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"],
-        index=["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"].index(cfg.get("calc_mode", "Charge iodée"))
+        index=["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"].index(cfg.get("calc_mode", "Charge iodée")),
+        disabled=disabled
     )
     cfg["max_debit"] = st.number_input(
         "Débit maximal autorisé (mL/s)",
         value=float(cfg.get("max_debit", 6.0)),
         min_value=1.0,
         max_value=20.0,
-        step=0.1
+        step=0.1,
+        disabled=disabled
     )
 
     # ----------------------------------------------------------------------
@@ -498,7 +519,8 @@ else:
 
     cfg["auto_acquisition_by_age"] = st.checkbox(
         "Ajuster automatiquement le départ d’acquisition selon l’âge",
-        value=bool(cfg.get("auto_acquisition_by_age", True))
+        value=bool(cfg.get("auto_acquisition_by_age", True)),
+        disabled=disabled
     )
 
     if not cfg["auto_acquisition_by_age"]:
@@ -508,7 +530,7 @@ else:
             min_value=30.0,
             max_value=120.0,
             step=1.0,
-            help="Valeur utilisée si le mode automatique est désactivé."
+            disabled=disabled
         )
 
     cfg["portal_time"] = st.number_input(
@@ -516,19 +538,22 @@ else:
         value=float(cfg.get("portal_time", 30.0)),
         min_value=5.0,
         max_value=120.0,
-        step=1.0
+        step=1.0,
+        disabled=disabled
     )
     cfg["arterial_time"] = st.number_input(
         "Artériel (s)",
         value=float(cfg.get("arterial_time", 25.0)),
         min_value=5.0,
         max_value=120.0,
-        step=1.0
+        step=1.0,
+        disabled=disabled
     )
 
     cfg["intermediate_enabled"] = st.checkbox(
         "Activer temps intermédiaire",
-        value=bool(cfg.get("intermediate_enabled", False))
+        value=bool(cfg.get("intermediate_enabled", False)),
+        disabled=disabled
     )
     if cfg["intermediate_enabled"]:
         cfg["intermediate_time"] = st.number_input(
@@ -536,7 +561,8 @@ else:
             value=float(cfg.get("intermediate_time", 28.0)),
             min_value=5.0,
             max_value=120.0,
-            step=1.0
+            step=1.0,
+            disabled=disabled
         )
 
     # ----------------------------------------------------------------------
@@ -547,25 +573,28 @@ else:
         value=float(cfg.get("rincage_volume", 35.0)),
         min_value=10.0,
         max_value=100.0,
-        step=1.0
+        step=1.0,
+        disabled=disabled
     )
     cfg["rincage_delta_debit"] = st.number_input(
         "Δ débit NaCl vs contraste (mL/s)",
         value=float(cfg.get("rincage_delta_debit", 0.5)),
         min_value=0.1,
         max_value=5.0,
-        step=0.1
+        step=0.1,
+        disabled=disabled
     )
     cfg["volume_max_limit"] = st.number_input(
         "Plafond volume (mL) - seringue",
         value=float(cfg.get("volume_max_limit", 200.0)),
         min_value=50.0,
         max_value=500.0,
-        step=10.0
+        step=10.0,
+        disabled=disabled
     )
 
     # ----------------------------------------------------------------------
-    # 🧮 SECTION 5 — Charges iodées
+    # 💊 SECTION 5 — Charges iodées
     # ----------------------------------------------------------------------
     st.markdown("---")
     st.subheader("💊 Charges en iode par kV (g I/kg)")
@@ -573,9 +602,9 @@ else:
         "kV": [80, 90, 100, 110, 120],
         "Charge (g I/kg)": [float(cfg["charges"].get(str(kv), 0.35)) for kv in [80, 90, 100, 110, 120]]
     })
-    edited_df = st.data_editor(df_charges, num_rows="fixed", use_container_width=True)
+    edited_df = st.data_editor(df_charges, num_rows="fixed", use_container_width=True, disabled=disabled)
 
-    if st.button("💾 Sauvegarder les paramètres"):
+    if st.button("💾 Sauvegarder les paramètres", disabled=disabled):
         try:
             cfg["charges"] = {str(int(row.kV)): float(row["Charge (g I/kg)"]) for _, row in edited_df.iterrows()}
             set_cfg_and_persist(user_id, cfg)
