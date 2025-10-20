@@ -337,14 +337,14 @@ if os.path.exists(logo_path):
         <div style="display:flex; align-items:center; gap:8px; background:#124F7A; padding:8px; border-radius:8px">
             <img src="data:image/png;base64,{img_b64}" style="height:55px"/>
             <h2 style="color:white; margin:0; font-size:26px;">
-                Calculette dose de produit de contraste CT — Oncologie adulte
+                Calculette de dose de produit de contraste en CT — Oncologie adulte
             </h2>
         </div>
         """, unsafe_allow_html=True)
     except Exception:
-        st.title("Calculette dose de produit de contraste CT — Oncologie adulte")
+        st.title("Calculette de dose de produit de contraste en CT — Oncologie adulte")
 else:
-    st.title("Calculette dose de produit de contraste CT — Oncologie adulte")
+    st.title("Calculette de dose de produit de contraste en CT — Oncologie adulte")
 
 
 # ------------------------
