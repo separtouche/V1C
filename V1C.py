@@ -873,7 +873,8 @@ with tab_patient:
             f"{'✅ activée' if sim_enabled else '❌ désactivée'}</div>",
             unsafe_allow_html=True,
         )
-                     # --- Calculs finaux ---
+                    
+       # --- Calculs finaux ---
     volume, bsa = calculate_volume(
         weight, height, kv_scanner,
         float(cfg.get("concentration_mg_ml", 350)),
@@ -919,59 +920,59 @@ with tab_patient:
     # --- Deux cartes alignées ---
     col_contrast, col_nacl = st.columns(2)
 
-    # === Bloc Contraste ===
+    # === Bloc Contraste (VERT) ===
     with col_contrast:
         st.markdown(f"""
-            <div style='background-color:#E3F2FD;
-                        border-left:6px solid #1565C0;
+            <div style='background-color:#E8F5E9;
+                        border-left:6px solid #2E7D32;
                         border-radius:12px;
                         padding:18px;
                         text-align:center;
                         box-shadow:0 1px 4px rgba(0,0,0,0.08);'>
-                <h4 style='margin-top:0; color:#0D47A1; font-weight:700;'>
+                <h4 style='margin-top:0; color:#1B5E20; font-weight:700;'>
                     💧 Volume et Débit de contraste conseillé
                 </h4>
-                <div style='font-size:22px; color:#0D47A1; font-weight:600; margin-top:8px;'>
+                <div style='font-size:22px; color:#1B5E20; font-weight:600; margin-top:8px;'>
                     {vol_contrast_effectif} mL — {injection_rate:.1f} mL/s
                 </div>
-                {"<div style='font-size:18px; color:#0D47A1; margin-top:6px;'>→ " +
+                {"<div style='font-size:18px; color:#1B5E20; margin-top:6px;'>→ " +
                  f"{pct_contrast:.1f}% du mélange total" + "</div>" if sim_enabled else ""}
             </div>
         """, unsafe_allow_html=True)
 
-    # === Bloc NaCl ===
+    # === Bloc NaCl (BLEU) ===
     with col_nacl:
         if sim_enabled:
             st.markdown(f"""
-                <div style='background-color:#E8F5E9;
-                            border-left:6px solid #2E7D32;
+                <div style='background-color:#E3F2FD;
+                            border-left:6px solid #1565C0;
                             border-radius:12px;
                             padding:18px;
                             text-align:center;
                             box-shadow:0 1px 4px rgba(0,0,0,0.08);'>
-                    <h4 style='margin-top:0; color:#1B5E20; font-weight:700;'>
+                    <h4 style='margin-top:0; color:#0D47A1; font-weight:700;'>
                         💧 Volume et Débit de NaCl conseillé
                     </h4>
-                    <div style='font-size:18px; color:#1B5E20; font-weight:600; margin-top:8px;'>
+                    <div style='font-size:18px; color:#0D47A1; font-weight:600; margin-top:8px;'>
                         Dilution : <b>{pct_nacl:.1f}%</b> — {vol_dilution_nacl} mL
                     </div>
-                    <div style='font-size:18px; color:#1B5E20; font-weight:600; margin-top:8px;'>
+                    <div style='font-size:18px; color:#0D47A1; font-weight:600; margin-top:8px;'>
                         Rinçage : <b>{int(vol_rincage)}</b> mL — {debit_rincage:.1f} mL/s
                     </div>
                 </div>
             """, unsafe_allow_html=True)
         else:
             st.markdown(f"""
-                <div style='background-color:#E8F5E9;
-                            border-left:6px solid #2E7D32;
+                <div style='background-color:#E3F2FD;
+                            border-left:6px solid #1565C0;
                             border-radius:12px;
                             padding:18px;
                             text-align:center;
                             box-shadow:0 1px 4px rgba(0,0,0,0.08);'>
-                    <h4 style='margin-top:0; color:#1B5E20; font-weight:700;'>
+                    <h4 style='margin-top:0; color:#0D47A1; font-weight:700;'>
                         💧 Volume et Débit de NaCl conseillé
                     </h4>
-                    <div style='font-size:22px; color:#1B5E20; font-weight:600; margin-top:8px;'>
+                    <div style='font-size:22px; color:#0D47A1; font-weight:600; margin-top:8px;'>
                         {int(vol_rincage)} mL — {debit_rincage:.1f} mL/s
                     </div>
                 </div>
