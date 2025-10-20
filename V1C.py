@@ -349,7 +349,14 @@ else:
 
 # ------------------------
 # Tabs
+# -----------------------
+
 # ------------------------
+# Synchronisation globale des programmes entre onglets
+# ------------------------
+if "selected_program_global" not in st.session_state:
+    st.session_state["selected_program_global"] = "Aucun"
+
 tab_patient, tab_params, tab_tutorial = st.tabs(["🧍 Patient", "⚙️ Paramètres", "📘 Tutoriel"])
 
 # Use working config that refers to the logged-in user's config (kept in session_state)
@@ -384,12 +391,21 @@ with tab_params:
     # ----------------------------------------------------------------------
     st.subheader("📚 Vos programmes personnels")
 
-    personal_programs = user_sessions.get(user_id, {}).get("programs", {})
-    program_choice = st.selectbox(
-        "Programme (Personnel)",
-        ["Aucun"] + list(personal_programs.keys()),
-        key="prog_params_personal"
-    )
+personal_programs = user_sessions.get(user_id, {}).get("programs", {})
+
+# Synchronisation avec l'onglet Patient
+program_list = ["Aucun"] + list(personal_programs.keys())
+current_index = program_list.index(st.session_state["selected_program_global"]) if st.session_state["selected_program_global"] in program_list else 0
+
+program_choice = st.selectbox(
+    "Programme (Personnel)",
+    program_list,
+    index=current_index,
+    key="prog_params_personal"
+)
+
+# 🔁 Synchronisation vers la variable globale
+st.session_state["selected_program_global"] = program_choice
 
     program_locked = False
     unlock_granted = False
@@ -740,14 +756,33 @@ with tab_patient:
         height = st.slider("Taille (cm)", 100, 220, 170)
     with col_annee:
         birth_year = st.slider("Année de naissance", current_year - 120, current_year, 1985)
-    with col_prog:
-        user_id = st.session_state["user_id"]
-        user_programs = user_sessions.get(user_id, {}).get("programs", {})
-        prog_choice_patient = st.selectbox(
-            "Sélection d'un programme",
-            ["Sélection d'un programme"] + list(user_programs.keys()),
-            index=0
-        )
+with col_prog:
+    user_id = st.session_state["user_id"]
+    user_programs = user_sessions.get(user_id, {}).get("programs", {})
+
+    # Sélection synchronisée avec l'onglet Paramètres
+    program_list = ["Aucun"] + list(user_programs.keys())
+    current_index = program_list.index(st.session_state["selected_program_global"]) if st.session_state["selected_program_global"] in program_list else 0
+
+    prog_choice_patient = st.selectbox(
+        "Sélection d'un programme",
+        program_list,
+        index=current_index,
+        key="prog_choice_patient"
+    )
+
+    # 🔁 Synchronisation vers la variable globale
+    st.session_state["selected_program_global"] = prog_choice_patient
+
+    # Chargement du programme choisi
+    if prog_choice_patient != "Aucun":
+        prog_conf = user_programs.get(prog_choice_patient, {})
+        cfg = get_cfg()
+        for key, val in prog_conf.items():
+            cfg[key] = val
+        set_cfg_and_persist(user_id, cfg)
+        user_sessions[user_id]["last_selected_program"] = prog_choice_patient
+        save_user_sessions(user_sessions)
         if prog_choice_patient != "Sélection d'un programme":
             prog_conf = user_programs.get(prog_choice_patient, {})
             cfg = get_cfg()
