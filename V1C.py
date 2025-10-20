@@ -492,13 +492,14 @@ with tab_params:
                 except Exception as e:
                     st.error(f"Erreur suppression identifiant : {e}")
 
+
 # ------------------------
-# Onglet Patient — centrage parfait (sous-colonnes) + taille réduite
+# Onglet Patient — centrage parfait + aucune coupure
 # ------------------------
 with tab_patient:
     st.markdown("""
         <style>
-        /* Sliders rouges */
+        /* Sliders */
         .slider-red .stSlider [data-baseweb="slider"] div[role="slider"],
         .slider-red .stSlider [data-baseweb="slider"] div[role="slider"]::before {
             background-color:#E53935 !important;
@@ -511,12 +512,21 @@ with tab_patient:
         .divider {border-left:1px solid #d9d9d9;height:100%;margin:0 10px;}
         div[data-testid="stVerticalBlock"] > div:nth-child(4){margin-top:-18px !important;}
 
-        /* Radios plus petites */
+        /* Radios plus petites et sur une ligne */
+        div[role="radiogroup"] {
+            display:flex !important;
+            justify-content:center !important;
+            align-items:center !important;
+            flex-wrap:nowrap !important;
+            width:100% !important;
+            gap:3px !important;
+            margin:0 !important;
+        }
         div[role="radiogroup"] label {
-            font-size:12px !important;
-            padding:0px 4px !important;
-            margin:0 2px !important;
-            line-height:1.1 !important;
+            font-size:11px !important;
+            padding:0px 3px !important;
+            margin:0 1px !important;
+            white-space:nowrap !important;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -545,50 +555,54 @@ with tab_patient:
             save_user_sessions(user_sessions)
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # === Variables ===
+    # === Variables patient ===
     cfg = get_cfg()
     age = current_year - birth_year
     imc = weight / ((height / 100) ** 2)
 
-    # === 3 blocs alignés ===
+    # === 3 blocs ===
     col_left, col_div1, col_center, col_div2, col_right = st.columns([1.2,0.05,1.2,0.05,1.2])
 
     # Bloc 1 — Paramètres principaux
     with col_left:
         st.markdown("<div class='block-title'>Paramètres principaux</div>", unsafe_allow_html=True)
-        c1, c2, c3 = st.columns([1,2,1])   # ← centrage réel
-        with c2:
-            kv_scanner = st.radio(
-                "kV", [80,90,100,110,120],
-                horizontal=True, index=4,
-                key="kv_scanner_patient",
-                label_visibility="collapsed"
-            )
+        st.markdown("<div style='width:100%; text-align:center;'>", unsafe_allow_html=True)
+        kv_scanner = st.radio(
+            "kV",
+            [80, 90, 100, 110, 120],
+            horizontal=True,
+            index=4,
+            key="kv_scanner_patient",
+            label_visibility="collapsed"
+        )
+        st.markdown("</div>", unsafe_allow_html=True)
         charge_iod = float(cfg.get("charges", {}).get(str(kv_scanner), 0.45))
         concentration = int(cfg.get("concentration_mg_ml", 350))
         calc_mode_label = cfg.get("calc_mode", "Charge iodée")
-        st.markdown(f"""
-            <div class='block-content'>
-                <b>Charge iodée :</b> {charge_iod:.2f} g I/kg<br>
-                <b>Concentration :</b> {concentration} mg I/mL<br>
-                <b>Méthode :</b> {calc_mode_label}
-            </div>
-        """, unsafe_allow_html=True)
+        st.markdown(
+            f"<div class='block-content'><b>Charge iodée :</b> {charge_iod:.2f} g I/kg<br>"
+            f"<b>Concentration :</b> {concentration} mg I/mL<br>"
+            f"<b>Méthode :</b> {calc_mode_label}</div>",
+            unsafe_allow_html=True
+        )
 
-    with col_div1: st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
+    with col_div1:
+        st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
 
     # Bloc 2 — Injection et timing
     with col_center:
         st.markdown("<div class='block-title'>Injection et timing</div>", unsafe_allow_html=True)
-        c1, c2, c3 = st.columns([1,2,1])   # ← centrage réel
-        with c2:
-            injection_modes = ["Portal","Artériel","Intermédiaire"]
-            injection_mode = st.radio(
-                "Mode d'injection", injection_modes,
-                horizontal=True, index=2,
-                key="injection_mode_patient",
-                label_visibility="collapsed"
-            )
+        st.markdown("<div style='width:100%; text-align:center;'>", unsafe_allow_html=True)
+        injection_modes = ["Portal", "Artériel", "Intermédiaire"]
+        injection_mode = st.radio(
+            "Mode d'injection",
+            injection_modes,
+            horizontal=True,
+            index=2,
+            key="injection_mode_patient",
+            label_visibility="collapsed"
+        )
+        st.markdown("</div>", unsafe_allow_html=True)
         if injection_mode == "Portal":
             base_time = float(cfg.get("portal_time", 30.0))
         elif injection_mode == "Artériel":
@@ -596,37 +610,39 @@ with tab_patient:
         else:
             base_time = float(cfg.get("intermediate_time", cfg.get("portal_time", 30.0)))
         acquisition_start = calculate_acquisition_start(age, cfg)
-        st.markdown(f"""
-            <div class='block-content'>
-                <b>Temps {injection_mode.lower()} :</b> {base_time:.0f} s<br>
-                <b>Départ d'acquisition :</b> {acquisition_start:.1f} s
-            </div>
-        """, unsafe_allow_html=True)
+        st.markdown(
+            f"<div class='block-content'><b>Temps {injection_mode.lower()} :</b> {base_time:.0f} s<br>"
+            f"<b>Départ d'acquisition :</b> {acquisition_start:.1f} s</div>",
+            unsafe_allow_html=True
+        )
 
-    with col_div2: st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
+    with col_div2:
+        st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
 
     # Bloc 3 — Options avancées
     with col_right:
         st.markdown("<div class='block-title'>Options avancées</div>", unsafe_allow_html=True)
         auto_age = bool(cfg.get("auto_acquisition_by_age", True))
         sim_enabled = bool(cfg.get("simultaneous_enabled", False))
-        st.markdown(f"""
-            <div class='block-content'>
-                <b>Ajustement automatique selon l'âge :</b><br>
-                {'✅ activé' if auto_age else '❌ désactivé'}<br><br>
-                <b>Injection simultanée :</b><br>
-                {'✅ activée' if sim_enabled else '❌ désactivée'}
-            </div>
-        """, unsafe_allow_html=True)
+        st.markdown(
+            f"<div class='block-content'><b>Ajustement automatique selon l'âge :</b><br>"
+            f"{'✅ activé' if auto_age else '❌ désactivé'}<br><br>"
+            f"<b>Injection simultanée :</b><br>"
+            f"{'✅ activée' if sim_enabled else '❌ désactivée'}</div>",
+            unsafe_allow_html=True
+        )
 
     # === Calculs ===
-    volume, bsa = calculate_volume(weight, height, kv_scanner,
+    volume, bsa = calculate_volume(
+        weight, height, kv_scanner,
         float(cfg.get("concentration_mg_ml", 350)),
         imc, cfg.get("calc_mode", "Charge iodée"),
         cfg.get("charges", {}),
-        float(cfg.get("volume_max_limit", 200.0)))
+        float(cfg.get("volume_max_limit", 200.0))
+    )
     injection_rate, injection_time, time_adjusted = adjust_injection_rate(
-        volume, float(base_time), float(cfg.get("max_debit", 6.0)))
+        volume, float(base_time), float(cfg.get("max_debit", 6.0))
+    )
 
     st.markdown("---")
     col1, col2, col3 = st.columns(3)
@@ -643,6 +659,41 @@ with tab_patient:
     st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
 
 
+# ------------------------
+# Onglet Tutoriel (inchangé)
+# ------------------------
+with tab_tutorial:
+    st.title("📘 Tutoriel — Mode d'emploi et principes cliniques")
+    st.markdown("Bienvenue dans le tutoriel. Cette section explique **comment utiliser** la calculette et **pourquoi** chaque calcul est effectué.")
+    st.header("🔧 Guide pas à pas — Utilisation")
+    st.markdown("""
+    1. **Patient** : saisissez poids, taille et année de naissance.
+    2. **kV du scanner** : choisissez la valeur correspondant à votre machine.
+    3. **Mode d’injection** : Portal / Artériel / Intermédiaire.
+    4. **Paramètres** : vérifiez la concentration, le débit max et les temps.
+    5. **Injection simultanée** : si activée, définissez la concentration cible.
+    6. **Validation** : relisez les résultats (volume contraste, NaCl, débit).
+    """)
+    st.header("🧠 Explications techniques et cliniques")
+    st.markdown("""
+    - **Charge iodée** : dose proportionnelle au poids.
+    - **Surface corporelle (BSA)** : dose selon m².
+    - **IMC>30** : règle “Charge iodée sauf IMC>30 → Surface corporelle”.
+    - **Débit** = volume / temps; ajusté si dépasse max.
+    - **Injection simultanée** : dilution pour atteindre concentration cible.
+    """)
+    st.header("🔬 Bases — recommandations spécifiques en oncologie hépatique")
+    st.markdown("""
+    Objectif : standardiser le rehaussement hépatique.
+    - Foie sain : ≥110 UH
+    - Foie stéatosique : ≥120 UH
+    ⚠️ Valeurs indicatives selon protocole local.
+    """)
+    st.header("🩺 Exemple de workflow clinique")
+    st.markdown("""
+    Patient 75 kg, 170 cm, kV=120, charge iodée 0.5, mode Portal, concentration 350 mg I/mL.
+    Exemple volume : (75x0.5)/0.35 ≈ 107 mL
+    """)
 # ------------------------
 # Footer
 # ------------------------
