@@ -366,20 +366,35 @@ def set_cfg_and_persist(user_id, new_cfg):
     save_user_sessions(user_sessions)
 
 # ------------------------
-# Onglet Paramètres (gestion sessions + programmes personnels uniquement)
+# Onglet Paramètres (version complète corrigée)
 # ------------------------
 with tab_params:
     st.header("⚙️ Paramètres et Bibliothèque (personnelle)")
     user_id = st.session_state["user_id"]
     cfg = get_cfg()
 
-    cfg["simultaneous_enabled"] = st.checkbox("Activer l'injection simultanée", value=cfg.get("simultaneous_enabled", False))
+    # --- Injection simultanée ---
+    cfg["simultaneous_enabled"] = st.checkbox(
+        "Activer l'injection simultanée",
+        value=cfg.get("simultaneous_enabled", False)
+    )
     if cfg["simultaneous_enabled"]:
-        cfg["target_concentration"] = st.number_input("Concentration cible (mg I/mL)", value=int(cfg.get("target_concentration", 350)), min_value=200, max_value=500, step=10)
+        cfg["target_concentration"] = st.number_input(
+            "Concentration cible (mg I/mL)",
+            value=int(cfg.get("target_concentration", 350)),
+            min_value=200,
+            max_value=500,
+            step=10
+        )
 
+    # --- Programmes personnels ---
     st.subheader("📚 Vos programmes personnels")
     personal_programs = user_sessions.get(user_id, {}).get("programs", {})
-    program_choice = st.selectbox("Programme (Personnel)", ["Aucun"] + list(personal_programs.keys()), key="prog_params_personal")
+    program_choice = st.selectbox(
+        "Programme (Personnel)",
+        ["Aucun"] + list(personal_programs.keys()),
+        key="prog_params_personal"
+    )
     if program_choice != "Aucun":
         prog_conf = personal_programs.get(program_choice, {})
         for key, val in prog_conf.items():
@@ -390,7 +405,7 @@ with tab_params:
         if new_prog_name.strip():
             to_save = {k: cfg[k] for k in cfg}
             user_sessions.setdefault(user_id, {}).setdefault("programs", {})[new_prog_name.strip()] = to_save
-            user_sessions.setdefault(user_id, {})["config"] = cfg.copy()
+            user_sessions[user_id]["config"] = cfg.copy()
             save_user_sessions(user_sessions)
             st.success(f"Programme personnel '{new_prog_name}' ajouté/mis à jour pour l'identifiant '{user_id}' !")
         else:
@@ -399,9 +414,13 @@ with tab_params:
     st.markdown("**Gérer mes programmes personnels**")
     personal_prog_list = list(user_sessions.get(user_id, {}).get("programs", {}).keys())
     if personal_prog_list:
-        del_prog_personal = st.selectbox("Supprimer un programme personnel", [""] + personal_prog_list, key="del_prog_personal")
+        del_prog_personal = st.selectbox(
+            "Supprimer un programme personnel",
+            [""] + personal_prog_list,
+            key="del_prog_personal"
+        )
         if st.button("🗑 Supprimer programme (Personnel)"):
-            if del_prog_personal and del_prog_personal in user_sessions[user_id].get("programs", {}):
+            if del_prog_personal and del_prog_personal in user_sessions[user_id]["programs"]:
                 del user_sessions[user_id]["programs"][del_prog_personal]
                 save_user_sessions(user_sessions)
                 st.success(f"Programme personnel '{del_prog_personal}' supprimé pour l'identifiant '{user_id}'.")
@@ -411,57 +430,135 @@ with tab_params:
         st.info("Vous n'avez pas encore de programmes personnels enregistrés.")
 
     st.markdown("---")
-    st.subheader("Paramètres (enregistrés dans votre espace personnel)")
-    cfg["concentration_mg_ml"] = st.selectbox("Concentration (mg I/mL)", [300, 320, 350, 370, 400], index=[300, 320, 350, 370, 400].index(int(cfg.get("concentration_mg_ml", 350))))
-    cfg["calc_mode"] = st.selectbox("Méthode de calcul", ["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"], index=["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"].index(cfg.get("calc_mode", "Charge iodée")))
-    cfg["max_debit"] = st.number_input("Débit maximal autorisé (mL/s)", value=float(cfg.get("max_debit", 6.0)), min_value=1.0, max_value=20.0, step=0.1)
-    cfg["portal_time"] = st.number_input("Portal (s)", value=float(cfg.get("portal_time", 30.0)), min_value=5.0, max_value=120.0, step=1.0)
-    cfg["arterial_time"] = st.number_input("Artériel (s)", value=float(cfg.get("arterial_time", 25.0)), min_value=5.0, max_value=120.0, step=1.0)
-    cfg["intermediate_enabled"] = st.checkbox("Activer temps intermédiaire", value=bool(cfg.get("intermediate_enabled", False)))
-    if cfg["intermediate_enabled"]:
-        cfg["intermediate_time"] = st.number_input("Intermédiaire (s)", value=float(cfg.get("intermediate_time", 28.0)), min_value=5.0, max_value=120.0, step=1.0)
-    cfg["rincage_volume"] = st.number_input("Volume rinçage (mL)", value=float(cfg.get("rincage_volume", 35.0)), min_value=10.0, max_value=100.0, step=1.0)
-    cfg["rincage_delta_debit"] = st.number_input("Δ débit NaCl vs contraste (mL/s)", value=float(cfg.get("rincage_delta_debit", 0.5)), min_value=0.1, max_value=5.0, step=0.1)
-    cfg["volume_max_limit"] = st.number_input("Plafond volume (mL) - seringue", value=float(cfg.get("volume_max_limit", 200.0)), min_value=50.0, max_value=500.0, step=10.0)
+    st.subheader("🧩 Paramètres enregistrés dans votre espace personnel")
 
+    # --- Choix concentration, méthode, etc. ---
+    cfg["concentration_mg_ml"] = st.selectbox(
+        "Concentration (mg I/mL)",
+        [300, 320, 350, 370, 400],
+        index=[300, 320, 350, 370, 400].index(int(cfg.get("concentration_mg_ml", 350)))
+    )
+    cfg["calc_mode"] = st.selectbox(
+        "Méthode de calcul",
+        ["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"],
+        index=["Charge iodée", "Surface corporelle", "Charge iodée sauf IMC > 30 → Surface corporelle"].index(cfg.get("calc_mode", "Charge iodée"))
+    )
+    cfg["max_debit"] = st.number_input(
+        "Débit maximal autorisé (mL/s)",
+        value=float(cfg.get("max_debit", 6.0)),
+        min_value=1.0,
+        max_value=20.0,
+        step=0.1
+    )
+
+    # ------------------------
+    # 🕒 Bloc acquisition & temps
+    # ------------------------
+    st.markdown("---")
+    st.subheader("⏱ Départ d’acquisition et temps d’injection")
+
+    # ✅ Nouveau : ajustement automatique ou manuel
+    cfg["auto_acquisition_by_age"] = st.checkbox(
+        "Ajuster automatiquement le départ d’acquisition selon l’âge",
+        value=bool(cfg.get("auto_acquisition_by_age", True))
+    )
+
+    # ✅ Si non automatique, on peut modifier manuellement la valeur
+    if not cfg["auto_acquisition_by_age"]:
+        cfg["acquisition_start_param"] = st.number_input(
+            "Départ d’acquisition manuel (s)",
+            value=float(cfg.get("acquisition_start_param", 70.0)),
+            min_value=30.0,
+            max_value=120.0,
+            step=1.0,
+            help="Valeur utilisée si le mode automatique est désactivé."
+        )
+
+    # Temps d’injection
+    cfg["portal_time"] = st.number_input(
+        "Portal (s)",
+        value=float(cfg.get("portal_time", 30.0)),
+        min_value=5.0,
+        max_value=120.0,
+        step=1.0
+    )
+    cfg["arterial_time"] = st.number_input(
+        "Artériel (s)",
+        value=float(cfg.get("arterial_time", 25.0)),
+        min_value=5.0,
+        max_value=120.0,
+        step=1.0
+    )
+
+    cfg["intermediate_enabled"] = st.checkbox(
+        "Activer temps intermédiaire",
+        value=bool(cfg.get("intermediate_enabled", False))
+    )
+    if cfg["intermediate_enabled"]:
+        cfg["intermediate_time"] = st.number_input(
+            "Intermédiaire (s)",
+            value=float(cfg.get("intermediate_time", 28.0)),
+            min_value=5.0,
+            max_value=120.0,
+            step=1.0
+        )
+
+    # --- Rinçage et volume max ---
+    cfg["rincage_volume"] = st.number_input(
+        "Volume rinçage (mL)",
+        value=float(cfg.get("rincage_volume", 35.0)),
+        min_value=10.0,
+        max_value=100.0,
+        step=1.0
+    )
+    cfg["rincage_delta_debit"] = st.number_input(
+        "Δ débit NaCl vs contraste (mL/s)",
+        value=float(cfg.get("rincage_delta_debit", 0.5)),
+        min_value=0.1,
+        max_value=5.0,
+        step=0.1
+    )
+    cfg["volume_max_limit"] = st.number_input(
+        "Plafond volume (mL) - seringue",
+        value=float(cfg.get("volume_max_limit", 200.0)),
+        min_value=50.0,
+        max_value=500.0,
+        step=10.0
+    )
+
+    # --- Charges iodées ---
     st.markdown("**Charges en iode par kV (g I/kg)**")
     df_charges = pd.DataFrame({
         "kV": [80, 90, 100, 110, 120],
         "Charge (g I/kg)": [float(cfg["charges"].get(str(kv), 0.35)) for kv in [80, 90, 100, 110, 120]]
     })
     edited_df = st.data_editor(df_charges, num_rows="fixed", use_container_width=True)
+
     if st.button("💾 Sauvegarder les paramètres"):
         try:
             cfg["charges"] = {str(int(row.kV)): float(row["Charge (g I/kg)"]) for _, row in edited_df.iterrows()}
-            # Persister dans l'espace utilisateur (indépendant)
             set_cfg_and_persist(user_id, cfg)
             st.success("✅ Paramètres sauvegardés dans votre espace utilisateur !")
         except Exception as e:
             st.error(f"Erreur lors de la sauvegarde : {e}")
 
-    # gestion des sessions / suppression (ici dans Paramètres)
+    # --- Gestion des identifiants ---
     st.markdown("---")
     st.subheader("🗂 Gestion des sessions / identifiants")
     st.markdown("Les identifiants sont indépendants. Vos programmes et paramètres personnels ne sont accessibles qu'avec votre identifiant.")
 
     all_user_ids = sorted(list(user_sessions.keys()))
-
-    # Si super user : voir tout, supprimer tout (sauf protection suppression identifiant en cours d'utilisation)
     if user_id == SUPER_USER:
         st.markdown("**Super-utilisateur : accès à tous les identifiants**")
-        st.write("Liste des identifiants existants :")
-        # display with masked email column
-        df_users = pd.DataFrame([{"identifiant": uid, "email": mask_email(user_sessions[uid].get("email"))}
-                                 for uid in all_user_ids])
+        df_users = pd.DataFrame([{"identifiant": uid, "email": user_sessions[uid].get("email")} for uid in all_user_ids])
         st.dataframe(df_users, use_container_width=True)
-        st.markdown("**Supprimer un identifiant** — saisissez le nom exact de l'identifiant à supprimer")
         del_input = st.text_input("Identifiant à supprimer (exact)", key="del_input_admin")
         if st.button("🗑 Supprimer identifiant (super-utilisateur)"):
             target = del_input.strip()
             if not target:
                 st.warning("Veuillez saisir l'identifiant à supprimer.")
             elif target == user_id:
-                st.error("⚠️ Impossible de supprimer l'identifiant en cours (super-utilateur connecté).")
+                st.error("⚠️ Impossible de supprimer l'identifiant en cours (super-utilisateur connecté).")
             elif target not in user_sessions:
                 st.error("Identifiant introuvable.")
             else:
@@ -470,7 +567,6 @@ with tab_params:
                 st.success(f"Identifiant '{target}' supprimé par le super-utilisateur.")
     else:
         st.markdown("Seul le super-utilisateur peut lister tous les identifiants.")
-        st.markdown("**Supprimer VOTRE identifiant** — saisissez EXACTEMENT votre identifiant pour confirmer.")
         del_input_self = st.text_input("Confirmez votre identifiant pour supprimer votre compte (exact)", key="del_input_self")
         if st.button("🗑 Supprimer MON identifiant"):
             target = del_input_self.strip()
@@ -479,7 +575,6 @@ with tab_params:
             elif target != user_id:
                 st.error("Le nom saisi ne correspond pas à l'identifiant connecté.")
             else:
-                # suppression autorisée — supprimer puis déconnecter
                 try:
                     if user_id in user_sessions:
                         del user_sessions[user_id]
