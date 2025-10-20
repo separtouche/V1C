@@ -391,7 +391,8 @@ with tab_params:
     # ----------------------------------------------------------------------
     st.subheader("📚 Vos programmes personnels")
 
-    # ✅ Synchronisation avec l’onglet Patient
+   
+    # Synchronisation Patient ↔ Paramètres
     personal_programs = user_sessions.get(user_id, {}).get("programs", {})
     program_list = ["Aucun"] + list(personal_programs.keys())
     current_index = (
@@ -404,10 +405,10 @@ with tab_params:
         "Programme (Personnel)",
         program_list,
         index=current_index,
-        key="prog_params_personal"
+        key="prog_params_personal",
     )
 
-    # 🔁 Synchronisation vers la variable globale
+    # 🔁 Synchronisation dans la session
     st.session_state["selected_program_global"] = program_choice
 
     # --- Verrouillage / déverrouillage ---
@@ -679,7 +680,7 @@ with tab_params:
                 except Exception as e:
                     st.error(f"Erreur suppression identifiant : {e}")
 # ------------------------
-# Onglet Patient — version finale complète avec option intermédiaire dynamique et message d’attention
+# Onglet Patient — version finale complète avec synchro, visuel conservé et message d’attention
 # ------------------------
 with tab_patient:
     # === Style global ===
@@ -760,34 +761,31 @@ with tab_patient:
         height = st.slider("Taille (cm)", 100, 220, 170)
     with col_annee:
         birth_year = st.slider("Année de naissance", current_year - 120, current_year, 1985)
-with col_prog:
-    user_id = st.session_state["user_id"]
-    user_programs = user_sessions.get(user_id, {}).get("programs", {})
+    with col_prog:
+        user_id = st.session_state["user_id"]
+        user_programs = user_sessions.get(user_id, {}).get("programs", {})
 
-    # Sélection synchronisée avec l'onglet Paramètres
-    program_list = ["Aucun"] + list(user_programs.keys())
-    current_index = program_list.index(st.session_state["selected_program_global"]) if st.session_state["selected_program_global"] in program_list else 0
+        # 🟩 Sélection synchronisée avec l'onglet Paramètres
+        program_list = ["Aucun"] + list(user_programs.keys())
+        current_index = (
+            program_list.index(st.session_state["selected_program_global"])
+            if st.session_state["selected_program_global"] in program_list
+            else 0
+        )
 
-    prog_choice_patient = st.selectbox(
-        "Sélection d'un programme",
-        program_list,
-        index=current_index,
-        key="prog_choice_patient"
-    )
+        prog_choice_patient = st.selectbox(
+            "Sélection d'un programme",
+            program_list,
+            index=current_index,
+            key="prog_choice_patient"
+        )
 
-    # 🔁 Synchronisation vers la variable globale
-    st.session_state["selected_program_global"] = prog_choice_patient
+        # 🔁 Synchronisation bidirectionnelle
+        if st.session_state["selected_program_global"] != prog_choice_patient:
+            st.session_state["selected_program_global"] = prog_choice_patient
 
-    # Chargement du programme choisi
-    if prog_choice_patient != "Aucun":
-        prog_conf = user_programs.get(prog_choice_patient, {})
-        cfg = get_cfg()
-        for key, val in prog_conf.items():
-            cfg[key] = val
-        set_cfg_and_persist(user_id, cfg)
-        user_sessions[user_id]["last_selected_program"] = prog_choice_patient
-        save_user_sessions(user_sessions)
-        if prog_choice_patient != "Sélection d'un programme":
+        # Chargement du programme choisi (visuel inchangé)
+        if prog_choice_patient != "Aucun":
             prog_conf = user_programs.get(prog_choice_patient, {})
             cfg = get_cfg()
             for key, val in prog_conf.items():
@@ -937,6 +935,7 @@ with col_prog:
         st.warning(f"⚠️ Temps ajusté à {injection_time:.1f}s (max {float(cfg.get('max_debit',6.0)):.1f} mL/s).")
 
     st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
+    
 # ------------------------
 # Onglet Tutoriel (inchangé)
 # ------------------------
