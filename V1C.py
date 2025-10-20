@@ -397,15 +397,24 @@ personal_programs = user_sessions.get(user_id, {}).get("programs", {})
 program_list = ["Aucun"] + list(personal_programs.keys())
 current_index = program_list.index(st.session_state["selected_program_global"]) if st.session_state["selected_program_global"] in program_list else 0
 
-program_choice = st.selectbox(
-    "Programme (Personnel)",
-    program_list,
-    index=current_index,
-    key="prog_params_personal"
-)
+    personal_programs = user_sessions.get(user_id, {}).get("programs", {})
 
-# 🔁 Synchronisation vers la variable globale
-st.session_state["selected_program_global"] = program_choice
+    # Synchronisation avec l'onglet Patient
+    program_list = ["Aucun"] + list(personal_programs.keys())
+    current_index = program_list.index(st.session_state["selected_program_global"]) if st.session_state["selected_program_global"] in program_list else 0
+
+
+
+
+    program_choice = st.selectbox(
+        "Programme (Personnel)",
+        program_list,
+        index=current_index,
+        key="prog_params_personal"
+    )
+
+    # 🔁 Synchronisation vers la variable globale
+    st.session_state["selected_program_global"] = program_choice
 
     program_locked = False
     unlock_granted = False
