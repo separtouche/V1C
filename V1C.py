@@ -373,12 +373,12 @@ def set_cfg_and_persist(user_id, new_cfg):
     save_user_sessions(user_sessions)
 
 # ------------------------
-# Onglet Paramètres (corrigé, complet et synchronisé)
+# Onglet Paramètres — version finale complète et synchronisée
 # ------------------------
 with tab_params:
     st.header("⚙️ Paramètres et Bibliothèque (personnelle)")
 
-    # ✅ On récupère l'identifiant utilisateur actif
+    # ✅ Vérification utilisateur
     user_id = st.session_state.get("user_id", None)
     if not user_id:
         st.error("⚠️ Aucun identifiant utilisateur actif. Veuillez vous reconnecter.")
@@ -387,12 +387,10 @@ with tab_params:
     cfg = get_cfg()
 
     # ----------------------------------------------------------------------
-    # 📚 SECTION 1 — Vos programmes personnels
+    # 📚 SECTION 1 — Vos programmes personnels (synchronisée)
     # ----------------------------------------------------------------------
     st.subheader("📚 Vos programmes personnels")
 
-   
-    # Synchronisation Patient ↔ Paramètres
     personal_programs = user_sessions.get(user_id, {}).get("programs", {})
     program_list = ["Aucun"] + list(personal_programs.keys())
     current_index = (
@@ -405,33 +403,36 @@ with tab_params:
         "Programme (Personnel)",
         program_list,
         index=current_index,
-        key="prog_params_personal",
+        key="prog_params_personal"
     )
 
-    # 🔁 Synchronisation dans la session
-    st.session_state["selected_program_global"] = program_choice
+    # 🔁 Synchronisation bidirectionnelle avec l’onglet Patient
+    if st.session_state["selected_program_global"] != program_choice:
+        st.session_state["selected_program_global"] = program_choice
+        st.session_state["program_unlocked"] = False  # 🔒 verrouillage automatique
 
-    # --- Verrouillage / déverrouillage ---
-    program_locked = False
-    unlock_granted = False
-
+    # Charger la configuration du programme sélectionné
     if program_choice != "Aucun":
         prog_conf = personal_programs.get(program_choice, {})
         for key, val in prog_conf.items():
             cfg[key] = val
 
+    # Déterminer si les champs doivent être grisés
+    program_selected = (st.session_state["selected_program_global"] != "Aucun")
+    disabled = (program_selected and not st.session_state["program_unlocked"])
+
+    # --- Gestion du verrouillage / déverrouillage
+    if program_choice != "Aucun":
         st.info(f"🔒 Programme sélectionné : **{program_choice}** — protégé contre les modifications directes.")
         pwd_input = st.text_input("Entrez votre identifiant pour déverrouiller ce programme", type="password")
 
         if st.button("🔓 Déverrouiller le programme"):
             if pwd_input.strip() == user_id:
-                unlock_granted = True
+                st.session_state["program_unlocked"] = True
                 st.success(f"✅ Programme '{program_choice}' déverrouillé pour modification.")
             else:
+                st.session_state["program_unlocked"] = False
                 st.error("❌ Identifiant incorrect. Modifications interdites.")
-                program_locked = True
-        else:
-            program_locked = True
     else:
         st.info("Aucun programme sélectionné — vous pouvez librement ajuster les paramètres et créer un nouveau programme.")
 
@@ -440,7 +441,7 @@ with tab_params:
 
     # ✅ Création ou mise à jour d’un programme
     if st.button("💾 Ajouter/Mise à jour programme"):
-        if program_locked and not unlock_granted:
+        if program_selected and not st.session_state["program_unlocked"]:
             st.warning("⚠️ Programme protégé — entrez votre identifiant pour le modifier ou créez un nouveau programme.")
         elif not new_prog_name.strip():
             st.warning("Veuillez donner un nom au programme avant d’enregistrer.")
@@ -466,23 +467,18 @@ with tab_params:
             user_sessions.setdefault(user_id, {}).setdefault("programs", {})[new_prog_name.strip()] = cfg.copy()
             user_sessions[user_id]["config"] = cfg.copy()
             save_user_sessions(user_sessions)
-
             st.success(f"✅ Programme personnel '{new_prog_name}' sauvegardé avec tous les paramètres !")
 
-    # 🗑 Gestion des programmes personnels
+    # 🗑 Suppression programme
     st.markdown("**Gérer mes programmes personnels**")
     personal_prog_list = list(user_sessions.get(user_id, {}).get("programs", {}).keys())
     if personal_prog_list:
-        del_prog_personal = st.selectbox(
-            "Supprimer un programme personnel",
-            [""] + personal_prog_list,
-            key="del_prog_personal"
-        )
+        del_prog_personal = st.selectbox("Supprimer un programme personnel", [""] + personal_prog_list, key="del_prog_personal")
         if st.button("🗑 Supprimer programme (Personnel)"):
             if del_prog_personal and del_prog_personal in user_sessions[user_id]["programs"]:
                 del user_sessions[user_id]["programs"][del_prog_personal]
                 save_user_sessions(user_sessions)
-                st.success(f"Programme personnel '{del_prog_personal}' supprimé pour l'identifiant '{user_id}'.")
+                st.success(f"Programme personnel '{del_prog_personal}' supprimé.")
             else:
                 st.error("Programme introuvable.")
     else:
@@ -494,8 +490,6 @@ with tab_params:
     st.markdown("---")
     st.subheader("💉 Paramètres d’injection et calculs")
 
-    disabled = program_locked and not unlock_granted
-
     cfg["simultaneous_enabled"] = st.checkbox(
         "Activer l'injection simultanée",
         value=cfg.get("simultaneous_enabled", False),
@@ -505,10 +499,7 @@ with tab_params:
         cfg["target_concentration"] = st.number_input(
             "Concentration cible (mg I/mL)",
             value=int(cfg.get("target_concentration", 350)),
-            min_value=200,
-            max_value=500,
-            step=10,
-            disabled=disabled
+            min_value=200, max_value=500, step=10, disabled=disabled
         )
 
     cfg["concentration_mg_ml"] = st.selectbox(
@@ -526,10 +517,7 @@ with tab_params:
     cfg["max_debit"] = st.number_input(
         "Débit maximal autorisé (mL/s)",
         value=float(cfg.get("max_debit", 6.0)),
-        min_value=1.0,
-        max_value=20.0,
-        step=0.1,
-        disabled=disabled
+        min_value=1.0, max_value=20.0, step=0.1, disabled=disabled
     )
 
     # ----------------------------------------------------------------------
@@ -548,71 +536,22 @@ with tab_params:
         cfg["acquisition_start_param"] = st.number_input(
             "Départ d’acquisition manuel (s)",
             value=float(cfg.get("acquisition_start_param", 70.0)),
-            min_value=30.0,
-            max_value=120.0,
-            step=1.0,
-            disabled=disabled
+            min_value=30.0, max_value=120.0, step=1.0, disabled=disabled
         )
 
-    cfg["portal_time"] = st.number_input(
-        "Portal (s)",
-        value=float(cfg.get("portal_time", 30.0)),
-        min_value=5.0,
-        max_value=120.0,
-        step=1.0,
-        disabled=disabled
-    )
-    cfg["arterial_time"] = st.number_input(
-        "Artériel (s)",
-        value=float(cfg.get("arterial_time", 25.0)),
-        min_value=5.0,
-        max_value=120.0,
-        step=1.0,
-        disabled=disabled
-    )
+    cfg["portal_time"] = st.number_input("Portal (s)", value=float(cfg.get("portal_time", 30.0)), min_value=5.0, max_value=120.0, step=1.0, disabled=disabled)
+    cfg["arterial_time"] = st.number_input("Artériel (s)", value=float(cfg.get("arterial_time", 25.0)), min_value=5.0, max_value=120.0, step=1.0, disabled=disabled)
 
-    cfg["intermediate_enabled"] = st.checkbox(
-        "Activer temps intermédiaire",
-        value=bool(cfg.get("intermediate_enabled", False)),
-        disabled=disabled
-    )
+    cfg["intermediate_enabled"] = st.checkbox("Activer temps intermédiaire", value=bool(cfg.get("intermediate_enabled", False)), disabled=disabled)
     if cfg["intermediate_enabled"]:
-        cfg["intermediate_time"] = st.number_input(
-            "Intermédiaire (s)",
-            value=float(cfg.get("intermediate_time", 28.0)),
-            min_value=5.0,
-            max_value=120.0,
-            step=1.0,
-            disabled=disabled
-        )
+        cfg["intermediate_time"] = st.number_input("Intermédiaire (s)", value=float(cfg.get("intermediate_time", 28.0)), min_value=5.0, max_value=120.0, step=1.0, disabled=disabled)
 
     # ----------------------------------------------------------------------
     # ⚗️ SECTION 4 — Rinçage et volumes
     # ----------------------------------------------------------------------
-    cfg["rincage_volume"] = st.number_input(
-        "Volume rinçage (mL)",
-        value=float(cfg.get("rincage_volume", 35.0)),
-        min_value=10.0,
-        max_value=100.0,
-        step=1.0,
-        disabled=disabled
-    )
-    cfg["rincage_delta_debit"] = st.number_input(
-        "Δ débit NaCl vs contraste (mL/s)",
-        value=float(cfg.get("rincage_delta_debit", 0.5)),
-        min_value=0.1,
-        max_value=5.0,
-        step=0.1,
-        disabled=disabled
-    )
-    cfg["volume_max_limit"] = st.number_input(
-        "Plafond volume (mL) - seringue",
-        value=float(cfg.get("volume_max_limit", 200.0)),
-        min_value=50.0,
-        max_value=500.0,
-        step=10.0,
-        disabled=disabled
-    )
+    cfg["rincage_volume"] = st.number_input("Volume rinçage (mL)", value=float(cfg.get("rincage_volume", 35.0)), min_value=10.0, max_value=100.0, step=1.0, disabled=disabled)
+    cfg["rincage_delta_debit"] = st.number_input("Δ débit NaCl vs contraste (mL/s)", value=float(cfg.get("rincage_delta_debit", 0.5)), min_value=0.1, max_value=5.0, step=0.1, disabled=disabled)
+    cfg["volume_max_limit"] = st.number_input("Plafond volume (mL) - seringue", value=float(cfg.get("volume_max_limit", 200.0)), min_value=50.0, max_value=500.0, step=10.0, disabled=disabled)
 
     # ----------------------------------------------------------------------
     # 💊 SECTION 5 — Charges iodées
@@ -626,12 +565,9 @@ with tab_params:
     edited_df = st.data_editor(df_charges, num_rows="fixed", use_container_width=True, disabled=disabled)
 
     if st.button("💾 Sauvegarder les paramètres", disabled=disabled):
-        try:
-            cfg["charges"] = {str(int(row.kV)): float(row["Charge (g I/kg)"]) for _, row in edited_df.iterrows()}
-            set_cfg_and_persist(user_id, cfg)
-            st.success("✅ Paramètres sauvegardés dans votre espace utilisateur !")
-        except Exception as e:
-            st.error(f"Erreur lors de la sauvegarde : {e}")
+        cfg["charges"] = {str(int(row.kV)): float(row["Charge (g I/kg)"]) for _, row in edited_df.iterrows()}
+        set_cfg_and_persist(user_id, cfg)
+        st.success("✅ Paramètres sauvegardés dans votre espace utilisateur !")
 
     # ----------------------------------------------------------------------
     # 👤 SECTION 6 — Gestion des identifiants
@@ -680,7 +616,7 @@ with tab_params:
                 except Exception as e:
                     st.error(f"Erreur suppression identifiant : {e}")
 # ------------------------
-# Onglet Patient — version finale complète avec synchro, visuel conservé et message d’attention
+# Onglet Patient — version finale synchronisée avec l’onglet Paramètres
 # ------------------------
 with tab_patient:
     # === Style global ===
@@ -765,7 +701,7 @@ with tab_patient:
         user_id = st.session_state["user_id"]
         user_programs = user_sessions.get(user_id, {}).get("programs", {})
 
-        # 🟩 Sélection synchronisée avec l'onglet Paramètres
+        # Liste des programmes disponibles
         program_list = ["Aucun"] + list(user_programs.keys())
         current_index = (
             program_list.index(st.session_state["selected_program_global"])
@@ -773,6 +709,7 @@ with tab_patient:
             else 0
         )
 
+        # Sélection de programme synchronisée
         prog_choice_patient = st.selectbox(
             "Sélection d'un programme",
             program_list,
@@ -783,8 +720,9 @@ with tab_patient:
         # 🔁 Synchronisation bidirectionnelle
         if st.session_state["selected_program_global"] != prog_choice_patient:
             st.session_state["selected_program_global"] = prog_choice_patient
+            st.session_state["program_unlocked"] = False  # verrouillage automatique
 
-        # Chargement du programme choisi (visuel inchangé)
+        # Chargement du programme choisi
         if prog_choice_patient != "Aucun":
             prog_conf = user_programs.get(prog_choice_patient, {})
             cfg = get_cfg()
@@ -793,6 +731,7 @@ with tab_patient:
             set_cfg_and_persist(user_id, cfg)
             user_sessions[user_id]["last_selected_program"] = prog_choice_patient
             save_user_sessions(user_sessions)
+
     st.markdown("</div>", unsafe_allow_html=True)
 
     # === Variables patient ===
