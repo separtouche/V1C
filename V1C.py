@@ -735,12 +735,12 @@ with tab_patient:
     current_year = datetime.now().year
     col_poids, col_taille, col_annee, col_prog = st.columns([1, 1, 1, 1.3])
 
-with col_poids:
-    weight = st.slider("Poids (kg)", 20, 200, 70, format="%d")
-with col_taille:
-    height = st.slider("Taille (cm)", 100, 220, 170, format="%d")
-with col_annee:
-    birth_year = st.slider("Année de naissance", current_year - 120, current_year, 1985, format="%d")
+    with col_poids:
+        weight = st.slider("Poids (kg)", 20, 200, 70)
+    with col_taille:
+        height = st.slider("Taille (cm)", 100, 220, 170)
+    with col_annee:
+        birth_year = st.slider("Année de naissance", current_year - 120, current_year, 1985)
     with col_prog:
         user_id = st.session_state["user_id"]
         user_programs = user_sessions.get(user_id, {}).get("programs", {})
