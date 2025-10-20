@@ -373,12 +373,12 @@ def set_cfg_and_persist(user_id, new_cfg):
     save_user_sessions(user_sessions)
 
 # ------------------------
-# Onglet Paramètres (version finale complète et corrigée)
+# Onglet Paramètres (corrigé, complet et synchronisé)
 # ------------------------
 with tab_params:
     st.header("⚙️ Paramètres et Bibliothèque (personnelle)")
 
-    # ✅ Identifiant utilisateur actif
+    # ✅ On récupère l'identifiant utilisateur actif
     user_id = st.session_state.get("user_id", None)
     if not user_id:
         st.error("⚠️ Aucun identifiant utilisateur actif. Veuillez vous reconnecter.")
@@ -410,7 +410,7 @@ with tab_params:
     # 🔁 Synchronisation vers la variable globale
     st.session_state["selected_program_global"] = program_choice
 
-    # --- Variables de verrouillage ---
+    # --- Verrouillage / déverrouillage ---
     program_locked = False
     unlock_granted = False
 
@@ -419,13 +419,8 @@ with tab_params:
         for key, val in prog_conf.items():
             cfg[key] = val
 
-        st.info(
-            f"🔒 Programme sélectionné : **{program_choice}** — protégé contre les modifications directes."
-        )
-        pwd_input = st.text_input(
-            "Entrez votre identifiant pour déverrouiller ce programme",
-            type="password",
-        )
+        st.info(f"🔒 Programme sélectionné : **{program_choice}** — protégé contre les modifications directes.")
+        pwd_input = st.text_input("Entrez votre identifiant pour déverrouiller ce programme", type="password")
 
         if st.button("🔓 Déverrouiller le programme"):
             if pwd_input.strip() == user_id:
@@ -437,9 +432,7 @@ with tab_params:
         else:
             program_locked = True
     else:
-        st.info(
-            "Aucun programme sélectionné — vous pouvez librement ajuster les paramètres et créer un nouveau programme."
-        )
+        st.info("Aucun programme sélectionné — vous pouvez librement ajuster les paramètres et créer un nouveau programme.")
 
     # Nom du nouveau programme
     new_prog_name = st.text_input("Nom du nouveau programme (sera enregistré dans vos programmes personnels)")
