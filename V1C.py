@@ -492,13 +492,13 @@ with tab_params:
                 except Exception as e:
                     st.error(f"Erreur suppression identifiant : {e}")
 # ------------------------
-# Onglet Patient — version finale avec titres centrés et homogènes
+# Onglet Patient — version finale homogène avec police d’infos agrandie
 # ------------------------
 with tab_patient:
-    # === Style global (ajustement minimal) ===
+    # === Style global (titres sliders + blocs) ===
     st.markdown("""
         <style>
-        /* Applique le style "Paramètres principaux" aux libellés des sliders et du select */
+        /* Titres des sliders et select */
         div[data-testid="stSlider"] > label,
         div[data-testid="stSlider"] > label *,
 
@@ -570,13 +570,10 @@ with tab_patient:
 
     with col_poids:
         weight = st.slider("Poids (kg)", 20, 200, 70)
-
     with col_taille:
         height = st.slider("Taille (cm)", 100, 220, 170)
-
     with col_annee:
         birth_year = st.slider("Année de naissance", current_year - 120, current_year, 1985)
-
     with col_prog:
         user_id = st.session_state["user_id"]
         user_programs = user_sessions.get(user_id, {}).get("programs", {})
@@ -620,7 +617,7 @@ with tab_patient:
         concentration = int(cfg.get("concentration_mg_ml", 350))
         calc_mode_label = cfg.get("calc_mode", "Charge iodée")
         st.markdown(
-            f"<div style='text-align:center; font-size:13px; color:#123A5F;'>"
+            f"<div style='text-align:center; font-size:15px; color:#123A5F;'>"
             f"<b>Charge iodée :</b> {charge_iod:.2f} g I/kg<br>"
             f"<b>Concentration :</b> {concentration} mg I/mL<br>"
             f"<b>Méthode :</b> {calc_mode_label}</div>",
@@ -651,7 +648,7 @@ with tab_patient:
             base_time = float(cfg.get("intermediate_time", cfg.get("portal_time", 30.0)))
         acquisition_start = calculate_acquisition_start(age, cfg)
         st.markdown(
-            f"<div style='text-align:center; font-size:13px; color:#123A5F;'>"
+            f"<div style='text-align:center; font-size:15px; color:#123A5F;'>"
             f"<b>Temps {injection_mode.lower()} :</b> {base_time:.0f} s<br>"
             f"<b>Départ d'acquisition :</b> {acquisition_start:.1f} s</div>",
             unsafe_allow_html=True,
@@ -666,7 +663,7 @@ with tab_patient:
         auto_age = bool(cfg.get("auto_acquisition_by_age", True))
         sim_enabled = bool(cfg.get("simultaneous_enabled", False))
         st.markdown(
-            f"<div style='text-align:center; font-size:13px; color:#123A5F;'>"
+            f"<div style='text-align:center; font-size:15px; color:#123A5F;'>"
             f"<b>Ajustement automatique selon l'âge :</b><br>"
             f"{'✅ activé' if auto_age else '❌ désactivé'}<br><br>"
             f"<b>Injection simultanée :</b><br>"
