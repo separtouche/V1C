@@ -660,13 +660,12 @@ with tab_params:
                 except Exception as e:
                     st.error(f"Erreur suppression identifiant : {e}")
 # ------------------------
-# Onglet Patient — version finale complète avec option intermédiaire dynamique et message d’attention
+# Onglet Patient — version finale complète avec saisie clavier
 # ------------------------
 with tab_patient:
     # === Style global ===
     st.markdown("""
         <style>
-        /* Style titres sliders/select */
         div[data-testid="stSlider"] > label,
         div[data-testid="stSlider"] > label *,
         div[data-testid="stSelectbox"] > label,
@@ -680,14 +679,12 @@ with tab_patient:
             margin-bottom:6px !important;
         }
 
-        /* Sliders rouges */
         .slider-red .stSlider [data-baseweb="slider"],
         .slider-red .stSlider [data-baseweb="slider"] div[role="slider"],
         .slider-red .stSlider [data-baseweb="slider"] div[role="slider"]::before {
             background-color:#E53935 !important;
         }
 
-        /* Titres */
         .section-title {
             font-size:22px;
             font-weight:700;
@@ -703,7 +700,6 @@ with tab_patient:
             margin-bottom:6px;
         }
 
-        /* Radios centrées */
         div[role="radiogroup"] {
             display:flex !important;
             justify-content:center !important;
@@ -711,6 +707,7 @@ with tab_patient:
             flex-wrap:nowrap !important;
             gap:4px !important;
         }
+
         div[role="radiogroup"] label {
             font-size:13px !important;
             padding:0 4px !important;
@@ -718,23 +715,30 @@ with tab_patient:
             white-space:nowrap !important;
         }
 
-        /* Diviseur vertical */
         .divider {
             border-left:1px solid #d9d9d9;
             height:100%;
             margin:0 10px;
         }
+
+        /* Champs numériques sous sliders */
+        input[type="number"] {
+            text-align:center;
+            border-radius:8px;
+            border:1px solid #ccc;
+            padding:3px 0;
+        }
         </style>
     """, unsafe_allow_html=True)
 
-    # --- Titre principal ---
     st.markdown("<div class='section-title'>🧍 Informations patient</div>", unsafe_allow_html=True)
 
-    # === Ligne 1 : Sliders ===
+    # === Ligne sliders ===
     st.markdown("<div class='slider-red'>", unsafe_allow_html=True)
     current_year = datetime.now().year
     col_poids, col_taille, col_annee, col_prog = st.columns([1, 1, 1, 1.3])
 
+    # --- Sliders principaux ---
     with col_poids:
         weight = st.slider("Poids (kg)", 20, 200, 70)
     with col_taille:
@@ -759,7 +763,22 @@ with tab_patient:
             save_user_sessions(user_sessions)
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # === Variables patient ===
+    # === Saisie directe sous sliders ===
+    col_poids_in, col_taille_in, col_annee_in = st.columns([1, 1, 1])
+    with col_poids_in:
+        new_weight = st.number_input(" ", min_value=20, max_value=200, value=weight, step=1, key="num_poids", label_visibility="collapsed")
+        if new_weight != weight:
+            weight = new_weight
+    with col_taille_in:
+        new_height = st.number_input(" ", min_value=100, max_value=220, value=height, step=1, key="num_taille", label_visibility="collapsed")
+        if new_height != height:
+            height = new_height
+    with col_annee_in:
+        new_birth_year = st.number_input(" ", min_value=current_year - 120, max_value=current_year, value=birth_year, step=1, key="num_annee", label_visibility="collapsed")
+        if new_birth_year != birth_year:
+            birth_year = new_birth_year
+
+    # --- Variables patient ---
     cfg = get_cfg()
     age = current_year - birth_year
     imc = weight / ((height / 100) ** 2)
