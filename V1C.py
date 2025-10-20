@@ -2,7 +2,7 @@
 """
 Calculette complète (une page) de dose de produit de contraste - Oncologie adulte
 Adaptée pour Sébastien Partouche — version consolidée optimisée (corrigée)
-Usage : streamlit run calculatrice_contraste_oncologie_corrigee.py
+Usage : streamlit run calculatrice_contraste_oncologie_corrigee_v2.py
 """
 
 import streamlit as st
@@ -10,6 +10,8 @@ import json
 import os
 import math
 import base64
+import time
+import contextlib
 from datetime import datetime
 import pandas as pd
 
@@ -45,24 +47,31 @@ default_config = {
 }
 
 # ------------------------
+# Verrouillage de fichiers (best effort cross-platform)
+# ------------------------
+@contextlib.contextmanager
+def file_lock(lock_path, timeout=5.0, poll=0.05):
+    start = time.time()
+    while True:
+        try:
+            fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.close(fd)
+            break
+        except FileExistsError:
+            if time.time() - start > timeout:
+                raise TimeoutError(f"Lock timeout: {lock_path}")
+            time.sleep(poll)
+    try:
+        yield
+    finally:
+        try:
+            os.remove(lock_path)
+        except FileNotFoundError:
+            pass
+
+# ------------------------
 # Utils I/O sécurisées
 # ------------------------
-def load_json_safe(path, default):
-    if os.path.exists(path):
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception as e:
-            st.warning(f"⚠️ Erreur lecture '{path}' — valeurs par défaut utilisées. Détail: {e}")
-            return default.copy()
-    return default.copy()
-
-def save_json_atomic(path, data):
-    tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4, ensure_ascii=False)
-    os.replace(tmp, path)
-
 def audit_log(msg):
     """Ajoute une ligne d'audit (anonymisé) localement."""
     try:
@@ -71,6 +80,40 @@ def audit_log(msg):
             f.write(f"{ts} - {msg}\n")
     except Exception:
         pass
+
+def load_json_safe(path, default):
+    lock = path + ".lock"
+    if os.path.exists(path):
+        try:
+            with file_lock(lock):
+                with open(path, "r", encoding="utf-8") as f:
+                    return json.load(f)
+        except Exception as e:
+            audit_log(f"LOAD_ERROR {path}: {e}")
+            st.warning(f"⚠️ Erreur lecture '{path}' — valeurs par défaut utilisées.")
+            return default.copy()
+    return default.copy()
+
+def save_json_atomic(path, data):
+    tmp = path + ".tmp"
+    lock = path + ".lock"
+    try:
+        with file_lock(lock):
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=4, ensure_ascii=False)
+            os.replace(tmp, path)
+    except Exception as e:
+        audit_log(f"SAVE_ERROR {path}: {e}")
+        # en cas d'échec, essayer un fallback non atomique minimaliste
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=4, ensure_ascii=False)
+        except Exception as e2:
+            audit_log(f"SAVE_FALLBACK_ERROR {path}: {e2}")
+
+def img_to_base64(path):
+    with open(path, "rb") as f:
+        return base64.b64encode(f.read()).decode()
 
 # ------------------------
 # Charger config & libs
@@ -129,7 +172,8 @@ def calculate_volume(weight, height, kv, concentration_mg_ml, imc, calc_mode, ch
         else:
             charge_iodine = float(charges.get(str(kv), 0.4))
             volume = weight * charge_iodine / concentration_g_ml
-    except Exception:
+    except Exception as e:
+        audit_log(f"CALC_VOLUME_ERROR: {e}")
         volume = 0.0
     volume = max(0.0, float(volume))
     if volume > volume_cap:
@@ -156,9 +200,21 @@ def adjust_injection_rate(volume, injection_time, max_debit):
         time_adjusted = True
     return float(injection_rate), float(injection_time), bool(time_adjusted)
 
-def img_to_base64(path):
-    with open(path, "rb") as f:
-        return base64.b64encode(f.read()).decode()
+# ------------------------
+# Helpers divers
+# ------------------------
+def mask_email(e):
+    try:
+        if not e:
+            return ""
+        local, domain = e.split("@", 1)
+        if len(local) <= 2:
+            local_mask = local[0] + "*"
+        else:
+            local_mask = local[0] + "*"*(len(local)-2) + local[-1]
+        return f"{local_mask}@{domain}"
+    except Exception:
+        return "****"
 
 # ------------------------
 # Streamlit UI init
@@ -271,18 +327,22 @@ if not st.session_state["accepted_legal"] or st.session_state["user_id"] is None
 # ------------------------
 # Header réduit
 # ------------------------
-logo_path = "guerbet_logo.png"
-if os.path.exists(logo_path):
+def safe_img_to_b64(path):
     try:
-        img_b64 = img_to_base64(logo_path)
-        st.markdown(f"""
-        <div style="display:flex; align-items:center; gap:8px; background:#124F7A; padding:8px; border-radius:8px">
-            <img src="data:image/png;base64,{img_b64}" style="height:60px"/>
-            <h2 style="color:white; margin:0;">Calculette de dose de produit de contraste — Oncologie adulte</h2>
-        </div>
-        """, unsafe_allow_html=True)
-    except Exception:
-        st.title("Calculette de dose de produit de contraste — Oncologie adulte")
+        return img_to_base64(path)
+    except Exception as e:
+        audit_log(f"IMG_LOAD_ERROR {path}: {e}")
+        return None
+
+logo_path = "guerbet_logo.png"
+img_b64 = safe_img_to_b64(logo_path) if os.path.exists(logo_path) else None
+if img_b64:
+    st.markdown(f"""
+    <div style="display:flex; align-items:center; gap:8px; background:#124F7A; padding:8px; border-radius:8px">
+        <img src="data:image/png;base64,{img_b64}" style="height:60px"/>
+        <h2 style="color:white; margin:0;">Calculette de dose de produit de contraste — Oncologie adulte</h2>
+    </div>
+    """, unsafe_allow_html=True)
 else:
     st.title("Calculette de dose de produit de contraste — Oncologie adulte")
 
@@ -389,8 +449,9 @@ with tab_params:
     if user_id == SUPER_USER:
         st.markdown("**Super-utilisateur : accès à tous les identifiants**")
         st.write("Liste des identifiants existants :")
-        # display with optional email column
-        df_users = pd.DataFrame([{"identifiant": uid, "email": user_sessions[uid].get("email")} for uid in all_user_ids])
+        # display with masked email column
+        df_users = pd.DataFrame([{"identifiant": uid, "email": mask_email(user_sessions[uid].get("email"))}
+                                 for uid in all_user_ids])
         st.dataframe(df_users, use_container_width=True)
         st.markdown("**Supprimer un identifiant** — saisissez le nom exact de l'identifiant à supprimer")
         del_input = st.text_input("Identifiant à supprimer (exact)", key="del_input_admin")
@@ -441,7 +502,7 @@ with tab_patient:
         .slider-red .stSlider [data-baseweb="slider"] div[role="slider"]::before { background-color: #E53935 !important; }
         .divider { border-left: 1px solid #d9d9d9; height: 100%; margin: 0 20px; }
         .info-block { background: #F5F8FC; border-radius: 10px; padding: 15px 20px; text-align: center; color: #123A5F; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-        .section-title { font-size: 22px; font-weight: 700; color: #123A5F; margin-bottom: 15px; }
+        .section-title { font-size: 22px; font-weight: 700; color:#123A5F; margin-bottom: 15px; }
         div[role="radiogroup"] label { padding: 2px 6px !important; margin: 0 2px !important; font-size: 0.85rem !important; }
         </style>
     """, unsafe_allow_html=True)
@@ -460,7 +521,11 @@ with tab_patient:
         height = st.slider("Taille (cm)", 100, 220, 170)
 
     with col_annee:
-        birth_year = st.slider("Année de naissance", current_year - 120, current_year, 1985)
+        # Adultes uniquement : max = année courante - 18
+        min_year = current_year - 120
+        max_year = current_year - 18
+        default_birth = 1985 if 1985 <= max_year else max_year
+        birth_year = st.slider("Année de naissance", min_year, max_year, default_birth)
 
     with col_prog:
         user_id = st.session_state["user_id"]
@@ -485,7 +550,7 @@ with tab_patient:
     age = current_year - birth_year
     imc = weight / ((height / 100) ** 2)
 
-       # === LIGNE 2 : Trois blocs avec lignes de séparation ===
+    # === LIGNE 2 : Trois blocs avec lignes de séparation ===
     col_left, col_div1, col_center, col_div2, col_right = st.columns([1.2, 0.05, 1.2, 0.05, 1.2])
 
     # 🧭 Bloc gauche : KV, charge iodée, concentration, méthode utilisée
@@ -582,38 +647,53 @@ with tab_patient:
 
         st.markdown("</div>", unsafe_allow_html=True)
 
-
     # --- Calculs ---
-    volume, bsa = calculate_volume(
+    # 1) Calculer le volume théorique (non arrondi) et la BSA éventuelle
+    volume_theorique, bsa = calculate_volume(
         weight, height, kv_scanner, float(cfg.get("concentration_mg_ml", 350)),
         imc, cfg.get("calc_mode", "Charge iodée"), cfg.get("charges", {}),
         float(cfg.get("volume_max_limit", 200.0))
     )
-    injection_rate, injection_time, time_adjusted = adjust_injection_rate(
-        volume, float(base_time), float(cfg.get("max_debit", 6.0))
-    )
 
+    # Alerte si plafonné par la seringue
+    if abs(volume_theorique - float(cfg.get("volume_max_limit", 200.0))) < 1e-6:
+        st.warning("🧪 Volume plafonné par la capacité de la seringue.")
+
+    # 2) Gestion simultanée (détermination des volumes de contraste / NaCl)
     if cfg.get("simultaneous_enabled", False):
         target = float(cfg.get("target_concentration", 350))
         current_conc = float(cfg.get("concentration_mg_ml", 350))
         if target > current_conc:
             target = current_conc
-        vol_contrast = volume * (target/current_conc) if current_conc > 0 else volume
-        vol_nacl_dilution = max(0.0, volume - vol_contrast)
-        contrast_text = f"{int(round(vol_contrast))} mL"
-        nacl_text = f"{int(round(vol_nacl_dilution + cfg.get('rincage_volume', 35.0)))} mL"
+        vol_contrast_raw = volume_theorique * (target/current_conc) if current_conc > 0 else volume_theorique
+        vol_nacl_dilution_raw = max(0.0, volume_theorique - vol_contrast_raw)
     else:
-        vol_contrast = volume
-        contrast_text = f"{int(round(vol_contrast))} mL"
-        nacl_text = f"{int(round(cfg.get('rincage_volume', 35.0)))} mL"
+        vol_contrast_raw = volume_theorique
+        vol_nacl_dilution_raw = 0.0
+
+    # 3) Arrondis d'affichage (mL entiers) — cohérence débit basée sur volume affiché
+    vol_contrast_display = float(int(round(vol_contrast_raw)))
+    rincage_display = float(int(round(cfg.get("rincage_volume", 35.0))))
+    if cfg.get("simultaneous_enabled", False):
+        vol_nacl_total_display = float(int(round(vol_nacl_dilution_raw + cfg.get("rincage_volume", 35.0))))
+    else:
+        vol_nacl_total_display = rincage_display
+
+    # 4) Calcul du débit/temps à partir du volume AFFICHÉ de contraste
+    #    (cohérence visuelle : ce qui est montré sert au calcul du débit)
+    if 'base_time' not in locals():
+        base_time = float(cfg.get("portal_time", 30.0))
+    injection_rate, injection_time, time_adjusted = adjust_injection_rate(
+        vol_contrast_display, float(base_time), float(cfg.get("max_debit", 6.0))
+    )
 
     st.markdown("---")
 
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.markdown(f"<div class='info-block'><h4>💧 Volume contraste conseillé</h4><h2>{contrast_text}</h2></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='info-block'><h4>💧 Volume contraste conseillé</h4><h2>{int(vol_contrast_display)} mL</h2></div>", unsafe_allow_html=True)
     with col2:
-        st.markdown(f"<div class='info-block'><h4>💧 Volume NaCl conseillé</h4><h2>{nacl_text}</h2></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='info-block'><h4>💧 Volume NaCl conseillé</h4><h2>{int(vol_nacl_total_display)} mL</h2></div>", unsafe_allow_html=True)
     with col3:
         st.markdown(f"<div class='info-block'><h4>🚀 Débit conseillé</h4><h2>{injection_rate:.1f} mL/s</h2></div>", unsafe_allow_html=True)
 
