@@ -491,8 +491,9 @@ with tab_params:
                     st.rerun()
                 except Exception as e:
                     st.error(f"Erreur suppression identifiant : {e}")
+
 # ------------------------
-# Onglet Patient — version finale avec option intermédiaire dynamique
+# Onglet Patient — version finale complète avec option intermédiaire dynamique et message d’attention
 # ------------------------
 with tab_patient:
     # === Style global ===
@@ -662,6 +663,19 @@ with tab_patient:
             f"</div>",
             unsafe_allow_html=True,
         )
+
+        # ✅ Message d’attention si "Intermédiaire" est sélectionné
+        if injection_mode == "Intermédiaire":
+            st.markdown(
+                """
+                <div style='background-color:#E3F2FD; border-left:4px solid #1976D2;
+                            padding:8px 10px; margin-top:6px; border-radius:6px;
+                            color:#0D47A1; font-size:13px; text-align:center;'>
+                    ⚠️ <b>Attention :</b> pensez à ajuster le départ d’acquisition.
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
 
         # ✅ Champ pour modifier temps intermédiaire si activé
         if cfg.get("intermediate_enabled", False) and injection_mode == "Intermédiaire":
