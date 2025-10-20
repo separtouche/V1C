@@ -493,10 +493,10 @@ with tab_params:
                     st.error(f"Erreur suppression identifiant : {e}")
 
 # ------------------------
-# Onglet Patient (corrigé : centrage + titre)
+# Onglet Patient — version compacte homogène
 # ------------------------
 with tab_patient:
-    # --- CSS pour centrage et style identique ---
+    # --- CSS pour centrage et compacité ---
     st.markdown("""
         <style>
         /* sliders rouges */
@@ -507,26 +507,30 @@ with tab_patient:
             background-color: #E53935 !important;
         }
 
-        /* centrage des boutons radio */
+        /* centrage radios */
         div[role="radiogroup"] {
             display: flex !important;
             justify-content: center !important;
             align-items: center !important;
             gap: 10px !important;
+            margin-top: -6px !important;   /* rapproche sous les titres */
+            margin-bottom: -2px !important;
         }
 
-        /* suppression de fond blanc */
+        /* blocs allégés visuellement */
         .info-block {
             background: transparent !important;
             box-shadow: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
         }
 
-        /* titres de section */
+        /* titres sections */
         .section-title {
-            font-size: 22px;
+            font-size: 21px;
             font-weight: 700;
             color: #123A5F;
-            margin-bottom: 15px;
+            margin-bottom: 8px;            /* réduit */
             text-align: center;
         }
 
@@ -534,26 +538,32 @@ with tab_patient:
             text-align: center;
             font-weight: 600;
             color: #123A5F;
-            font-size: 16px;
-            margin-bottom: 6px;
+            font-size: 15px;
+            margin-bottom: 4px;             /* réduit */
         }
 
         .block-content {
             text-align: center;
-            font-size: 14px;
-            line-height: 1.3;
+            font-size: 13.5px;
+            line-height: 1.25;              /* resserre lignes */
             color: #123A5F;
+            margin-top: 2px;
         }
 
         .divider {
             border-left: 1px solid #d9d9d9;
             height: 100%;
-            margin: 0 15px;
+            margin: 0 10px;                 /* plus étroit */
+        }
+
+        /* réduit espace vertical global après sliders */
+        div[data-testid="stVerticalBlock"] > div:nth-child(4) {
+            margin-top: -25px !important;   /* rapproche les blocs des sliders */
         }
         </style>
     """, unsafe_allow_html=True)
 
-    # --- Titre patient remis à sa place ---
+    # --- Titre remis à sa place ---
     st.markdown("<div class='section-title'>🧍 Informations patient</div>", unsafe_allow_html=True)
 
     # === SLIDERS ===
@@ -590,7 +600,7 @@ with tab_patient:
     age = current_year - birth_year
     imc = weight / ((height / 100) ** 2)
 
-    # === 3 blocs principaux ===
+    # === 3 BLOCS RAPPROCHÉS ===
     col_left, col_div1, col_center, col_div2, col_right = st.columns([1.2, 0.05, 1.2, 0.05, 1.2])
 
     # Bloc 1 — Paramètres principaux
@@ -674,44 +684,6 @@ with tab_patient:
         st.warning(f"⚠️ Temps ajusté à {injection_time:.1f}s (max {float(cfg.get('max_debit',6.0)):.1f} mL/s).")
 
     st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
-
-
-
-# ------------------------
-# Onglet Tutoriel (inchangé)
-# ------------------------
-with tab_tutorial:
-    st.title("📘 Tutoriel — Mode d'emploi et principes cliniques")
-    st.markdown("Bienvenue dans le tutoriel. Cette section explique **comment utiliser** la calculette et **pourquoi** chaque calcul est effectué.")
-    st.header("🔧 Guide pas à pas — Utilisation")
-    st.markdown("""
-    1. **Patient** : saisissez poids, taille et année de naissance.
-    2. **kV du scanner** : choisissez la valeur correspondant à votre machine.
-    3. **Mode d’injection** : Portal / Artériel / Intermédiaire.
-    4. **Paramètres** : vérifiez la concentration, le débit max et les temps.
-    5. **Injection simultanée** : si activée, définissez la concentration cible.
-    6. **Validation** : relisez les résultats (volume contraste, NaCl, débit).
-    """)
-    st.header("🧠 Explications techniques et cliniques")
-    st.markdown("""
-    - **Charge iodée** : dose proportionnelle au poids.
-    - **Surface corporelle (BSA)** : dose selon m².
-    - **IMC>30** : règle “Charge iodée sauf IMC>30 → Surface corporelle”.
-    - **Débit** = volume / temps; ajusté si dépasse max.
-    - **Injection simultanée** : dilution pour atteindre concentration cible.
-    """)
-    st.header("🔬 Bases — recommandations spécifiques en oncologie hépatique")
-    st.markdown("""
-    Objectif : standardiser le rehaussement hépatique.
-    - Foie sain : ≥110 UH
-    - Foie stéatosique : ≥120 UH
-    ⚠️ Valeurs indicatives selon protocole local.
-    """)
-    st.header("🩺 Exemple de workflow clinique")
-    st.markdown("""
-    Patient 75 kg, 170 cm, kV=120, charge iodée 0.5, mode Portal, concentration 350 mg I/mL.
-    Exemple volume : (75x0.5)/0.35 ≈ 107 mL
-    """)
 
 # ------------------------
 # Footer
