@@ -493,117 +493,132 @@ with tab_params:
                     st.error(f"Erreur suppression identifiant : {e}")
 
 # ------------------------
-# Onglet Patient — Titres et valeurs centrés, blocs rapprochés sous sliders
+# Onglet Patient — blocs centrés et rapprochés des sliders
 # ------------------------
 with tab_patient:
-    # --- CSS global pour resserrer et centrer tout ---
+    # CSS global (centrage radios + resserrage vertical)
     st.markdown("""
         <style>
-        /* sliders rouges */
-        .slider-red .stSlider [data-baseweb="slider"] div[role="slider"] {
-            background-color: #E53935 !important;
-        }
-        .slider-red .stSlider [data-baseweb="slider"] div[role="slider"]::before {
-            background-color: #E53935 !important;
-        }
-        /* lignes verticales */
-        .divider {
-            border-left: 1px solid #d9d9d9;
-            height: 90%;
-            margin: auto 15px;
-        }
-        /* suppression fond blanc + centrage */
-        .info-block, .block-content {
-            background: transparent !important;
-            box-shadow: none !important;
-            border-radius: 0 !important;
-            text-align: center !important;
-            padding: 0 !important;
-            margin: 0 !important;
-        }
-        .section-title {
-            font-size: 22px;
-            font-weight: 700;
-            color:#123A5F;
-            margin-bottom: 10px;
-            text-align:center;
-        }
-        /* style des blocs rapprochés sous sliders */
-        .after-sliders {
-            margin-top: -35px !important;   /* rapproche fort les blocs */
-        }
-        .block-title {
-            font-weight:700;
-            font-size:16.5px;
-            text-align:center;
-            color:#123A5F;
-            margin-bottom:4px;
-        }
-        .block-content b {
-            color:#123A5F;
-        }
+        /* Slider rouge inchangé */
+        .slider-red .stSlider [data-baseweb="slider"] div[role="slider"] { background-color: #E53935 !important; }
+        .slider-red .stSlider [data-baseweb="slider"] div[role="slider"]::before { background-color: #E53935 !important; }
+
+        /* Séparateurs */
+        .divider { border-left: 1px solid #d9d9d9; height: 100%; margin: 0 15px; }
+
+        /* Titres */
+        .section-title { font-size: 22px; font-weight: 700; color:#123A5F; margin-bottom: 10px; text-align:center; }
+        .block-title { font-weight:700; font-size:17px; text-align:center; color:#123A5F; margin-bottom:4px; }
+
+        /* Contenu de blocs : tout centré + compact */
+        .block-content { text-align:center; font-size:14.5px; line-height:1.3; margin-top:2px; }
+
+        /* Supprimer l'aspect "cartes blanches" s'il reste */
+        .info-block { background: transparent !important; border-radius: 0 !important; box-shadow: none !important; padding: 0 !important; }
+
+        /* Rapprocher fortement les 3 blocs sous les sliders, sans chevauchement */
+        .after-sliders { margin-top: -35px !important; }  /* ajuste entre -25 et -45 si besoin */
+
+        /* Centrage HORIZONTAL des radios (kV + mode d'injection) */
+        .centered-radio div[role="radiogroup"] { display: flex !important; justify-content: center !important; gap: 6px !important; }
+        .centered-radio div[role="radiogroup"] label { margin: 0 4px !important; }
+
+        /* Légère compaction générale des colonnes de ces blocs */
+        .tight-col > div { margin-top: 0 !important; margin-bottom: 0 !important; }
         </style>
     """, unsafe_allow_html=True)
 
-    # --- Titre ---
     st.markdown("<div class='section-title'>🧍 Informations patient (adulte en oncologie)</div>", unsafe_allow_html=True)
 
-    # === SLIDERS ===
+    # === SLIDERS (en premier, inchangés) ===
     st.markdown("<div class='slider-red'>", unsafe_allow_html=True)
     current_year = datetime.now().year
     col_poids, col_taille, col_annee, col_prog = st.columns([1, 1, 1, 1.3])
+
     with col_poids:
         weight = st.slider("Poids (kg)", 20, 200, 70)
+
     with col_taille:
         height = st.slider("Taille (cm)", 100, 220, 170)
+
     with col_annee:
-        birth_year = st.slider("Année de naissance", current_year - 120, current_year - 18, 1985)
+        min_year = current_year - 120
+        max_year = current_year - 18
+        default_birth = 1985 if 1985 <= max_year else max_year
+        birth_year = st.slider("Année de naissance", min_year, max_year, default_birth)
+
     with col_prog:
         user_id = st.session_state["user_id"]
         user_programs = user_sessions.get(user_id, {}).get("programs", {})
-        prog_choice_patient = st.selectbox("Sélection d'un programme", ["Sélection d'un programme"] + list(user_programs.keys()))
+        prog_choice_patient = st.selectbox(
+            "Sélection d'un programme",
+            ["Sélection d'un programme"] + list(user_programs.keys()),
+            index=0
+        )
         if prog_choice_patient != "Sélection d'un programme":
             prog_conf = user_programs.get(prog_choice_patient, {})
-            cfg = get_cfg()
+            cfg_tmp = get_cfg()
             for key, val in prog_conf.items():
-                cfg[key] = val
-            set_cfg_and_persist(user_id, cfg)
+                cfg_tmp[key] = val
+            set_cfg_and_persist(user_id, cfg_tmp)
             user_sessions[user_id]["last_selected_program"] = prog_choice_patient
             save_user_sessions(user_sessions)
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # === CALCULS PATIENT ===
+    # Variables patient (dispo pour les blocs)
     cfg = get_cfg()
     age = current_year - birth_year
     imc = weight / ((height / 100) ** 2)
 
-    # === 3 BLOCS RAPPROCHÉS ===
+    # === 3 BLOCS — centrés, compacts, rapprochés ===
     st.markdown("<div class='after-sliders'>", unsafe_allow_html=True)
     col_left, col_div1, col_center, col_div2, col_right = st.columns([1.2, 0.05, 1.2, 0.05, 1.2])
 
     # Bloc 1 : Paramètres principaux
     with col_left:
+        st.markdown("<div class='tight-col'>", unsafe_allow_html=True)
         st.markdown("<div class='block-title'>Paramètres principaux</div>", unsafe_allow_html=True)
-        kv_scanner = st.radio("kV", [80, 90, 100, 110, 120], horizontal=True, index=4, label_visibility="collapsed", key="kv_patient")
+        st.markdown("<div class='centered-radio'>", unsafe_allow_html=True)
+        kv_scanner = st.radio(
+            "kV",
+            [80, 90, 100, 110, 120],
+            horizontal=True,
+            index=4,
+            key="kv_scanner_patient",
+            label_visibility="collapsed"
+        )
+        st.markdown("</div>", unsafe_allow_html=True)  # fin centered-radio
         charge_iod = float(cfg.get("charges", {}).get(str(kv_scanner), 0.45))
         concentration = int(cfg.get("concentration_mg_ml", 350))
         calc_mode_label = cfg.get("calc_mode", "Charge iodée")
-        st.markdown(f"""
-            <div class='block-content'>
-                <b>Charge iodée :</b> {charge_iod:.2f} g I/kg<br>
-                <b>Concentration :</b> {concentration} mg I/mL<br>
-                <b>Méthode :</b> {calc_mode_label}
-            </div>
-        """, unsafe_allow_html=True)
+        st.markdown(
+            f"<div class='block-content'>"
+            f"<b>Charge iodée :</b> {charge_iod:.2f} g I/kg<br>"
+            f"<b>Concentration :</b> {concentration} mg I/mL<br>"
+            f"<b>Méthode :</b> {calc_mode_label}"
+            f"</div>",
+            unsafe_allow_html=True
+        )
+        st.markdown("</div>", unsafe_allow_html=True)  # fin tight-col
 
     with col_div1:
         st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
 
     # Bloc 2 : Injection et timing
     with col_center:
+        st.markdown("<div class='tight-col'>", unsafe_allow_html=True)
         st.markdown("<div class='block-title'>Injection et timing</div>", unsafe_allow_html=True)
+        st.markdown("<div class='centered-radio'>", unsafe_allow_html=True)
         injection_modes = ["Portal", "Artériel", "Intermédiaire"]
-        injection_mode = st.radio("Mode", injection_modes, horizontal=True, index=2, label_visibility="collapsed", key="inj_patient")
+        injection_mode = st.radio(
+            "Mode d'injection",
+            injection_modes,
+            horizontal=True,
+            index=2,
+            key="injection_mode_patient",
+            label_visibility="collapsed"
+        )
+        st.markdown("</div>", unsafe_allow_html=True)  # fin centered-radio
         if injection_mode == "Portal":
             base_time = float(cfg.get("portal_time", 30.0))
         elif injection_mode == "Artériel":
@@ -611,49 +626,75 @@ with tab_patient:
         else:
             base_time = float(cfg.get("intermediate_time", cfg.get("portal_time", 30.0)))
         acquisition_start = calculate_acquisition_start(age, cfg)
-        st.markdown(f"""
-            <div class='block-content'>
-                <b>Temps {injection_mode.lower()} :</b> {base_time:.0f} s<br>
-                <b>Départ acquisition :</b> {acquisition_start:.1f} s
-            </div>
-        """, unsafe_allow_html=True)
+        st.markdown(
+            f"<div class='block-content'>"
+            f"<b>Temps {injection_mode.lower()} :</b> {base_time:.0f} s<br>"
+            f"<b>Départ d'acquisition :</b> {acquisition_start:.1f} s"
+            f"</div>",
+            unsafe_allow_html=True
+        )
+        st.markdown("</div>", unsafe_allow_html=True)  # fin tight-col
 
     with col_div2:
         st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
 
     # Bloc 3 : Options avancées
     with col_right:
+        st.markdown("<div class='tight-col'>", unsafe_allow_html=True)
         st.markdown("<div class='block-title'>Options avancées</div>", unsafe_allow_html=True)
         auto_age = bool(cfg.get("auto_acquisition_by_age", True))
         sim_enabled = bool(cfg.get("simultaneous_enabled", False))
-        st.markdown(f"""
-            <div class='block-content'>
-                <b>Ajustement auto âge :</b><br>{'✅ activé' if auto_age else '❌ désactivé'}<br><br>
-                <b>Injection simultanée :</b><br>{'✅ activée' if sim_enabled else '❌ désactivée'}
-            </div>
-        """, unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown(
+            f"<div class='block-content'>"
+            f"<b>Ajustement automatique selon l'âge :</b><br>"
+            f"{'✅ activé' if auto_age else '❌ désactivé'}<br><br>"
+            f"<b>Injection simultanée :</b><br>"
+            f"{'✅ activée' if sim_enabled else '❌ désactivée'}"
+            f"</div>",
+            unsafe_allow_html=True
+        )
+        st.markdown("</div>", unsafe_allow_html=True)  # fin tight-col
+    st.markdown("</div>", unsafe_allow_html=True)  # fin after-sliders
 
-    # === Calculs et résultats inchangés ===
-    volume, bsa = calculate_volume(
+    # --- Calculs et résultats (inchangé) ---
+    volume_theorique, bsa = calculate_volume(
         weight, height, kv_scanner, float(cfg.get("concentration_mg_ml", 350)),
         imc, cfg.get("calc_mode", "Charge iodée"), cfg.get("charges", {}),
         float(cfg.get("volume_max_limit", 200.0))
     )
-    injection_rate, injection_time, time_adjusted = adjust_injection_rate(volume, float(base_time), float(cfg.get("max_debit", 6.0)))
+
+    # (Option simultanée conservée si tu l'avais dans ta v2/v3)
+    if cfg.get("simultaneous_enabled", False):
+        target = float(cfg.get("target_concentration", 350))
+        current_conc = float(cfg.get("concentration_mg_ml", 350))
+        if target > current_conc:
+            target = current_conc
+        vol_contrast_raw = volume_theorique * (target/current_conc) if current_conc > 0 else volume_theorique
+        vol_nacl_dilution_raw = max(0.0, volume_theorique - vol_contrast_raw)
+        vol_contrast_display = float(int(round(vol_contrast_raw)))
+        vol_nacl_total_display = float(int(round(vol_nacl_dilution_raw + cfg.get("rincage_volume", 35.0))))
+    else:
+        vol_contrast_display = float(int(round(volume_theorique)))
+        vol_nacl_total_display = float(int(round(cfg.get("rincage_volume", 35.0))))
+
+    if 'base_time' not in locals():
+        base_time = float(cfg.get("portal_time", 30.0))
+    injection_rate, injection_time, time_adjusted = adjust_injection_rate(
+        vol_contrast_display, float(base_time), float(cfg.get("max_debit", 6.0))
+    )
 
     st.markdown("---")
 
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.markdown(f"<h4 style='text-align:center;'>💧 Volume contraste</h4><h2 style='text-align:center;'>{int(volume)} mL</h2>", unsafe_allow_html=True)
+        st.markdown(f"<h4 style='text-align:center;'>💧 Volume contraste conseillé</h4><h2 style='text-align:center;'>{int(vol_contrast_display)} mL</h2>", unsafe_allow_html=True)
     with col2:
-        st.markdown(f"<h4 style='text-align:center;'>💧 Volume NaCl</h4><h2 style='text-align:center;'>{int(cfg.get('rincage_volume',35.0))} mL</h2>", unsafe_allow_html=True)
+        st.markdown(f"<h4 style='text-align:center;'>💧 Volume NaCl conseillé</h4><h2 style='text-align:center;'>{int(vol_nacl_total_display)} mL</h2>", unsafe_allow_html=True)
     with col3:
-        st.markdown(f"<h4 style='text-align:center;'>🚀 Débit</h4><h2 style='text-align:center;'>{injection_rate:.1f} mL/s</h2>", unsafe_allow_html=True)
+        st.markdown(f"<h4 style='text-align:center;'>🚀 Débit conseillé</h4><h2 style='text-align:center;'>{injection_rate:.1f} mL/s</h2>", unsafe_allow_html=True)
 
     if time_adjusted:
-        st.warning(f"⚠️ Temps ajusté à {injection_time:.1f}s (max {float(cfg.get('max_debit',6.0)):.1f} mL/s).")
+        st.warning(f"⚠️ Temps d’injection ajusté à {injection_time:.1f}s pour respecter le débit maximal de {float(cfg.get('max_debit',6.0)):.1f} mL/s.")
 
     st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
 
