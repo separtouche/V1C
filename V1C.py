@@ -584,6 +584,12 @@ with tab_params:
         step=0.1,
         disabled=disabled
     )
+        cfg["simultaneous_ratio"] = st.slider(
+    "Pourcentage de NaCl en injection simultanée (%)",
+    0, 100,
+    int(cfg.get("simultaneous_ratio", 20)),
+    disabled=disabled
+)
     cfg["volume_max_limit"] = st.number_input(
         "Plafond volume (mL) - seringue",
         value=float(cfg.get("volume_max_limit", 200.0)),
