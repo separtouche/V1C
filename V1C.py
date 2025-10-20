@@ -872,7 +872,7 @@ with tab_patient:
             f"{'✅ activée' if sim_enabled else '❌ désactivée'}</div>",
             unsafe_allow_html=True,
         )
-           # --- Calculs finaux ---
+               # --- Calculs finaux ---
     volume, bsa = calculate_volume(
         weight, height, kv_scanner,
         float(cfg.get("concentration_mg_ml", 350)),
@@ -884,12 +884,31 @@ with tab_patient:
         volume, float(base_time), float(cfg.get("max_debit", 6.0))
     )
 
-    # --- Nouveau bloc : 2 cartes (Contraste + NaCl) ---
     st.markdown("---")
 
+    # --- Si injection simultanée activée ---
+    if cfg.get("simultaneous_enabled", False):
+        target_conc = float(cfg.get("target_concentration", 350))
+        conc_contrast = float(cfg.get("concentration_mg_ml", 350))
+        if target_conc < conc_contrast:
+            # Calcul du volume NaCl nécessaire pour dilution simultanée
+            volume_nacl_mix = volume * (conc_contrast / target_conc - 1)
+            volume_nacl_mix = max(0, min(volume_nacl_mix, 100))  # limite sécurité
+        else:
+            volume_nacl_mix = float(cfg.get("rincage_volume", 35.0))
+
+        st.info(f"🧪 Injection simultanée activée — dilution pour atteindre ~{int(target_conc)} mg I/mL.")
+    else:
+        volume_nacl_mix = float(cfg.get("rincage_volume", 35.0))
+
+    # --- Calcul débit NaCl ---
+    delta_debit = float(cfg.get("rincage_delta_debit", 0.5))
+    debit_nacl = max(0.1, injection_rate - delta_debit)
+
+    # --- Deux cartes alignées ---
     col_contrast, col_nacl = st.columns(2)
 
-    # === Bloc 1 — Contraste ===
+    # === Bloc Contraste ===
     with col_contrast:
         st.markdown(f"""
             <div style='background-color:#E3F2FD;
@@ -907,11 +926,8 @@ with tab_patient:
             </div>
         """, unsafe_allow_html=True)
 
-    # === Bloc 2 — NaCl ===
+    # === Bloc NaCl ===
     with col_nacl:
-        vol_nacl = int(round(cfg.get("rincage_volume", 35.0)))
-        delta_debit = float(cfg.get("rincage_delta_debit", 0.5))
-        debit_nacl = max(0.1, injection_rate - delta_debit)  # débit NaCl = contraste - delta (jamais < 0.1)
         st.markdown(f"""
             <div style='background-color:#E8F5E9;
                         border-left:6px solid #2E7D32;
@@ -923,7 +939,7 @@ with tab_patient:
                     💧 Volume et Débit de NaCl conseillés
                 </h4>
                 <div style='font-size:22px; color:#1B5E20; font-weight:600; margin-top:8px;'>
-                    {vol_nacl} mL&nbsp;&nbsp;—&nbsp;&nbsp;{debit_nacl:.1f} mL/s
+                    {int(round(volume_nacl_mix))} mL&nbsp;&nbsp;—&nbsp;&nbsp;{debit_nacl:.1f} mL/s
                 </div>
             </div>
         """, unsafe_allow_html=True)
@@ -934,7 +950,6 @@ with tab_patient:
 
     # --- IMC et surface corporelle ---
     st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
-
 # ------------------------
 # Onglet Tutoriel (inchangé)
 # ------------------------
