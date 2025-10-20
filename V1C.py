@@ -493,48 +493,71 @@ with tab_params:
                     st.error(f"Erreur suppression identifiant : {e}")
 
 
+
 # ------------------------
-# Onglet Patient — version centrée propre sans retour à la ligne
+# Onglet Patient — version finale homogène
 # ------------------------
 with tab_patient:
     st.markdown("""
         <style>
+        /* Style sliders et radios */
+        .slider-red .stSlider [data-baseweb="slider"],
         .slider-red .stSlider [data-baseweb="slider"] div[role="slider"],
         .slider-red .stSlider [data-baseweb="slider"] div[role="slider"]::before {
             background-color:#E53935 !important;
         }
+
+        /* Titres généraux */
         .section-title {
-            font-size:21px;
+            font-size:22px;
             font-weight:700;
             color:#123A5F;
-            margin-bottom:10px;
+            margin-bottom:12px;
             text-align:center;
         }
         .block-title {
             text-align:center;
-            font-weight:600;
+            font-weight:700;
             color:#123A5F;
-            font-size:15px;
-            margin-bottom:4px;
+            font-size:16px;
+            margin-bottom:5px;
         }
         .block-content {
             text-align:center;
-            font-size:13px;
-            line-height:1.25;
+            font-size:14px;
+            line-height:1.3;
             color:#123A5F;
-            margin-top:3px;
+            margin-top:4px;
         }
+
+        /* Centrage + même style que block-title pour les sliders/selects */
+        div[data-baseweb="slider"] > label div,
+        div[data-testid="stSelectbox"] > label div {
+            text-align:center !important;
+            font-weight:700 !important;
+            font-size:16px !important;
+            color:#123A5F !important;
+            margin-bottom:4px !important;
+        }
+
+        /* Divider vertical */
         .divider {
             border-left:1px solid #d9d9d9;
             height:100%;
             margin:0 10px;
         }
-        div[data-testid="stVerticalBlock"] > div:nth-child(4){
-            margin-top:-18px !important;
+
+        /* Radios alignées sur une seule ligne */
+        div[role="radiogroup"] {
+            display:flex !important;
+            justify-content:center !important;
+            align-items:center !important;
+            flex-wrap:nowrap !important;
+            gap:4px !important;
         }
         div[role="radiogroup"] label {
-            font-size:12px !important;
-            padding:0 3px !important;
+            font-size:13px !important;
+            padding:0 4px !important;
             margin:0 1px !important;
             white-space:nowrap !important;
         }
@@ -544,10 +567,11 @@ with tab_patient:
     # --- Titre section patient ---
     st.markdown("<div class='section-title'>🧍 Informations patient</div>", unsafe_allow_html=True)
 
-    # === Sliders (première ligne) ===
+    # === Sliders (titres homogènes avec blocs) ===
     st.markdown("<div class='slider-red'>", unsafe_allow_html=True)
     current_year = datetime.now().year
     col_poids, col_taille, col_annee, col_prog = st.columns([1,1,1,1.3])
+
     with col_poids:
         weight = st.slider("Poids (kg)", 20, 200, 70)
     with col_taille:
@@ -583,7 +607,7 @@ with tab_patient:
     # --- Bloc gauche : Paramètres principaux ---
     with col_left:
         st.markdown("<div class='block-title'>Paramètres principaux</div>", unsafe_allow_html=True)
-        c1, c2, c3 = st.columns([0.3,1,0.3])  # centrage parfait
+        c1, c2, c3 = st.columns([0.3,1,0.3])
         with c2:
             kv_scanner = st.radio(
                 "kV",
@@ -609,7 +633,7 @@ with tab_patient:
     # --- Bloc centre : Injection et timing ---
     with col_center:
         st.markdown("<div class='block-title'>Injection et timing</div>", unsafe_allow_html=True)
-        c1, c2, c3 = st.columns([0.3,1,0.3])  # centrage parfait
+        c1, c2, c3 = st.columns([0.3,1,0.3])
         with c2:
             injection_mode = st.radio(
                 "Mode d'injection",
@@ -673,7 +697,6 @@ with tab_patient:
         st.warning(f"⚠️ Temps ajusté à {injection_time:.1f}s (max {float(cfg.get('max_debit',6.0)):.1f} mL/s).")
 
     st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
-
 
 # ------------------------
 # Onglet Tutoriel (inchangé)
