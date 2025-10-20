@@ -493,27 +493,71 @@ with tab_params:
                     st.error(f"Erreur suppression identifiant : {e}")
 
 # ------------------------
-# Onglet Patient — centrage fiable des radios (sous-colonnes) + compact
+# Onglet Patient — centrage parfait + radios réduites (1 ligne)
 # ------------------------
 with tab_patient:
-    # CSS léger (compact homogène, rien d'agressif)
     st.markdown("""
         <style>
-        .slider-red .stSlider [data-baseweb="slider"] div[role="slider"] { background-color:#E53935 !important; }
-        .slider-red .stSlider [data-baseweb="slider"] div[role="slider"]::before { background-color:#E53935 !important; }
-        .section-title { font-size:21px; font-weight:700; color:#123A5F; margin-bottom:10px; text-align:center; }
-        .block-title { text-align:center; font-weight:600; color:#123A5F; font-size:16px; margin-bottom:6px; }
-        .block-content { text-align:center; font-size:14px; line-height:1.3; color:#123A5F; margin-top:4px; }
-        .divider { border-left:1px solid #d9d9d9; height:100%; margin:0 12px; }
-        /* resserre légèrement sous les sliders, sans coller */
-        div[data-testid="stVerticalBlock"] > div:nth-child(4) { margin-top:-18px !important; }
+        /* sliders */
+        .slider-red .stSlider [data-baseweb="slider"] div[role="slider"] {
+            background-color:#E53935 !important;
+        }
+        .slider-red .stSlider [data-baseweb="slider"] div[role="slider"]::before {
+            background-color:#E53935 !important;
+        }
+
+        /* titre principal */
+        .section-title {
+            font-size:21px;
+            font-weight:700;
+            color:#123A5F;
+            margin-bottom:10px;
+            text-align:center;
+        }
+
+        /* blocs */
+        .block-title {
+            text-align:center;
+            font-weight:600;
+            color:#123A5F;
+            font-size:15.5px;
+            margin-bottom:4px;
+        }
+        .block-content {
+            text-align:center;
+            font-size:13.5px;
+            line-height:1.25;
+            color:#123A5F;
+            margin-top:3px;
+        }
+        .divider {
+            border-left:1px solid #d9d9d9;
+            height:100%;
+            margin:0 10px;
+        }
+
+        /* compact vertical */
+        div[data-testid="stVerticalBlock"] > div:nth-child(4) {
+            margin-top:-18px !important;
+        }
+
+        /* radios plus petites et centrées */
+        div[role="radiogroup"] label {
+            font-size:13px !important;
+            padding:1px 5px !important;
+            margin:0 2px !important;
+        }
+        div[role="radiogroup"] {
+            justify-content:center !important;
+            flex-wrap:nowrap !important;  /* empêche le retour à la ligne */
+        }
         </style>
     """, unsafe_allow_html=True)
 
-    # --- Titre patient (remis à sa place, sans "adulte en oncologie") ---
+    # --- titre patient ---
     st.markdown("<div class='section-title'>🧍 Informations patient</div>", unsafe_allow_html=True)
 
-    # === SLIDERS (inchangés) ===
+    # === sliders ===
     st.markdown("<div class='slider-red'>", unsafe_allow_html=True)
     current_year = datetime.now().year
     col_poids, col_taille, col_annee, col_prog = st.columns([1, 1, 1, 1.3])
@@ -537,18 +581,18 @@ with tab_patient:
             save_user_sessions(user_sessions)
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # === Variables patient ===
+    # === variables patient ===
     cfg = get_cfg()
     age = current_year - birth_year
     imc = weight / ((height / 100) ** 2)
 
-    # === 3 BLOCS ===
+    # === trois blocs alignés ===
     col_left, col_div1, col_center, col_div2, col_right = st.columns([1.2, 0.05, 1.2, 0.05, 1.2])
 
-    # Bloc 1 — Paramètres principaux (radios centrées via sous-colonnes)
+    # Bloc gauche : paramètres principaux
     with col_left:
         st.markdown("<div class='block-title'>Paramètres principaux</div>", unsafe_allow_html=True)
-        c1, c2, c3 = st.columns([1, 2, 1])          # <-- centrage fiable
+        c1, c2, c3 = st.columns([1, 2, 1])
         with c2:
             kv_scanner = st.radio(
                 "kV",
@@ -571,10 +615,10 @@ with tab_patient:
     with col_div1:
         st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
 
-    # Bloc 2 — Injection et timing (radios centrées via sous-colonnes)
+    # Bloc centre : injection et timing
     with col_center:
         st.markdown("<div class='block-title'>Injection et timing</div>", unsafe_allow_html=True)
-        c1, c2, c3 = st.columns([1, 2, 1])          # <-- centrage fiable
+        c1, c2, c3 = st.columns([1, 2, 1])
         with c2:
             injection_modes = ["Portal", "Artériel", "Intermédiaire"]
             injection_mode = st.radio(
@@ -601,7 +645,7 @@ with tab_patient:
     with col_div2:
         st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
 
-    # Bloc 3 — Options avancées (inchangé)
+    # Bloc droit : options avancées
     with col_right:
         st.markdown("<div class='block-title'>Options avancées</div>", unsafe_allow_html=True)
         auto_age = bool(cfg.get("auto_acquisition_by_age", True))
@@ -640,6 +684,7 @@ with tab_patient:
         st.warning(f"⚠️ Temps ajusté à {injection_time:.1f}s (max {float(cfg.get('max_debit',6.0)):.1f} mL/s).")
 
     st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
+
 
 
 # ------------------------
