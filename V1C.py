@@ -719,6 +719,7 @@ with tab_patient:
 
     st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
 
+
 # ------------------------
 # Onglet Tutoriel (inchangé)
 # ------------------------
