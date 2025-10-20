@@ -768,7 +768,7 @@ with col_annee:
     if birth_year_input != birth_year:
         birth_year = birth_year_input
 
-        )
+        
         if prog_choice_patient != "Sélection d'un programme":
             prog_conf = user_programs.get(prog_choice_patient, {})
             cfg = get_cfg()
