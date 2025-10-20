@@ -493,13 +493,12 @@ with tab_params:
                     st.error(f"Erreur suppression identifiant : {e}")
 
 # ------------------------
-# Onglet Patient — version compacte homogène
+# Onglet Patient — version compacte + radios centrées vraiment
 # ------------------------
 with tab_patient:
-    # --- CSS pour centrage et compacité ---
+    # --- CSS global compact et homogène ---
     st.markdown("""
         <style>
-        /* sliders rouges */
         .slider-red .stSlider [data-baseweb="slider"] div[role="slider"] {
             background-color: #E53935 !important;
         }
@@ -507,30 +506,13 @@ with tab_patient:
             background-color: #E53935 !important;
         }
 
-        /* centrage radios */
-        div[role="radiogroup"] {
-            display: flex !important;
-            justify-content: center !important;
-            align-items: center !important;
-            gap: 10px !important;
-            margin-top: -6px !important;   /* rapproche sous les titres */
-            margin-bottom: -2px !important;
-        }
+        .info-block { background: transparent !important; box-shadow: none !important; }
 
-        /* blocs allégés visuellement */
-        .info-block {
-            background: transparent !important;
-            box-shadow: none !important;
-            padding: 0 !important;
-            margin: 0 !important;
-        }
-
-        /* titres sections */
         .section-title {
             font-size: 21px;
             font-weight: 700;
             color: #123A5F;
-            margin-bottom: 8px;            /* réduit */
+            margin-bottom: 8px;
             text-align: center;
         }
 
@@ -539,13 +521,13 @@ with tab_patient:
             font-weight: 600;
             color: #123A5F;
             font-size: 15px;
-            margin-bottom: 4px;             /* réduit */
+            margin-bottom: 2px;
         }
 
         .block-content {
             text-align: center;
             font-size: 13.5px;
-            line-height: 1.25;              /* resserre lignes */
+            line-height: 1.25;
             color: #123A5F;
             margin-top: 2px;
         }
@@ -553,17 +535,16 @@ with tab_patient:
         .divider {
             border-left: 1px solid #d9d9d9;
             height: 100%;
-            margin: 0 10px;                 /* plus étroit */
+            margin: 0 10px;
         }
 
-        /* réduit espace vertical global après sliders */
         div[data-testid="stVerticalBlock"] > div:nth-child(4) {
-            margin-top: -25px !important;   /* rapproche les blocs des sliders */
+            margin-top: -25px !important;
         }
         </style>
     """, unsafe_allow_html=True)
 
-    # --- Titre remis à sa place ---
+    # --- Titre patient ---
     st.markdown("<div class='section-title'>🧍 Informations patient</div>", unsafe_allow_html=True)
 
     # === SLIDERS ===
@@ -595,20 +576,29 @@ with tab_patient:
             save_user_sessions(user_sessions)
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # === Variables patient ===
+    # === Variables ===
     cfg = get_cfg()
     age = current_year - birth_year
     imc = weight / ((height / 100) ** 2)
 
-    # === 3 BLOCS RAPPROCHÉS ===
+    # === 3 BLOCS ===
     col_left, col_div1, col_center, col_div2, col_right = st.columns([1.2, 0.05, 1.2, 0.05, 1.2])
 
     # Bloc 1 — Paramètres principaux
     with col_left:
         st.markdown("<div class='block-title'>Paramètres principaux</div>", unsafe_allow_html=True)
-        kv_scanner = st.radio("kV", [80, 90, 100, 110, 120],
-                              horizontal=True, index=4, key="kv_scanner_patient",
-                              label_visibility="collapsed")
+        # ✅ centrage réel des radios
+        st.markdown("<div style='text-align:center;'>", unsafe_allow_html=True)
+        kv_scanner = st.radio(
+            "kV",
+            [80, 90, 100, 110, 120],
+            horizontal=True,
+            index=4,
+            key="kv_scanner_patient",
+            label_visibility="collapsed"
+        )
+        st.markdown("</div>", unsafe_allow_html=True)
+
         charge_iod = float(cfg.get("charges", {}).get(str(kv_scanner), 0.45))
         concentration = int(cfg.get("concentration_mg_ml", 350))
         calc_mode_label = cfg.get("calc_mode", "Charge iodée")
@@ -625,10 +615,19 @@ with tab_patient:
     # Bloc 2 — Injection et timing
     with col_center:
         st.markdown("<div class='block-title'>Injection et timing</div>", unsafe_allow_html=True)
+        # ✅ centrage réel des radios
+        st.markdown("<div style='text-align:center;'>", unsafe_allow_html=True)
         injection_modes = ["Portal", "Artériel", "Intermédiaire"]
-        injection_mode = st.radio("Mode d'injection", injection_modes,
-                                  horizontal=True, index=2, key="injection_mode_patient",
-                                  label_visibility="collapsed")
+        injection_mode = st.radio(
+            "Mode d'injection",
+            injection_modes,
+            horizontal=True,
+            index=2,
+            key="injection_mode_patient",
+            label_visibility="collapsed"
+        )
+        st.markdown("</div>", unsafe_allow_html=True)
+
         if injection_mode == "Portal":
             base_time = float(cfg.get("portal_time", 30.0))
         elif injection_mode == "Artériel":
