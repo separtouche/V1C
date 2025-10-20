@@ -874,7 +874,7 @@ with tab_patient:
             unsafe_allow_html=True,
         )
                     
-       # --- Calculs finaux ---
+           # --- Calculs finaux ---
     volume, bsa = calculate_volume(
         weight, height, kv_scanner,
         float(cfg.get("concentration_mg_ml", 350)),
@@ -899,14 +899,10 @@ with tab_patient:
     target_concentration = float(cfg.get("target_concentration", concentration))
 
     if sim_enabled and target_concentration < concentration:
-        # Calcul du ratio de dilution
         pct_contrast = round((target_concentration / concentration) * 100, 1)
         pct_nacl = round(100 - pct_contrast, 1)
-
-        # Volumes correspondants pour le mélange simultané
         vol_contrast_effectif = round(volume * pct_contrast / 100)
         vol_dilution_nacl = round(volume * pct_nacl / 100)
-
         st.info(
             f"🧪 Injection simultanée activée — "
             f"{pct_contrast:.1f}% contraste + {pct_nacl:.1f}% NaCl pour atteindre {target_concentration:.0f} mg I/mL."
@@ -917,10 +913,14 @@ with tab_patient:
         vol_contrast_effectif = round(volume)
         vol_dilution_nacl = 0
 
+    # --- SVG gouttes ---
+    green_drop = "<svg width='20' height='20' viewBox='0 0 24 24' fill='#2E7D32'><path d='M12 2C12 2 5 10 5 15.5C5 19.09 8.13 22 12 22C15.87 22 19 19.09 19 15.5C19 10 12 2 12 2Z'/></svg>"
+    blue_drop = "<svg width='20' height='20' viewBox='0 0 24 24' fill='#1565C0'><path d='M12 2C12 2 5 10 5 15.5C5 19.09 8.13 22 12 22C15.87 22 19 19.09 19 15.5C19 10 12 2 12 2Z'/></svg>"
+
     # --- Deux cartes alignées ---
     col_contrast, col_nacl = st.columns(2)
 
-    # === Bloc Contraste (VERT) ===
+    # === Bloc Contraste (VERT + 💧 verte) ===
     with col_contrast:
         st.markdown(f"""
             <div style='background-color:#E8F5E9;
@@ -929,8 +929,8 @@ with tab_patient:
                         padding:18px;
                         text-align:center;
                         box-shadow:0 1px 4px rgba(0,0,0,0.08);'>
-                <h4 style='margin-top:0; color:#1B5E20; font-weight:700;'>
-                    💧 Volume et Débit de contraste conseillé
+                <h4 style='margin-top:0; color:#1B5E20; font-weight:700; display:flex; justify-content:center; align-items:center; gap:6px;'>
+                    {green_drop} Volume et Débit de contraste conseillé
                 </h4>
                 <div style='font-size:22px; color:#1B5E20; font-weight:600; margin-top:8px;'>
                     {vol_contrast_effectif} mL — {injection_rate:.1f} mL/s
@@ -940,7 +940,7 @@ with tab_patient:
             </div>
         """, unsafe_allow_html=True)
 
-    # === Bloc NaCl (BLEU) ===
+    # === Bloc NaCl (BLEU + 💧 bleue) ===
     with col_nacl:
         if sim_enabled:
             st.markdown(f"""
@@ -950,8 +950,8 @@ with tab_patient:
                             padding:18px;
                             text-align:center;
                             box-shadow:0 1px 4px rgba(0,0,0,0.08);'>
-                    <h4 style='margin-top:0; color:#0D47A1; font-weight:700;'>
-                        💧 Volume et Débit de NaCl conseillé
+                    <h4 style='margin-top:0; color:#0D47A1; font-weight:700; display:flex; justify-content:center; align-items:center; gap:6px;'>
+                        {blue_drop} Volume et Débit de NaCl conseillé
                     </h4>
                     <div style='font-size:18px; color:#0D47A1; font-weight:600; margin-top:8px;'>
                         Dilution : <b>{pct_nacl:.1f}%</b> — {vol_dilution_nacl} mL
@@ -969,8 +969,8 @@ with tab_patient:
                             padding:18px;
                             text-align:center;
                             box-shadow:0 1px 4px rgba(0,0,0,0.08);'>
-                    <h4 style='margin-top:0; color:#0D47A1; font-weight:700;'>
-                        💧 Volume et Débit de NaCl conseillé
+                    <h4 style='margin-top:0; color:#0D47A1; font-weight:700; display:flex; justify-content:center; align-items:center; gap:6px;'>
+                        {blue_drop} Volume et Débit de NaCl conseillé
                     </h4>
                     <div style='font-size:22px; color:#0D47A1; font-weight:600; margin-top:8px;'>
                         {int(vol_rincage)} mL — {debit_rincage:.1f} mL/s
@@ -984,6 +984,7 @@ with tab_patient:
 
     # --- IMC et surface corporelle ---
     st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
+
 # ------------------------
 # Onglet Tutoriel (inchangé)
 # ------------------------
