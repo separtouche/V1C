@@ -391,20 +391,15 @@ with tab_params:
     # ----------------------------------------------------------------------
     st.subheader("📚 Vos programmes personnels")
 
-personal_programs = user_sessions.get(user_id, {}).get("programs", {})
-
-# Synchronisation avec l'onglet Patient
-program_list = ["Aucun"] + list(personal_programs.keys())
-current_index = program_list.index(st.session_state["selected_program_global"]) if st.session_state["selected_program_global"] in program_list else 0
-
     personal_programs = user_sessions.get(user_id, {}).get("programs", {})
 
     # Synchronisation avec l'onglet Patient
     program_list = ["Aucun"] + list(personal_programs.keys())
-    current_index = program_list.index(st.session_state["selected_program_global"]) if st.session_state["selected_program_global"] in program_list else 0
-
-
-
+    current_index = (
+        program_list.index(st.session_state["selected_program_global"])
+        if st.session_state["selected_program_global"] in program_list
+        else 0
+    )
 
     program_choice = st.selectbox(
         "Programme (Personnel)",
