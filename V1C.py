@@ -872,7 +872,7 @@ with tab_patient:
             f"{'✅ activée' if sim_enabled else '❌ désactivée'}</div>",
             unsafe_allow_html=True,
         )
-       # --- Calculs finaux ---
+           # --- Calculs finaux ---
     volume, bsa = calculate_volume(
         weight, height, kv_scanner,
         float(cfg.get("concentration_mg_ml", 350)),
@@ -910,7 +910,8 @@ with tab_patient:
     # === Bloc 2 — NaCl ===
     with col_nacl:
         vol_nacl = int(round(cfg.get("rincage_volume", 35.0)))
-        debit_nacl = float(injection_rate + cfg.get("rincage_delta_debit", 0.5))
+        delta_debit = float(cfg.get("rincage_delta_debit", 0.5))
+        debit_nacl = max(0.1, injection_rate - delta_debit)  # débit NaCl = contraste - delta (jamais < 0.1)
         st.markdown(f"""
             <div style='background-color:#E8F5E9;
                         border-left:6px solid #2E7D32;
