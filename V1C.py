@@ -660,7 +660,7 @@ with tab_params:
                 except Exception as e:
                     st.error(f"Erreur suppression identifiant : {e}")
 # ------------------------
-# Onglet Patient — version finale complète avec saisie clavier
+# Onglet Patient — version finale avec saisie clavier alignée sous sliders
 # ------------------------
 with tab_patient:
     # === Style global ===
@@ -721,12 +721,15 @@ with tab_patient:
             margin:0 10px;
         }
 
-        /* Champs numériques sous sliders */
-        input[type="number"] {
+        /* Petits champs numériques sous sliders */
+        .num-inline input[type="number"] {
             text-align:center;
-            border-radius:8px;
+            font-size:13px !important;
+            width:70px !important;
+            border-radius:6px;
             border:1px solid #ccc;
-            padding:3px 0;
+            padding:2px 0;
+            margin-top:-5px;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -741,10 +744,28 @@ with tab_patient:
     # --- Sliders principaux ---
     with col_poids:
         weight = st.slider("Poids (kg)", 20, 200, 70)
+        st.markdown('<div class="num-inline">', unsafe_allow_html=True)
+        new_weight = st.number_input("", min_value=20, max_value=200, value=weight, step=1, key="num_poids", label_visibility="collapsed")
+        st.markdown('</div>', unsafe_allow_html=True)
+        if new_weight != weight:
+            weight = new_weight
+
     with col_taille:
         height = st.slider("Taille (cm)", 100, 220, 170)
+        st.markdown('<div class="num-inline">', unsafe_allow_html=True)
+        new_height = st.number_input("", min_value=100, max_value=220, value=height, step=1, key="num_taille", label_visibility="collapsed")
+        st.markdown('</div>', unsafe_allow_html=True)
+        if new_height != height:
+            height = new_height
+
     with col_annee:
         birth_year = st.slider("Année de naissance", current_year - 120, current_year, 1985)
+        st.markdown('<div class="num-inline">', unsafe_allow_html=True)
+        new_birth_year = st.number_input("", min_value=current_year - 120, max_value=current_year, value=birth_year, step=1, key="num_annee", label_visibility="collapsed")
+        st.markdown('</div>', unsafe_allow_html=True)
+        if new_birth_year != birth_year:
+            birth_year = new_birth_year
+
     with col_prog:
         user_id = st.session_state["user_id"]
         user_programs = user_sessions.get(user_id, {}).get("programs", {})
@@ -762,21 +783,6 @@ with tab_patient:
             user_sessions[user_id]["last_selected_program"] = prog_choice_patient
             save_user_sessions(user_sessions)
     st.markdown("</div>", unsafe_allow_html=True)
-
-    # === Saisie directe sous sliders ===
-    col_poids_in, col_taille_in, col_annee_in = st.columns([1, 1, 1])
-    with col_poids_in:
-        new_weight = st.number_input(" ", min_value=20, max_value=200, value=weight, step=1, key="num_poids", label_visibility="collapsed")
-        if new_weight != weight:
-            weight = new_weight
-    with col_taille_in:
-        new_height = st.number_input(" ", min_value=100, max_value=220, value=height, step=1, key="num_taille", label_visibility="collapsed")
-        if new_height != height:
-            height = new_height
-    with col_annee_in:
-        new_birth_year = st.number_input(" ", min_value=current_year - 120, max_value=current_year, value=birth_year, step=1, key="num_annee", label_visibility="collapsed")
-        if new_birth_year != birth_year:
-            birth_year = new_birth_year
 
     # --- Variables patient ---
     cfg = get_cfg()
