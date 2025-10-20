@@ -328,24 +328,24 @@ if not st.session_state["accepted_legal"] or st.session_state["user_id"] is None
 # ------------------------
 # Header réduit
 # ------------------------
-def safe_img_to_b64(path):
-    try:
-        return img_to_base64(path)
-    except Exception as e:
-        audit_log(f"IMG_LOAD_ERROR {path}: {e}")
-        return None
 
 logo_path = "guerbet_logo.png"
-img_b64 = safe_img_to_b64(logo_path) if os.path.exists(logo_path) else None
-if img_b64:
-    st.markdown(f"""
-    <div style="display:flex; align-items:center; gap:8px; background:#124F7A; padding:8px; border-radius:8px">
-        <img src="data:image/png;base64,{img_b64}" style="height:60px"/>
-        <h2 style="color:white; margin:0;">Calculette de dose de produit de contraste — Oncologie adulte</h2>
-    </div>
-    """, unsafe_allow_html=True)
+if os.path.exists(logo_path):
+    try:
+        img_b64 = img_to_base64(logo_path)
+        st.markdown(f"""
+        <div style="display:flex; align-items:center; gap:8px; background:#124F7A; padding:8px; border-radius:8px">
+            <img src="data:image/png;base64,{img_b64}" style="height:55px"/>
+            <h2 style="color:white; margin:0; font-size:26px;">
+                Calculette CT — Dose de produit de contraste — Oncologie adulte
+            </h2>
+        </div>
+        """, unsafe_allow_html=True)
+    except Exception:
+        st.title("Calculette CT — Dose de produit de contraste — Oncologie adulte")
 else:
-    st.title("Calculette de dose de produit de contraste — Oncologie adulte")
+    st.title("Calculette CT — Dose de produit de contraste — Oncologie adulte")
+
 
 # ------------------------
 # Tabs
