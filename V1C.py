@@ -492,16 +492,15 @@ with tab_params:
                 except Exception as e:
                     st.error(f"Erreur suppression identifiant : {e}")
 # ------------------------
-# Onglet Patient — version finale homogène avec police d’infos agrandie
+# Onglet Patient — version finale avec option intermédiaire dynamique
 # ------------------------
 with tab_patient:
-    # === Style global (titres sliders + blocs) ===
+    # === Style global ===
     st.markdown("""
         <style>
-        /* Titres des sliders et select */
+        /* Style titres sliders/select */
         div[data-testid="stSlider"] > label,
         div[data-testid="stSlider"] > label *,
-
         div[data-testid="stSelectbox"] > label,
         div[data-testid="stSelectbox"] > label * {
             display:block !important;
@@ -632,27 +631,50 @@ with tab_patient:
         st.markdown("<div class='block-title'>Injection et timing</div>", unsafe_allow_html=True)
         c1, c2, c3 = st.columns([0.3, 1, 0.3])
         with c2:
+            injection_modes = ["Portal", "Artériel"]
+            if cfg.get("intermediate_enabled", False):
+                injection_modes.append("Intermédiaire")
+
             injection_mode = st.radio(
                 "Mode d'injection",
-                ["Portal", "Artériel", "Intermédiaire"],
+                injection_modes,
                 horizontal=True,
-                index=2,
+                index=0,
                 key="injection_mode_patient",
                 label_visibility="collapsed",
             )
+
+        # Temps selon mode choisi
         if injection_mode == "Portal":
             base_time = float(cfg.get("portal_time", 30.0))
         elif injection_mode == "Artériel":
             base_time = float(cfg.get("arterial_time", 25.0))
+        elif injection_mode == "Intermédiaire":
+            base_time = float(cfg.get("intermediate_time", 28.0))
         else:
-            base_time = float(cfg.get("intermediate_time", cfg.get("portal_time", 30.0)))
+            base_time = float(cfg.get("portal_time", 30.0))
+
         acquisition_start = calculate_acquisition_start(age, cfg)
         st.markdown(
             f"<div style='text-align:center; font-size:15px; color:#123A5F;'>"
             f"<b>Temps {injection_mode.lower()} :</b> {base_time:.0f} s<br>"
-            f"<b>Départ d'acquisition :</b> {acquisition_start:.1f} s</div>",
+            f"<b>Départ d'acquisition :</b> {acquisition_start:.1f} s"
+            f"</div>",
             unsafe_allow_html=True,
         )
+
+        # ✅ Champ pour modifier temps intermédiaire si activé
+        if cfg.get("intermediate_enabled", False) and injection_mode == "Intermédiaire":
+            new_intermediate_time = st.number_input(
+                "Modifier temps intermédiaire (s)",
+                value=float(cfg.get("intermediate_time", 28.0)),
+                min_value=5.0,
+                max_value=120.0,
+                step=1.0,
+                key="patient_intermediate_time",
+            )
+            cfg["intermediate_time"] = float(new_intermediate_time)
+            set_cfg_and_persist(st.session_state["user_id"], cfg)
 
     with col_div2:
         st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
