@@ -356,7 +356,36 @@ else:
 # ------------------------
 if "selected_program_global" not in st.session_state:
     st.session_state["selected_program_global"] = "Aucun"
+# ------------------------
+# 🔄 Synchronisation globale entre Patient et Paramètres
+# ------------------------
 
+# Initialisation de l’état global si absent
+if "selected_program_global" not in st.session_state:
+    st.session_state["selected_program_global"] = "Aucun"
+
+# Indique si le programme sélectionné est déverrouillé
+if "program_unlocked" not in st.session_state:
+    st.session_state["program_unlocked"] = False
+
+# Fonction utilitaire pour récupérer la configuration active
+def get_cfg():
+    return st.session_state.get("user_config", config_global.copy())
+
+# Fonction pour sauvegarder la configuration modifiée et la propager à l’utilisateur
+def set_cfg_and_persist(user_id, new_cfg):
+    st.session_state["user_config"] = new_cfg.copy()
+    # mise à jour dans user_sessions
+    if user_id not in user_sessions:
+        user_sessions[user_id] = {
+            "programs": {},
+            "config": new_cfg.copy(),
+            "email": None,
+            "created": datetime.utcnow().isoformat()
+        }
+    else:
+        user_sessions[user_id]["config"] = new_cfg.copy()
+    save_user_sessions(user_sessions)
 tab_patient, tab_params, tab_tutorial = st.tabs(["🧍 Patient", "⚙️ Paramètres", "📘 Tutoriel"])
 
 # Use working config that refers to the logged-in user's config (kept in session_state)
