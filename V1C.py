@@ -659,7 +659,7 @@ with tab_params:
                 except Exception as e:
                     st.error(f"Erreur suppression identifiant : {e}")
 # ------------------------
-# Onglet Patient — version simplifiée à deux cartes
+# Onglet Patient — version avec 2 cartes (Contraste / NaCl)
 # ------------------------
 with tab_patient:
     # === Style global ===
@@ -691,16 +691,10 @@ with tab_patient:
     with col_prog:
         user_id = st.session_state["user_id"]
         user_programs = user_sessions.get(user_id, {}).get("programs", {})
-        last_prog = user_sessions.get(user_id, {}).get("last_selected_program")
-        prog_names = list(user_programs.keys())
-        default_index = 0
-        if last_prog in prog_names:
-            default_index = 1 + prog_names.index(last_prog)
-
         prog_choice_patient = st.selectbox(
             "Sélection d'un programme",
-            ["Sélection d'un programme"] + prog_names,
-            index=default_index
+            ["Sélection d'un programme"] + list(user_programs.keys()),
+            index=0
         )
         if prog_choice_patient != "Sélection d'un programme":
             prog_conf = user_programs.get(prog_choice_patient, {})
@@ -717,7 +711,7 @@ with tab_patient:
     age = current_year - birth_year
     imc = weight / ((height / 100) ** 2)
 
-    # === Bloc paramètres principaux ===
+    # === Paramètres principaux ===
     kv_scanner = st.radio(
         "kV",
         [80, 90, 100, 110, 120],
@@ -750,7 +744,7 @@ with tab_patient:
         key="injection_mode_patient"
     )
 
-    # Temps selon le mode
+    # Temps selon le mode choisi
     if injection_mode == "Portal":
         base_time = float(cfg.get("portal_time", 30.0))
     elif injection_mode == "Artériel":
@@ -760,7 +754,7 @@ with tab_patient:
 
     acquisition_start = calculate_acquisition_start(age, cfg)
 
-    # Message attention intermédiaire
+    # Message d’attention si "Intermédiaire"
     if injection_mode == "Intermédiaire":
         st.markdown(
             """
@@ -786,11 +780,11 @@ with tab_patient:
         volume, float(base_time), float(cfg.get("max_debit", 6.0))
     )
 
-    # --- Volume NaCl ---
-    vol_nacl = float(cfg.get("rincage_volume", 35.0))
+    # --- Volume NaCl et débit associé ---
+    vol_nacl = int(round(cfg.get("rincage_volume", 35.0)))
     debit_nacl = float(injection_rate + cfg.get("rincage_delta_debit", 0.5))
 
-    # === Deux cartes horizontales ===
+    # === Deux cartes : Contraste et NaCl ===
     st.markdown("---")
     col_contrast, col_nacl = st.columns(2)
 
@@ -825,17 +819,18 @@ with tab_patient:
                     💧 Volume et Débit de NaCl conseillés
                 </h4>
                 <div style='font-size:22px; color:#1B5E20; font-weight:600; margin-top:8px;'>
-                    {int(round(vol_nacl))} mL&nbsp;&nbsp;—&nbsp;&nbsp;{debit_nacl:.1f} mL/s
+                    {vol_nacl} mL&nbsp;&nbsp;—&nbsp;&nbsp;{debit_nacl:.1f} mL/s
                 </div>
             </div>
         """, unsafe_allow_html=True)
 
-    # Ajustement du temps
+    # --- Ajustement du temps ---
     if time_adjusted:
         st.warning(f"⚠️ Temps ajusté à {injection_time:.1f}s (max {float(cfg.get('max_debit',6.0)):.1f} mL/s).")
 
-    # IMC et BSA
+    # --- IMC et surface corporelle ---
     st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
+
 # ------------------------
 # Onglet Tutoriel (inchangé)
 # ------------------------
