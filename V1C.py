@@ -660,7 +660,7 @@ with tab_params:
                 except Exception as e:
                     st.error(f"Erreur suppression identifiant : {e}")
 # ------------------------
-# Onglet Patient — version finale (sliders + champs numériques + titres alignés au contenu)
+# Onglet Patient — version finale stable
 # ------------------------
 with tab_patient:
     # === Style global ===
@@ -694,7 +694,7 @@ with tab_patient:
             text-align:center;
         }
 
-        /* === Champs numériques à droite des sliders === */
+        /* Champs numériques à droite des sliders */
         .num-inline input[type="number"] {
             text-align:center;
             font-size:13px !important;
@@ -702,23 +702,29 @@ with tab_patient:
             border-radius:6px;
             border:1px solid #ccc;
             padding:2px 0;
-            margin-top:18px; /* alignement vertical avec le slider */
+            margin-top:18px;
         }
 
-        /* === Titres alignés avec leur contenu === */
+        /* Titres alignés avec leurs blocs */
         .block-title {
-            width:100%;
-            text-align:left !important;
-            padding-left:8px;
             font-weight:700 !important;
             color:#123A5F !important;
             font-size:16px !important;
             margin-bottom:6px !important;
+            width:100%;
+            text-align:left !important;
+            padding-left:12px !important;
         }
 
-        /* Colonne : alignement du contenu à gauche */
-        [data-testid="column"] > div {
-            align-items:flex-start !important;
+        /* Alignement précis des colonnes de blocs */
+        [data-testid="stHorizontalBlock"] > div:nth-child(1) [data-testid="stVerticalBlock"] > div {
+            margin-left:0 !important;
+        }
+        [data-testid="stHorizontalBlock"] > div:nth-child(3) [data-testid="stVerticalBlock"] > div {
+            margin-left:3%;
+        }
+        [data-testid="stHorizontalBlock"] > div:nth-child(5) [data-testid="stVerticalBlock"] > div {
+            margin-left:5%;
         }
 
         .divider {
