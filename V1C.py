@@ -985,12 +985,58 @@ with tab_patient:
     # --- IMC et surface corporelle ---
     st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
 
-    # === Nouveau résumé dynamique ===
+    # === Calcul détaillé ===
+    concentration_mg_ml = float(cfg.get("concentration_mg_ml", 350))
+    concentration_g_ml = concentration_mg_ml / 1000.0
+    calc_mode = cfg.get("calc_mode", "Charge iodée")
+    charge_iod = float(cfg.get("charges", {}).get(str(kv_scanner), 0.45))
+
+    if calc_mode == "Charge iodée":
+        volume_calc = weight * charge_iod / concentration_g_ml
+        st.markdown(f"""
+            <div style='text-align:center; margin-top:10px;
+                        font-size:15px; color:#123A5F;'>
+                <b>Calcul (Charge iodée)</b> :<br>
+                Volume = (Poids × Charge iodée) ÷ Concentration<br>
+                = ({weight} × {charge_iod:.2f}) ÷ ({concentration_mg_ml}/1000)<br>
+                = <b>{volume_calc:.1f} mL</b>
+            </div>
+        """, unsafe_allow_html=True)
+
+    elif calc_mode.startswith("Charge iodée sauf") and imc >= 30:
+        if bsa:
+            kv_factors = {80: 11, 90: 13, 100: 15, 110: 16.5, 120: 18.6}
+            factor = kv_factors.get(kv_scanner, 15)
+            volume_calc = bsa * factor / concentration_g_ml
+            st.markdown(f"""
+                <div style='text-align:center; margin-top:10px;
+                            font-size:15px; color:#123A5F;'>
+                    <b>Calcul (Surface corporelle – IMC > 30)</b> :<br>
+                    Volume = (BSA × Facteur kV) ÷ Concentration<br>
+                    = ({bsa:.2f} × {factor}) ÷ ({concentration_mg_ml}/1000)<br>
+                    = <b>{volume_calc:.1f} mL</b>
+                </div>
+            """, unsafe_allow_html=True)
+
+    elif calc_mode == "Surface corporelle" and bsa:
+        kv_factors = {80: 11, 90: 13, 100: 15, 110: 16.5, 120: 18.6}
+        factor = kv_factors.get(kv_scanner, 15)
+        volume_calc = bsa * factor / concentration_g_ml
+        st.markdown(f"""
+            <div style='text-align:center; margin-top:10px;
+                        font-size:15px; color:#123A5F;'>
+                <b>Calcul (Surface corporelle)</b> :<br>
+                Volume = (BSA × Facteur kV) ÷ Concentration<br>
+                = ({bsa:.2f} × {factor}) ÷ ({concentration_mg_ml}/1000)<br>
+                = <b>{volume_calc:.1f} mL</b>
+            </div>
+        """, unsafe_allow_html=True)
+
+    # === Résumé du débit temps réel ===
     st.markdown(f"""
         <div style='text-align:center; margin-top:10px;
                     font-size:16px; color:#123A5F; font-weight:600;'>
-            📊 Volume contraste calculé : <b>{int(round(vol_contrast_effectif))} mL</b> —
-            Débit : <b>{injection_rate:.1f} mL/s</b>
+            🚀 Débit temps réel : <b>{injection_rate:.2f} mL/s</b> — Temps d’injection : <b>{injection_time:.1f} s</b>
         </div>
     """, unsafe_allow_html=True)
 
