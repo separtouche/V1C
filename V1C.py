@@ -660,13 +660,13 @@ with tab_params:
                 except Exception as e:
                     st.error(f"Erreur suppression identifiant : {e}")
 # ------------------------
-# Onglet Patient — version finale avec champs numériques à droite + titres centrés
+# Onglet Patient — version finale complète avec option intermédiaire dynamique et message d’attention
 # ------------------------
 with tab_patient:
     # === Style global ===
     st.markdown("""
         <style>
-        /* === Styles généraux === */
+        /* Style titres sliders/select */
         div[data-testid="stSlider"] > label,
         div[data-testid="stSlider"] > label *,
         div[data-testid="stSelectbox"] > label,
@@ -680,12 +680,14 @@ with tab_patient:
             margin-bottom:6px !important;
         }
 
+        /* Sliders rouges */
         .slider-red .stSlider [data-baseweb="slider"],
         .slider-red .stSlider [data-baseweb="slider"] div[role="slider"],
         .slider-red .stSlider [data-baseweb="slider"] div[role="slider"]::before {
             background-color:#E53935 !important;
         }
 
+        /* Titres */
         .section-title {
             font-size:22px;
             font-weight:700;
@@ -693,36 +695,30 @@ with tab_patient:
             margin-bottom:12px;
             text-align:center;
         }
-
-        /* === Champs numériques à droite des sliders === */
-        .num-inline input[type="number"] {
-            text-align:center;
-            font-size:13px !important;
-            width:70px !important;
-            border-radius:6px;
-            border:1px solid #ccc;
-            padding:2px 0;
-            margin-top:18px; /* alignement vertical avec le slider */
-        }
-
-        /* === Correction centrage titres des blocs principaux === */
         .block-title {
-            text-align:center !important;
-            width:100% !important;
-            display:block !important;
-            margin:auto !important;
-            font-weight:700 !important;
-            color:#123A5F !important;
-            font-size:16px !important;
-            margin-bottom:6px !important;
+            text-align:center;
+            font-weight:700;
+            color:#123A5F;
+            font-size:16px;
+            margin-bottom:6px;
         }
 
-        [data-testid="column"] > div {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+        /* Radios centrées */
+        div[role="radiogroup"] {
+            display:flex !important;
+            justify-content:center !important;
+            align-items:center !important;
+            flex-wrap:nowrap !important;
+            gap:4px !important;
+        }
+        div[role="radiogroup"] label {
+            font-size:13px !important;
+            padding:0 4px !important;
+            margin:0 1px !important;
+            white-space:nowrap !important;
         }
 
+        /* Diviseur vertical */
         .divider {
             border-left:1px solid #d9d9d9;
             height:100%;
@@ -731,52 +727,20 @@ with tab_patient:
         </style>
     """, unsafe_allow_html=True)
 
-    # === Titre principal ===
+    # --- Titre principal ---
     st.markdown("<div class='section-title'>🧍 Informations patient</div>", unsafe_allow_html=True)
 
-    # === Ligne sliders ===
+    # === Ligne 1 : Sliders ===
     st.markdown("<div class='slider-red'>", unsafe_allow_html=True)
     current_year = datetime.now().year
-
     col_poids, col_taille, col_annee, col_prog = st.columns([1, 1, 1, 1.3])
 
-    # --- Poids ---
     with col_poids:
-        subcol1, subcol2 = st.columns([4, 1])
-        with subcol1:
-            weight = st.slider("Poids (kg)", 20, 200, 70)
-        with subcol2:
-            st.markdown('<div class="num-inline">', unsafe_allow_html=True)
-            new_weight = st.number_input("", min_value=20, max_value=200, value=weight, step=1, key="num_poids", label_visibility="collapsed")
-            st.markdown('</div>', unsafe_allow_html=True)
-            if new_weight != weight:
-                weight = new_weight
-
-    # --- Taille ---
+        weight = st.slider("Poids (kg)", 20, 200, 70)
     with col_taille:
-        subcol1, subcol2 = st.columns([4, 1])
-        with subcol1:
-            height = st.slider("Taille (cm)", 100, 220, 170)
-        with subcol2:
-            st.markdown('<div class="num-inline">', unsafe_allow_html=True)
-            new_height = st.number_input("", min_value=100, max_value=220, value=height, step=1, key="num_taille", label_visibility="collapsed")
-            st.markdown('</div>', unsafe_allow_html=True)
-            if new_height != height:
-                height = new_height
-
-    # --- Année de naissance ---
+        height = st.slider("Taille (cm)", 100, 220, 170)
     with col_annee:
-        subcol1, subcol2 = st.columns([4, 1])
-        with subcol1:
-            birth_year = st.slider("Année de naissance", current_year - 120, current_year, 1985)
-        with subcol2:
-            st.markdown('<div class="num-inline">', unsafe_allow_html=True)
-            new_birth_year = st.number_input("", min_value=current_year - 120, max_value=current_year, value=birth_year, step=1, key="num_annee", label_visibility="collapsed")
-            st.markdown('</div>', unsafe_allow_html=True)
-            if new_birth_year != birth_year:
-                birth_year = new_birth_year
-
-    # --- Sélection de programme ---
+        birth_year = st.slider("Année de naissance", current_year - 120, current_year, 1985)
     with col_prog:
         user_id = st.session_state["user_id"]
         user_programs = user_sessions.get(user_id, {}).get("programs", {})
@@ -793,7 +757,6 @@ with tab_patient:
             set_cfg_and_persist(user_id, cfg)
             user_sessions[user_id]["last_selected_program"] = prog_choice_patient
             save_user_sessions(user_sessions)
-
     st.markdown("</div>", unsafe_allow_html=True)
 
     # === Variables patient ===
