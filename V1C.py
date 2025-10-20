@@ -366,7 +366,7 @@ def set_cfg_and_persist(user_id, new_cfg):
     save_user_sessions(user_sessions)
 
 # ------------------------
-# Onglet Paramètres (version finale avec ordre réorganisé)
+# Onglet Paramètres (début complet corrigé)
 # ------------------------
 with tab_params:
     st.header("⚙️ Paramètres et Bibliothèque (personnelle)")
@@ -384,14 +384,22 @@ with tab_params:
         ["Aucun"] + list(personal_programs.keys()),
         key="prog_params_personal"
     )
+
+    # Charger le programme sélectionné (si existant)
     if program_choice != "Aucun":
         prog_conf = personal_programs.get(program_choice, {})
         for key, val in prog_conf.items():
             cfg[key] = val
 
+        # ✅ Sauvegarde automatique dès qu’un paramètre est modifié
+        user_sessions[user_id]["programs"][program_choice] = cfg.copy()
+        user_sessions[user_id]["config"] = cfg.copy()
+        save_user_sessions(user_sessions)
+
+    # Nom pour enregistrer / mettre à jour un programme
     new_prog_name = st.text_input("Nom du nouveau programme (sera enregistré dans vos programmes personnels)")
 
-    # ✅ Sauvegarde complète du programme
+    # ✅ Sauvegarde complète du programme (création ou mise à jour manuelle)
     if st.button("💾 Ajouter/Mise à jour programme"):
         if new_prog_name.strip():
             current_values = {
@@ -421,6 +429,7 @@ with tab_params:
         else:
             st.warning("Veuillez donner un nom au programme avant d’enregistrer.")
 
+    # Suppression de programmes personnels
     st.markdown("**Gérer mes programmes personnels**")
     personal_prog_list = list(user_sessions.get(user_id, {}).get("programs", {}).keys())
     if personal_prog_list:
@@ -438,6 +447,7 @@ with tab_params:
                 st.error("Programme introuvable.")
     else:
         st.info("Vous n'avez pas encore de programmes personnels enregistrés.")
+
 
     # ----------------------------------------------------------------------
     # 💉 SECTION 2 — Paramètres d’injection
