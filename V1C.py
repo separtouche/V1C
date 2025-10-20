@@ -491,13 +491,24 @@ with tab_params:
                     st.rerun()
                 except Exception as e:
                     st.error(f"Erreur suppression identifiant : {e}")
-
 # ------------------------
-# Onglet Patient — version finale (centrage et homogénéité légère)
+# Onglet Patient — version finale homogène (titres centrés identiques aux blocs)
 # ------------------------
 with tab_patient:
+    # === Style global (patch minimal pour titres des sliders) ===
     st.markdown("""
         <style>
+        /* Applique le style "Paramètres principaux" aux labels des sliders et du select */
+        div[data-baseweb="slider"] > label,
+        div[data-testid="stSelectbox"] > label {
+            display:block !important;
+            text-align:center !important;
+            font-weight:700 !important;
+            font-size:16px !important;
+            color:#123A5F !important;
+            margin-bottom:4px !important;
+        }
+
         /* Sliders rouges */
         .slider-red .stSlider [data-baseweb="slider"],
         .slider-red .stSlider [data-baseweb="slider"] div[role="slider"],
@@ -505,7 +516,7 @@ with tab_patient:
             background-color:#E53935 !important;
         }
 
-        /* Titre de section */
+        /* Titres */
         .section-title {
             font-size:22px;
             font-weight:700;
@@ -513,8 +524,6 @@ with tab_patient:
             margin-bottom:12px;
             text-align:center;
         }
-
-        /* Titres des blocs */
         .block-title {
             text-align:center;
             font-weight:700;
@@ -523,24 +532,7 @@ with tab_patient:
             margin-bottom:6px;
         }
 
-        /* Titres des sliders/selects — même style que les blocs mais plus légers */
-        div[data-baseweb="slider"] > label div,
-        div[data-testid="stSelectbox"] > label div {
-            text-align:center !important;
-            font-weight:600 !important;
-            font-size:15px !important;
-            color:#123A5F !important;
-            margin-bottom:6px !important;
-        }
-
-        /* Divider vertical */
-        .divider {
-            border-left:1px solid #d9d9d9;
-            height:100%;
-            margin:0 10px;
-        }
-
-        /* Radios centrées et compactes */
+        /* Radios centrées */
         div[role="radiogroup"] {
             display:flex !important;
             justify-content:center !important;
@@ -554,13 +546,20 @@ with tab_patient:
             margin:0 1px !important;
             white-space:nowrap !important;
         }
+
+        /* Diviseur vertical */
+        .divider {
+            border-left:1px solid #d9d9d9;
+            height:100%;
+            margin:0 10px;
+        }
         </style>
     """, unsafe_allow_html=True)
 
-    # --- Titre section patient ---
+    # --- Titre principal ---
     st.markdown("<div class='section-title'>🧍 Informations patient</div>", unsafe_allow_html=True)
 
-    # === Ligne 1 : sliders (centrés + homogènes) ===
+    # === Ligne 1 : Sliders ===
     st.markdown("<div class='slider-red'>", unsafe_allow_html=True)
     current_year = datetime.now().year
     col_poids, col_taille, col_annee, col_prog = st.columns([1, 1, 1, 1.3])
@@ -597,13 +596,13 @@ with tab_patient:
     age = current_year - birth_year
     imc = weight / ((height / 100) ** 2)
 
-    # === Ligne 2 : 3 blocs alignés ===
+    # === Ligne 2 : 3 blocs ===
     col_left, col_div1, col_center, col_div2, col_right = st.columns([1.2, 0.05, 1.2, 0.05, 1.2])
 
-    # Bloc 1 — Paramètres principaux
+    # --- Bloc gauche ---
     with col_left:
         st.markdown("<div class='block-title'>Paramètres principaux</div>", unsafe_allow_html=True)
-        c1, c2, c3 = st.columns([0.3, 1, 0.3])  # centrage précis
+        c1, c2, c3 = st.columns([0.3, 1, 0.3])
         with c2:
             kv_scanner = st.radio(
                 "kV",
@@ -627,7 +626,7 @@ with tab_patient:
     with col_div1:
         st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
 
-    # Bloc 2 — Injection et timing
+    # --- Bloc centre ---
     with col_center:
         st.markdown("<div class='block-title'>Injection et timing</div>", unsafe_allow_html=True)
         c1, c2, c3 = st.columns([0.3, 1, 0.3])
@@ -657,7 +656,7 @@ with tab_patient:
     with col_div2:
         st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
 
-    # Bloc 3 — Options avancées
+    # --- Bloc droit ---
     with col_right:
         st.markdown("<div class='block-title'>Options avancées</div>", unsafe_allow_html=True)
         auto_age = bool(cfg.get("auto_acquisition_by_age", True))
@@ -671,7 +670,7 @@ with tab_patient:
             unsafe_allow_html=True,
         )
 
-    # === Calculs finaux ===
+    # --- Calculs finaux ---
     volume, bsa = calculate_volume(
         weight, height, kv_scanner,
         float(cfg.get("concentration_mg_ml", 350)),
