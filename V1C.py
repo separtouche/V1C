@@ -492,21 +492,25 @@ with tab_params:
                 except Exception as e:
                     st.error(f"Erreur suppression identifiant : {e}")
 # ------------------------
-# Onglet Patient — version finale homogène (titres centrés identiques aux blocs)
+# Onglet Patient — version finale avec titres centrés et homogènes
 # ------------------------
 with tab_patient:
-    # === Style global (patch minimal pour titres des sliders) ===
+    # === Style global (ajustement minimal) ===
     st.markdown("""
         <style>
-        /* Applique le style "Paramètres principaux" aux labels des sliders et du select */
-        div[data-baseweb="slider"] > label,
-        div[data-testid="stSelectbox"] > label {
+        /* Applique le style "Paramètres principaux" aux libellés des sliders et du select */
+        div[data-testid="stSlider"] > label,
+        div[data-testid="stSlider"] > label *,
+
+        div[data-testid="stSelectbox"] > label,
+        div[data-testid="stSelectbox"] > label * {
             display:block !important;
+            width:100% !important;
             text-align:center !important;
             font-weight:700 !important;
             font-size:16px !important;
             color:#123A5F !important;
-            margin-bottom:4px !important;
+            margin-bottom:6px !important;
         }
 
         /* Sliders rouges */
@@ -695,7 +699,6 @@ with tab_patient:
         st.warning(f"⚠️ Temps ajusté à {injection_time:.1f}s (max {float(cfg.get('max_debit',6.0)):.1f} mL/s).")
 
     st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
-
 # ------------------------
 # Onglet Tutoriel (inchangé)
 # ------------------------
