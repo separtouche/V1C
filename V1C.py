@@ -366,88 +366,92 @@ def set_cfg_and_persist(user_id, new_cfg):
     save_user_sessions(user_sessions)
 
 # ------------------------
-# Onglet Paramètres (début complet corrigé)
+# Onglet Paramètres — Section "Vos programmes personnels" (avec verrouillage par identifiant)
 # ------------------------
-with tab_params:
-    st.header("⚙️ Paramètres et Bibliothèque (personnelle)")
-    user_id = st.session_state["user_id"]
-    cfg = get_cfg()
+st.subheader("📚 Vos programmes personnels")
 
-    # ----------------------------------------------------------------------
-    # 📚 SECTION 1 — Vos programmes personnels (remontée en premier)
-    # ----------------------------------------------------------------------
-    st.subheader("📚 Vos programmes personnels")
+personal_programs = user_sessions.get(user_id, {}).get("programs", {})
+program_choice = st.selectbox(
+    "Programme (Personnel)",
+    ["Aucun"] + list(personal_programs.keys()),
+    key="prog_params_personal"
+)
 
-    personal_programs = user_sessions.get(user_id, {}).get("programs", {})
-    program_choice = st.selectbox(
-        "Programme (Personnel)",
-        ["Aucun"] + list(personal_programs.keys()),
-        key="prog_params_personal"
-    )
+program_locked = False
+unlock_granted = False
 
-    # Charger le programme sélectionné (si existant)
-    if program_choice != "Aucun":
-        prog_conf = personal_programs.get(program_choice, {})
-        for key, val in prog_conf.items():
-            cfg[key] = val
+if program_choice != "Aucun":
+    prog_conf = personal_programs.get(program_choice, {})
+    for key, val in prog_conf.items():
+        cfg[key] = val
 
-        # ✅ Sauvegarde automatique dès qu’un paramètre est modifié
-        user_sessions[user_id]["programs"][program_choice] = cfg.copy()
+    st.info(f"🔒 Programme sélectionné : **{program_choice}** — protégé contre les modifications directes.")
+    pwd_input = st.text_input("Entrez votre identifiant pour déverrouiller ce programme", type="password")
+
+    if st.button("🔓 Déverrouiller le programme"):
+        if pwd_input.strip() == user_id:
+            unlock_granted = True
+            st.success(f"✅ Programme '{program_choice}' déverrouillé pour modification.")
+        else:
+            st.error("❌ Identifiant incorrect. Modifications interdites.")
+            program_locked = True
+    else:
+        program_locked = True
+else:
+    st.info("Aucun programme sélectionné — vous pouvez librement ajuster les paramètres et créer un nouveau programme.")
+
+# Nom du nouveau programme
+new_prog_name = st.text_input("Nom du nouveau programme (sera enregistré dans vos programmes personnels)")
+
+# ✅ Création ou mise à jour d’un programme (uniquement si pas verrouillé)
+if st.button("💾 Ajouter/Mise à jour programme"):
+    if program_locked and not unlock_granted:
+        st.warning("⚠️ Programme protégé — entrez votre identifiant pour le modifier ou créez un nouveau programme.")
+    elif not new_prog_name.strip():
+        st.warning("Veuillez donner un nom au programme avant d’enregistrer.")
+    else:
+        current_values = {
+            "simultaneous_enabled": cfg.get("simultaneous_enabled", False),
+            "target_concentration": cfg.get("target_concentration", 350),
+            "concentration_mg_ml": cfg.get("concentration_mg_ml", 350),
+            "calc_mode": cfg.get("calc_mode", "Charge iodée"),
+            "max_debit": cfg.get("max_debit", 6.0),
+            "auto_acquisition_by_age": cfg.get("auto_acquisition_by_age", True),
+            "acquisition_start_param": cfg.get("acquisition_start_param", 70.0),
+            "portal_time": cfg.get("portal_time", 30.0),
+            "arterial_time": cfg.get("arterial_time", 25.0),
+            "intermediate_enabled": cfg.get("intermediate_enabled", False),
+            "intermediate_time": cfg.get("intermediate_time", 28.0),
+            "rincage_volume": cfg.get("rincage_volume", 35.0),
+            "rincage_delta_debit": cfg.get("rincage_delta_debit", 0.5),
+            "volume_max_limit": cfg.get("volume_max_limit", 200.0),
+            "charges": cfg.get("charges", {})
+        }
+        cfg.update(current_values)
+        user_sessions.setdefault(user_id, {}).setdefault("programs", {})[new_prog_name.strip()] = cfg.copy()
         user_sessions[user_id]["config"] = cfg.copy()
         save_user_sessions(user_sessions)
 
-    # Nom pour enregistrer / mettre à jour un programme
-    new_prog_name = st.text_input("Nom du nouveau programme (sera enregistré dans vos programmes personnels)")
+        st.success(f"✅ Programme personnel '{new_prog_name}' sauvegardé avec tous les paramètres !")
 
-    # ✅ Sauvegarde complète du programme (création ou mise à jour manuelle)
-    if st.button("💾 Ajouter/Mise à jour programme"):
-        if new_prog_name.strip():
-            current_values = {
-                "simultaneous_enabled": cfg.get("simultaneous_enabled", False),
-                "target_concentration": cfg.get("target_concentration", 350),
-                "concentration_mg_ml": cfg.get("concentration_mg_ml", 350),
-                "calc_mode": cfg.get("calc_mode", "Charge iodée"),
-                "max_debit": cfg.get("max_debit", 6.0),
-                "auto_acquisition_by_age": cfg.get("auto_acquisition_by_age", True),
-                "acquisition_start_param": cfg.get("acquisition_start_param", 70.0),
-                "portal_time": cfg.get("portal_time", 30.0),
-                "arterial_time": cfg.get("arterial_time", 25.0),
-                "intermediate_enabled": cfg.get("intermediate_enabled", False),
-                "intermediate_time": cfg.get("intermediate_time", 28.0),
-                "rincage_volume": cfg.get("rincage_volume", 35.0),
-                "rincage_delta_debit": cfg.get("rincage_delta_debit", 0.5),
-                "volume_max_limit": cfg.get("volume_max_limit", 200.0),
-                "charges": cfg.get("charges", {})
-            }
-            cfg.update(current_values)
-
-            user_sessions.setdefault(user_id, {}).setdefault("programs", {})[new_prog_name.strip()] = cfg.copy()
-            user_sessions[user_id]["config"] = cfg.copy()
+# 🗑 Gestion des programmes personnels
+st.markdown("**Gérer mes programmes personnels**")
+personal_prog_list = list(user_sessions.get(user_id, {}).get("programs", {}).keys())
+if personal_prog_list:
+    del_prog_personal = st.selectbox(
+        "Supprimer un programme personnel",
+        [""] + personal_prog_list,
+        key="del_prog_personal"
+    )
+    if st.button("🗑 Supprimer programme (Personnel)"):
+        if del_prog_personal and del_prog_personal in user_sessions[user_id]["programs"]:
+            del user_sessions[user_id]["programs"][del_prog_personal]
             save_user_sessions(user_sessions)
-
-            st.success(f"✅ Programme personnel '{new_prog_name}' sauvegardé avec tous les paramètres !")
+            st.success(f"Programme personnel '{del_prog_personal}' supprimé pour l'identifiant '{user_id}'.")
         else:
-            st.warning("Veuillez donner un nom au programme avant d’enregistrer.")
-
-    # Suppression de programmes personnels
-    st.markdown("**Gérer mes programmes personnels**")
-    personal_prog_list = list(user_sessions.get(user_id, {}).get("programs", {}).keys())
-    if personal_prog_list:
-        del_prog_personal = st.selectbox(
-            "Supprimer un programme personnel",
-            [""] + personal_prog_list,
-            key="del_prog_personal"
-        )
-        if st.button("🗑 Supprimer programme (Personnel)"):
-            if del_prog_personal and del_prog_personal in user_sessions[user_id]["programs"]:
-                del user_sessions[user_id]["programs"][del_prog_personal]
-                save_user_sessions(user_sessions)
-                st.success(f"Programme personnel '{del_prog_personal}' supprimé pour l'identifiant '{user_id}'.")
-            else:
-                st.error("Programme introuvable.")
-    else:
-        st.info("Vous n'avez pas encore de programmes personnels enregistrés.")
-
+            st.error("Programme introuvable.")
+else:
+    st.info("Vous n'avez pas encore de programmes personnels enregistrés.")
 
     # ----------------------------------------------------------------------
     # 💉 SECTION 2 — Paramètres d’injection
