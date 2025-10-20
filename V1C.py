@@ -660,12 +660,13 @@ with tab_params:
                 except Exception as e:
                     st.error(f"Erreur suppression identifiant : {e}")
 # ------------------------
-# Onglet Patient — sliders + saisie clavier alignée à droite
+# Onglet Patient — version finale avec champs numériques à droite + titres centrés
 # ------------------------
 with tab_patient:
     # === Style global ===
     st.markdown("""
         <style>
+        /* === Styles généraux === */
         div[data-testid="stSlider"] > label,
         div[data-testid="stSlider"] > label *,
         div[data-testid="stSelectbox"] > label,
@@ -693,7 +694,7 @@ with tab_patient:
             text-align:center;
         }
 
-        /* Petits champs numériques à droite des sliders */
+        /* === Champs numériques à droite des sliders === */
         .num-inline input[type="number"] {
             text-align:center;
             font-size:13px !important;
@@ -701,19 +702,45 @@ with tab_patient:
             border-radius:6px;
             border:1px solid #ccc;
             padding:2px 0;
-            margin-top:18px;  /* aligne verticalement avec le slider */
+            margin-top:18px; /* alignement vertical avec le slider */
+        }
+
+        /* === Correction centrage titres des blocs principaux === */
+        .block-title {
+            text-align:center !important;
+            width:100% !important;
+            display:block !important;
+            margin:auto !important;
+            font-weight:700 !important;
+            color:#123A5F !important;
+            font-size:16px !important;
+            margin-bottom:6px !important;
+        }
+
+        [data-testid="column"] > div {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .divider {
+            border-left:1px solid #d9d9d9;
+            height:100%;
+            margin:0 10px;
         }
         </style>
     """, unsafe_allow_html=True)
 
+    # === Titre principal ===
     st.markdown("<div class='section-title'>🧍 Informations patient</div>", unsafe_allow_html=True)
 
+    # === Ligne sliders ===
     st.markdown("<div class='slider-red'>", unsafe_allow_html=True)
     current_year = datetime.now().year
 
-    # === Ligne 1 : sliders + champs à droite ===
     col_poids, col_taille, col_annee, col_prog = st.columns([1, 1, 1, 1.3])
 
+    # --- Poids ---
     with col_poids:
         subcol1, subcol2 = st.columns([4, 1])
         with subcol1:
@@ -725,6 +752,7 @@ with tab_patient:
             if new_weight != weight:
                 weight = new_weight
 
+    # --- Taille ---
     with col_taille:
         subcol1, subcol2 = st.columns([4, 1])
         with subcol1:
@@ -736,6 +764,7 @@ with tab_patient:
             if new_height != height:
                 height = new_height
 
+    # --- Année de naissance ---
     with col_annee:
         subcol1, subcol2 = st.columns([4, 1])
         with subcol1:
@@ -747,6 +776,7 @@ with tab_patient:
             if new_birth_year != birth_year:
                 birth_year = new_birth_year
 
+    # --- Sélection de programme ---
     with col_prog:
         user_id = st.session_state["user_id"]
         user_programs = user_sessions.get(user_id, {}).get("programs", {})
