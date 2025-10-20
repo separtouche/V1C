@@ -1052,6 +1052,15 @@ with tab_tutorial:
     - Foie stéatosique : ≥120 UH
     ⚠️ Valeurs indicatives selon protocole local.
     """)
+        # === Référence officielle ===
+    st.markdown("---")
+    st.header("📚 Référence officielle")
+    st.markdown("""
+    Les calculs de volume, de débit et de concentration utilisés dans cette calculette 
+    sont basés sur les recommandations du **CIRTACI – version 5_3_0** (Groupe de Travail de la SFR).
+
+    🔗 [Consulter la fiche officielle du CIRTACI – Généralités ONCO (PDF)](https://www.radiologie.fr/sites/www.radiologie.fr/files/medias/documents/CIRTACI%20Fiche%20Généralités%20ONCO_5_3_0.pdf)
+    """)
     st.header("🩺 Exemple de workflow clinique")
     st.markdown("""
     Patient 75 kg, 170 cm, kV=120, charge iodée 0.5, mode Portal, concentration 350 mg I/mL.
@@ -1060,8 +1069,16 @@ with tab_tutorial:
 # ------------------------
 # Footer
 # ------------------------
-st.markdown(f"""<div style='text-align:center; margin-top:20px; font-size:0.8rem; color:#666;'>
+st.markdown(f"""
+<div style='text-align:center; margin-top:20px; font-size:0.8rem; color:#666;'>
 © 2025 Guerbet | Développé par <b>Sébastien Partouche</b><br>
 Calculette de dose de produit de contraste en oncologie adulte.<br>
-<div style='display:inline-block; background-color:#FCE8B2; border:1px solid #F5B800; padding:8px 15px; border-radius:10px; color:#5A4500; font-weight:600; margin-top:10px;'>🧪 Version BETA TEST – Usage interne / évaluation</div>
-</div>""", unsafe_allow_html=True)
+Basée sur les recommandations du 
+<a href="https://www.radiologie.fr/sites/www.radiologie.fr/files/medias/documents/CIRTACI%20Fiche%20Généralités%20ONCO_5_3_0.pdf" target="_blank">
+<b>CIRTACI – version 5_3_0</b></a>.<br>
+<div style='display:inline-block; background-color:#FCE8B2; border:1px solid #F5B800; padding:8px 15px; border-radius:10px; color:#5A4500; font-weight:600; margin-top:10px;'>
+🧪 Version BETA TEST – Usage interne / évaluation
+</div>
+</div>
+""", unsafe_allow_html=True)
+
