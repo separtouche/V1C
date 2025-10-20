@@ -982,61 +982,43 @@ with tab_patient:
     if time_adjusted:
         st.warning(f"⚠️ Temps ajusté à {injection_time:.1f}s (max {float(cfg.get('max_debit',6.0)):.1f} mL/s).")
 
-    # --- IMC et surface corporelle ---
+        # --- IMC et surface corporelle ---
     st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
 
-    # === Calcul détaillé ===
+    # === Calculs affichés sur une seule ligne ===
     concentration_mg_ml = float(cfg.get("concentration_mg_ml", 350))
     concentration_g_ml = concentration_mg_ml / 1000.0
     calc_mode = cfg.get("calc_mode", "Charge iodée")
     charge_iod = float(cfg.get("charges", {}).get(str(kv_scanner), 0.45))
 
+    # Volume
     if calc_mode == "Charge iodée":
+        calc_str = f"({weight} × {charge_iod:.2f}) ÷ ({concentration_mg_ml}/1000)"
         volume_calc = weight * charge_iod / concentration_g_ml
-        st.markdown(f"""
-            <div style='text-align:center; margin-top:10px;
-                        font-size:15px; color:#123A5F;'>
-                <b>Calcul (Charge iodée)</b> :<br>
-                Volume = (Poids × Charge iodée) ÷ Concentration<br>
-                = ({weight} × {charge_iod:.2f}) ÷ ({concentration_mg_ml}/1000)<br>
-                = <b>{volume_calc:.1f} mL</b>
-            </div>
-        """, unsafe_allow_html=True)
-
     elif calc_mode.startswith("Charge iodée sauf") and imc >= 30:
-        if bsa:
-            kv_factors = {80: 11, 90: 13, 100: 15, 110: 16.5, 120: 18.6}
-            factor = kv_factors.get(kv_scanner, 15)
-            volume_calc = bsa * factor / concentration_g_ml
-            st.markdown(f"""
-                <div style='text-align:center; margin-top:10px;
-                            font-size:15px; color:#123A5F;'>
-                    <b>Calcul (Surface corporelle – IMC > 30)</b> :<br>
-                    Volume = (BSA × Facteur kV) ÷ Concentration<br>
-                    = ({bsa:.2f} × {factor}) ÷ ({concentration_mg_ml}/1000)<br>
-                    = <b>{volume_calc:.1f} mL</b>
-                </div>
-            """, unsafe_allow_html=True)
-
+        kv_factors = {80: 11, 90: 13, 100: 15, 110: 16.5, 120: 18.6}
+        factor = kv_factors.get(kv_scanner, 15)
+        calc_str = f"({bsa:.2f} × {factor}) ÷ ({concentration_mg_ml}/1000)"
+        volume_calc = bsa * factor / concentration_g_ml
     elif calc_mode == "Surface corporelle" and bsa:
         kv_factors = {80: 11, 90: 13, 100: 15, 110: 16.5, 120: 18.6}
         factor = kv_factors.get(kv_scanner, 15)
+        calc_str = f"({bsa:.2f} × {factor}) ÷ ({concentration_mg_ml}/1000)"
         volume_calc = bsa * factor / concentration_g_ml
-        st.markdown(f"""
-            <div style='text-align:center; margin-top:10px;
-                        font-size:15px; color:#123A5F;'>
-                <b>Calcul (Surface corporelle)</b> :<br>
-                Volume = (BSA × Facteur kV) ÷ Concentration<br>
-                = ({bsa:.2f} × {factor}) ÷ ({concentration_mg_ml}/1000)<br>
-                = <b>{volume_calc:.1f} mL</b>
-            </div>
-        """, unsafe_allow_html=True)
+    else:
+        calc_str = f"({weight} × {charge_iod:.2f}) ÷ ({concentration_mg_ml}/1000)"
+        volume_calc = weight * charge_iod / concentration_g_ml
 
-    # === Résumé du débit temps réel ===
+    # Débit
+    debit_calc = volume_calc / float(base_time)
+    debit_str = f"{volume_calc:.1f} ÷ {base_time:.1f}"
+
+    # === Affichage compact ===
     st.markdown(f"""
-        <div style='text-align:center; margin-top:10px;
-                    font-size:16px; color:#123A5F; font-weight:600;'>
-            🚀 Débit temps réel : <b>{injection_rate:.2f} mL/s</b> — Temps d’injection : <b>{injection_time:.1f} s</b>
+        <div style='text-align:center; margin-top:12px;
+                    font-size:15px; color:#123A5F; line-height:1.6;'>
+            <b>🧮 Volume contraste :</b> {calc_str} = <b>{volume_calc:.1f} mL</b><br>
+            <b>🚀 Débit :</b> {debit_str} = <b>{debit_calc:.2f} mL/s</b>
         </div>
     """, unsafe_allow_html=True)
 
