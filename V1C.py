@@ -874,7 +874,7 @@ with tab_patient:
             unsafe_allow_html=True,
         )
                     
-           # --- Calculs finaux ---
+    # --- Calculs finaux ---
     volume, bsa = calculate_volume(
         weight, height, kv_scanner,
         float(cfg.get("concentration_mg_ml", 350)),
@@ -984,6 +984,15 @@ with tab_patient:
 
     # --- IMC et surface corporelle ---
     st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
+
+    # === Nouveau résumé dynamique ===
+    st.markdown(f"""
+        <div style='text-align:center; margin-top:10px;
+                    font-size:16px; color:#123A5F; font-weight:600;'>
+            📊 Volume contraste calculé : <b>{int(round(vol_contrast_effectif))} mL</b> —
+            Débit : <b>{injection_rate:.1f} mL/s</b>
+        </div>
+    """, unsafe_allow_html=True)
 
 # ------------------------
 # Onglet Tutoriel (inchangé)
