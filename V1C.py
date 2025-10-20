@@ -735,19 +735,39 @@ with tab_patient:
     current_year = datetime.now().year
     col_poids, col_taille, col_annee, col_prog = st.columns([1, 1, 1, 1.3])
 
-    with col_poids:
-        weight = st.slider("Poids (kg)", 20, 200, 70)
-    with col_taille:
-        height = st.slider("Taille (cm)", 100, 220, 170)
-    with col_annee:
-        birth_year = st.slider("Année de naissance", current_year - 120, current_year, 1985)
-    with col_prog:
-        user_id = st.session_state["user_id"]
-        user_programs = user_sessions.get(user_id, {}).get("programs", {})
-        prog_choice_patient = st.selectbox(
-            "Sélection d'un programme",
-            ["Sélection d'un programme"] + list(user_programs.keys()),
-            index=0
+# --- Poids ---
+with col_poids:
+    st.markdown("<div style='text-align:center; font-weight:700; color:#123A5F;'>Poids (kg)</div>", unsafe_allow_html=True)
+    c1, c2 = st.columns([4, 1])
+    with c1:
+        weight = st.slider("", 20, 200, 70, key="slider_poids", label_visibility="collapsed")
+    with c2:
+        weight_input = st.number_input("", 20, 200, weight, key="input_poids", label_visibility="collapsed", step=1)
+    if weight_input != weight:
+        weight = weight_input
+
+# --- Taille ---
+with col_taille:
+    st.markdown("<div style='text-align:center; font-weight:700; color:#123A5F;'>Taille (cm)</div>", unsafe_allow_html=True)
+    c1, c2 = st.columns([4, 1])
+    with c1:
+        height = st.slider("", 100, 220, 170, key="slider_taille", label_visibility="collapsed")
+    with c2:
+        height_input = st.number_input("", 100, 220, height, key="input_taille", label_visibility="collapsed", step=1)
+    if height_input != height:
+        height = height_input
+
+# --- Année de naissance ---
+with col_annee:
+    st.markdown("<div style='text-align:center; font-weight:700; color:#123A5F;'>Année de naissance</div>", unsafe_allow_html=True)
+    c1, c2 = st.columns([4, 1])
+    with c1:
+        birth_year = st.slider("", current_year - 120, current_year, 1985, key="slider_annee", label_visibility="collapsed")
+    with c2:
+        birth_year_input = st.number_input("", current_year - 120, current_year, birth_year, key="input_annee", label_visibility="collapsed", step=1)
+    if birth_year_input != birth_year:
+        birth_year = birth_year_input
+
         )
         if prog_choice_patient != "Sélection d'un programme":
             prog_conf = user_programs.get(prog_choice_patient, {})
