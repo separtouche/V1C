@@ -352,19 +352,11 @@ else:
 # -----------------------
 
 # ------------------------
-# Synchronisation globale des programmes entre onglets
-# ------------------------
-if "selected_program_global" not in st.session_state:
-    st.session_state["selected_program_global"] = "Aucun"
-# ------------------------
 # 🔄 Synchronisation globale entre Patient et Paramètres
 # ------------------------
-
-# Initialisation de l’état global si absent
 if "selected_program_global" not in st.session_state:
     st.session_state["selected_program_global"] = "Aucun"
 
-# Indique si le programme sélectionné est déverrouillé
 if "program_unlocked" not in st.session_state:
     st.session_state["program_unlocked"] = False
 
@@ -375,7 +367,6 @@ def get_cfg():
 # Fonction pour sauvegarder la configuration modifiée et la propager à l’utilisateur
 def set_cfg_and_persist(user_id, new_cfg):
     st.session_state["user_config"] = new_cfg.copy()
-    # mise à jour dans user_sessions
     if user_id not in user_sessions:
         user_sessions[user_id] = {
             "programs": {},
@@ -386,6 +377,8 @@ def set_cfg_and_persist(user_id, new_cfg):
     else:
         user_sessions[user_id]["config"] = new_cfg.copy()
     save_user_sessions(user_sessions)
+
+# Création des onglets
 tab_patient, tab_params, tab_tutorial = st.tabs(["🧍 Patient", "⚙️ Paramètres", "📘 Tutoriel"])
 
 # Use working config that refers to the logged-in user's config (kept in session_state)
@@ -434,7 +427,8 @@ with tab_params:
         index=current_index,
         key="prog_params_personal"
     )
-
+# 🔁 Synchronisation vers l’onglet Patient
+st.session_state["selected_program_global"] = program_choice
     # 🔁 Synchronisation bidirectionnelle avec l’onglet Patient
     if st.session_state["selected_program_global"] != program_choice:
         st.session_state["selected_program_global"] = program_choice
@@ -745,7 +739,8 @@ with tab_patient:
             index=current_index,
             key="prog_choice_patient"
         )
-
+# 🔁 Synchronisation vers l’onglet Paramètres
+st.session_state["selected_program_global"] = prog_choice_patient
         # 🔁 Synchronisation bidirectionnelle
         if st.session_state["selected_program_global"] != prog_choice_patient:
             st.session_state["selected_program_global"] = prog_choice_patient
