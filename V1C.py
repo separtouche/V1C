@@ -494,57 +494,74 @@ with tab_params:
 
 
 # ------------------------
-# Onglet Patient — centrage parfait + aucune coupure
+# Onglet Patient — version centrée propre sans retour à la ligne
 # ------------------------
 with tab_patient:
     st.markdown("""
         <style>
-        /* Sliders */
         .slider-red .stSlider [data-baseweb="slider"] div[role="slider"],
         .slider-red .stSlider [data-baseweb="slider"] div[role="slider"]::before {
             background-color:#E53935 !important;
         }
-
-        /* Titres */
-        .section-title {font-size:21px;font-weight:700;color:#123A5F;margin-bottom:10px;text-align:center;}
-        .block-title {text-align:center;font-weight:600;color:#123A5F;font-size:15px;margin-bottom:4px;}
-        .block-content {text-align:center;font-size:13px;line-height:1.25;color:#123A5F;margin-top:3px;}
-        .divider {border-left:1px solid #d9d9d9;height:100%;margin:0 10px;}
-        div[data-testid="stVerticalBlock"] > div:nth-child(4){margin-top:-18px !important;}
-
-        /* Radios plus petites et sur une ligne */
-        div[role="radiogroup"] {
-            display:flex !important;
-            justify-content:center !important;
-            align-items:center !important;
-            flex-wrap:nowrap !important;
-            width:100% !important;
-            gap:3px !important;
-            margin:0 !important;
+        .section-title {
+            font-size:21px;
+            font-weight:700;
+            color:#123A5F;
+            margin-bottom:10px;
+            text-align:center;
+        }
+        .block-title {
+            text-align:center;
+            font-weight:600;
+            color:#123A5F;
+            font-size:15px;
+            margin-bottom:4px;
+        }
+        .block-content {
+            text-align:center;
+            font-size:13px;
+            line-height:1.25;
+            color:#123A5F;
+            margin-top:3px;
+        }
+        .divider {
+            border-left:1px solid #d9d9d9;
+            height:100%;
+            margin:0 10px;
+        }
+        div[data-testid="stVerticalBlock"] > div:nth-child(4){
+            margin-top:-18px !important;
         }
         div[role="radiogroup"] label {
-            font-size:11px !important;
-            padding:0px 3px !important;
+            font-size:12px !important;
+            padding:0 3px !important;
             margin:0 1px !important;
             white-space:nowrap !important;
         }
         </style>
     """, unsafe_allow_html=True)
 
-    # --- Titre patient ---
+    # --- Titre section patient ---
     st.markdown("<div class='section-title'>🧍 Informations patient</div>", unsafe_allow_html=True)
 
-    # === Sliders ===
+    # === Sliders (première ligne) ===
     st.markdown("<div class='slider-red'>", unsafe_allow_html=True)
     current_year = datetime.now().year
     col_poids, col_taille, col_annee, col_prog = st.columns([1,1,1,1.3])
-    with col_poids: weight = st.slider("Poids (kg)", 20, 200, 70)
-    with col_taille: height = st.slider("Taille (cm)", 100, 220, 170)
-    with col_annee: birth_year = st.slider("Année de naissance", current_year - 120, current_year, 1985)
+    with col_poids:
+        weight = st.slider("Poids (kg)", 20, 200, 70)
+    with col_taille:
+        height = st.slider("Taille (cm)", 100, 220, 170)
+    with col_annee:
+        birth_year = st.slider("Année de naissance", current_year - 120, current_year, 1985)
     with col_prog:
         user_id = st.session_state["user_id"]
         user_programs = user_sessions.get(user_id, {}).get("programs", {})
-        prog_choice_patient = st.selectbox("Sélection d'un programme", ["Sélection d'un programme"] + list(user_programs.keys()), index=0)
+        prog_choice_patient = st.selectbox(
+            "Sélection d'un programme",
+            ["Sélection d'un programme"] + list(user_programs.keys()),
+            index=0
+        )
         if prog_choice_patient != "Sélection d'un programme":
             prog_conf = user_programs.get(prog_choice_patient, {})
             cfg = get_cfg()
@@ -560,22 +577,22 @@ with tab_patient:
     age = current_year - birth_year
     imc = weight / ((height / 100) ** 2)
 
-    # === 3 blocs ===
+    # === Ligne 2 : 3 blocs ===
     col_left, col_div1, col_center, col_div2, col_right = st.columns([1.2,0.05,1.2,0.05,1.2])
 
-    # Bloc 1 — Paramètres principaux
+    # --- Bloc gauche : Paramètres principaux ---
     with col_left:
         st.markdown("<div class='block-title'>Paramètres principaux</div>", unsafe_allow_html=True)
-        st.markdown("<div style='width:100%; text-align:center;'>", unsafe_allow_html=True)
-        kv_scanner = st.radio(
-            "kV",
-            [80, 90, 100, 110, 120],
-            horizontal=True,
-            index=4,
-            key="kv_scanner_patient",
-            label_visibility="collapsed"
-        )
-        st.markdown("</div>", unsafe_allow_html=True)
+        c1, c2, c3 = st.columns([0.3,1,0.3])  # centrage parfait
+        with c2:
+            kv_scanner = st.radio(
+                "kV",
+                [80, 90, 100, 110, 120],
+                horizontal=True,
+                index=4,
+                key="kv_scanner_patient",
+                label_visibility="collapsed"
+            )
         charge_iod = float(cfg.get("charges", {}).get(str(kv_scanner), 0.45))
         concentration = int(cfg.get("concentration_mg_ml", 350))
         calc_mode_label = cfg.get("calc_mode", "Charge iodée")
@@ -589,20 +606,19 @@ with tab_patient:
     with col_div1:
         st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
 
-    # Bloc 2 — Injection et timing
+    # --- Bloc centre : Injection et timing ---
     with col_center:
         st.markdown("<div class='block-title'>Injection et timing</div>", unsafe_allow_html=True)
-        st.markdown("<div style='width:100%; text-align:center;'>", unsafe_allow_html=True)
-        injection_modes = ["Portal", "Artériel", "Intermédiaire"]
-        injection_mode = st.radio(
-            "Mode d'injection",
-            injection_modes,
-            horizontal=True,
-            index=2,
-            key="injection_mode_patient",
-            label_visibility="collapsed"
-        )
-        st.markdown("</div>", unsafe_allow_html=True)
+        c1, c2, c3 = st.columns([0.3,1,0.3])  # centrage parfait
+        with c2:
+            injection_mode = st.radio(
+                "Mode d'injection",
+                ["Portal", "Artériel", "Intermédiaire"],
+                horizontal=True,
+                index=2,
+                key="injection_mode_patient",
+                label_visibility="collapsed"
+            )
         if injection_mode == "Portal":
             base_time = float(cfg.get("portal_time", 30.0))
         elif injection_mode == "Artériel":
@@ -619,7 +635,7 @@ with tab_patient:
     with col_div2:
         st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
 
-    # Bloc 3 — Options avancées
+    # --- Bloc droit : Options avancées ---
     with col_right:
         st.markdown("<div class='block-title'>Options avancées</div>", unsafe_allow_html=True)
         auto_age = bool(cfg.get("auto_acquisition_by_age", True))
@@ -632,7 +648,7 @@ with tab_patient:
             unsafe_allow_html=True
         )
 
-    # === Calculs ===
+    # --- Calculs finaux ---
     volume, bsa = calculate_volume(
         weight, height, kv_scanner,
         float(cfg.get("concentration_mg_ml", 350)),
