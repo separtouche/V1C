@@ -493,12 +493,12 @@ with tab_params:
                     st.error(f"Erreur suppression identifiant : {e}")
 
 # ------------------------
-# Onglet Patient — centrage parfait + radios réduites (1 ligne)
+# Onglet Patient — radios centrées sur une seule ligne (police réduite)
 # ------------------------
 with tab_patient:
     st.markdown("""
         <style>
-        /* sliders */
+        /* Sliders rouges */
         .slider-red .stSlider [data-baseweb="slider"] div[role="slider"] {
             background-color:#E53935 !important;
         }
@@ -506,7 +506,7 @@ with tab_patient:
             background-color:#E53935 !important;
         }
 
-        /* titre principal */
+        /* Titre principal */
         .section-title {
             font-size:21px;
             font-weight:700;
@@ -515,49 +515,57 @@ with tab_patient:
             text-align:center;
         }
 
-        /* blocs */
+        /* Blocs titres et contenus */
         .block-title {
             text-align:center;
             font-weight:600;
             color:#123A5F;
-            font-size:15.5px;
+            font-size:15px;
             margin-bottom:4px;
         }
         .block-content {
             text-align:center;
-            font-size:13.5px;
+            font-size:13px;
             line-height:1.25;
             color:#123A5F;
             margin-top:3px;
         }
+
+        /* Diviseurs */
         .divider {
             border-left:1px solid #d9d9d9;
             height:100%;
             margin:0 10px;
         }
 
-        /* compact vertical */
+        /* Espacement vertical plus compact */
         div[data-testid="stVerticalBlock"] > div:nth-child(4) {
             margin-top:-18px !important;
         }
 
-        /* radios plus petites et centrées */
-        div[role="radiogroup"] label {
-            font-size:13px !important;
-            padding:1px 5px !important;
-            margin:0 2px !important;
-        }
+        /* Radios réduites et toujours sur une ligne */
         div[role="radiogroup"] {
+            display:flex !important;
             justify-content:center !important;
-            flex-wrap:nowrap !important;  /* empêche le retour à la ligne */
+            align-items:center !important;
+            flex-wrap:nowrap !important;
+            gap:4px !important;
+            margin-top:2px !important;
+            margin-bottom:2px !important;
+        }
+        div[role="radiogroup"] label {
+            font-size:12px !important;     /* plus petit pour tenir sur une ligne */
+            padding:0px 4px !important;
+            margin:0 1px !important;
+            line-height:1.1 !important;
         }
         </style>
     """, unsafe_allow_html=True)
 
-    # --- titre patient ---
+    # --- Titre patient ---
     st.markdown("<div class='section-title'>🧍 Informations patient</div>", unsafe_allow_html=True)
 
-    # === sliders ===
+    # === Sliders ===
     st.markdown("<div class='slider-red'>", unsafe_allow_html=True)
     current_year = datetime.now().year
     col_poids, col_taille, col_annee, col_prog = st.columns([1, 1, 1, 1.3])
@@ -581,27 +589,25 @@ with tab_patient:
             save_user_sessions(user_sessions)
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # === variables patient ===
+    # === Variables patient ===
     cfg = get_cfg()
     age = current_year - birth_year
     imc = weight / ((height / 100) ** 2)
 
-    # === trois blocs alignés ===
+    # === Trois blocs ===
     col_left, col_div1, col_center, col_div2, col_right = st.columns([1.2, 0.05, 1.2, 0.05, 1.2])
 
-    # Bloc gauche : paramètres principaux
+    # Bloc gauche — Paramètres principaux
     with col_left:
         st.markdown("<div class='block-title'>Paramètres principaux</div>", unsafe_allow_html=True)
-        c1, c2, c3 = st.columns([1, 2, 1])
-        with c2:
-            kv_scanner = st.radio(
-                "kV",
-                [80, 90, 100, 110, 120],
-                horizontal=True,
-                index=4,
-                key="kv_scanner_patient",
-                label_visibility="collapsed"
-            )
+        kv_scanner = st.radio(
+            "kV",
+            [80, 90, 100, 110, 120],
+            horizontal=True,
+            index=4,
+            key="kv_scanner_patient",
+            label_visibility="collapsed"
+        )
         charge_iod = float(cfg.get("charges", {}).get(str(kv_scanner), 0.45))
         concentration = int(cfg.get("concentration_mg_ml", 350))
         calc_mode_label = cfg.get("calc_mode", "Charge iodée")
@@ -615,20 +621,18 @@ with tab_patient:
     with col_div1:
         st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
 
-    # Bloc centre : injection et timing
+    # Bloc centre — Injection et timing
     with col_center:
         st.markdown("<div class='block-title'>Injection et timing</div>", unsafe_allow_html=True)
-        c1, c2, c3 = st.columns([1, 2, 1])
-        with c2:
-            injection_modes = ["Portal", "Artériel", "Intermédiaire"]
-            injection_mode = st.radio(
-                "Mode d'injection",
-                injection_modes,
-                horizontal=True,
-                index=2,
-                key="injection_mode_patient",
-                label_visibility="collapsed"
-            )
+        injection_modes = ["Portal", "Artériel", "Intermédiaire"]
+        injection_mode = st.radio(
+            "Mode d'injection",
+            injection_modes,
+            horizontal=True,
+            index=2,
+            key="injection_mode_patient",
+            label_visibility="collapsed"
+        )
         if injection_mode == "Portal":
             base_time = float(cfg.get("portal_time", 30.0))
         elif injection_mode == "Artériel":
@@ -645,7 +649,7 @@ with tab_patient:
     with col_div2:
         st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
 
-    # Bloc droit : options avancées
+    # Bloc droit — Options avancées
     with col_right:
         st.markdown("<div class='block-title'>Options avancées</div>", unsafe_allow_html=True)
         auto_age = bool(cfg.get("auto_acquisition_by_age", True))
@@ -686,6 +690,41 @@ with tab_patient:
     st.info(f"📏 IMC : {imc:.1f}" + (f" | Surface corporelle : {bsa:.2f} m²" if bsa else ""))
 
 
+# ------------------------
+# Onglet Tutoriel (inchangé)
+# ------------------------
+with tab_tutorial:
+    st.title("📘 Tutoriel — Mode d'emploi et principes cliniques")
+    st.markdown("Bienvenue dans le tutoriel. Cette section explique **comment utiliser** la calculette et **pourquoi** chaque calcul est effectué.")
+    st.header("🔧 Guide pas à pas — Utilisation")
+    st.markdown("""
+    1. **Patient** : saisissez poids, taille et année de naissance.
+    2. **kV du scanner** : choisissez la valeur correspondant à votre machine.
+    3. **Mode d’injection** : Portal / Artériel / Intermédiaire.
+    4. **Paramètres** : vérifiez la concentration, le débit max et les temps.
+    5. **Injection simultanée** : si activée, définissez la concentration cible.
+    6. **Validation** : relisez les résultats (volume contraste, NaCl, débit).
+    """)
+    st.header("🧠 Explications techniques et cliniques")
+    st.markdown("""
+    - **Charge iodée** : dose proportionnelle au poids.
+    - **Surface corporelle (BSA)** : dose selon m².
+    - **IMC>30** : règle “Charge iodée sauf IMC>30 → Surface corporelle”.
+    - **Débit** = volume / temps; ajusté si dépasse max.
+    - **Injection simultanée** : dilution pour atteindre concentration cible.
+    """)
+    st.header("🔬 Bases — recommandations spécifiques en oncologie hépatique")
+    st.markdown("""
+    Objectif : standardiser le rehaussement hépatique.
+    - Foie sain : ≥110 UH
+    - Foie stéatosique : ≥120 UH
+    ⚠️ Valeurs indicatives selon protocole local.
+    """)
+    st.header("🩺 Exemple de workflow clinique")
+    st.markdown("""
+    Patient 75 kg, 170 cm, kV=120, charge iodée 0.5, mode Portal, concentration 350 mg I/mL.
+    Exemple volume : (75x0.5)/0.35 ≈ 107 mL
+    """)
 
 # ------------------------
 # Footer
