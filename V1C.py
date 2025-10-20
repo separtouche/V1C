@@ -422,23 +422,25 @@ with tab_params:
     )
 
     program_choice = st.selectbox(
-        "Programme (Personnel)",
-        program_list,
-        index=current_index,
-        key="prog_params_personal"
-    )
+    "Programme (Personnel)",
+    program_list,
+    index=current_index,
+    key="prog_params_personal"
+)
+
 # 🔁 Synchronisation vers l’onglet Patient
 st.session_state["selected_program_global"] = program_choice
-    # 🔁 Synchronisation bidirectionnelle avec l’onglet Patient
-    if st.session_state["selected_program_global"] != program_choice:
-        st.session_state["selected_program_global"] = program_choice
-        st.session_state["program_unlocked"] = False  # 🔒 verrouillage automatique
 
-    # Charger la configuration du programme sélectionné
-    if program_choice != "Aucun":
-        prog_conf = personal_programs.get(program_choice, {})
-        for key, val in prog_conf.items():
-            cfg[key] = val
+# Si changement, verrouillage automatique
+if st.session_state["selected_program_global"] != program_choice:
+    st.session_state["selected_program_global"] = program_choice
+    st.session_state["program_unlocked"] = False  # 🔒 verrouillage auto
+
+# Charger la configuration du programme sélectionné
+if program_choice != "Aucun":
+    prog_conf = personal_programs.get(program_choice, {})
+    for key, val in prog_conf.items():
+        cfg[key] = val
 
     # Déterminer si les champs doivent être grisés
     program_selected = (st.session_state["selected_program_global"] != "Aucun")
