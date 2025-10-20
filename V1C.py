@@ -493,7 +493,7 @@ with tab_params:
                     st.error(f"Erreur suppression identifiant : {e}")
 
 # ------------------------
-# Onglet Patient (blocs titres centrés, taille réduite, espace resserré)
+# Onglet Patient — Titres et valeurs centrés, blocs rapprochés sous sliders
 # ------------------------
 with tab_patient:
     # CSS
@@ -508,13 +508,13 @@ with tab_patient:
         .divider {
             border-left: 1px solid #d9d9d9;
             height: 100%;
-            margin: 0 20px;
+            margin: 0 15px;
         }
         .info-block {
             background: transparent !important;
             border-radius: 0 !important;
             box-shadow: none !important;
-            padding: 4px 0;
+            padding: 0;
             color: #123A5F;
             text-align: center;
         }
@@ -522,21 +522,27 @@ with tab_patient:
             font-size: 22px;
             font-weight: 700;
             color:#123A5F;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
         }
         div[role="radiogroup"] label {
             padding: 2px 6px !important;
             margin: 0 2px !important;
             font-size: 0.85rem !important;
         }
-        /* ↓↓↓ Espace resserré ↓↓↓ */
-        .after-sliders { margin-top: -20px !important; }
+        /* ↓↓↓ Espace resserré encore plus ↓↓↓ */
+        .after-sliders { margin-top: -25px !important; }
         .block-title {
             font-weight:700;
-            font-size:18px;
+            font-size:17px;
             text-align:center;
             color:#123A5F;
-            margin-bottom:6px;
+            margin-bottom:4px;
+        }
+        .block-content {
+            text-align:center;
+            font-size:14.5px;
+            line-height:1.3;
+            margin-top:2px;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -583,7 +589,7 @@ with tab_patient:
     age = current_year - birth_year
     imc = weight / ((height / 100) ** 2)
 
-    # === LIGNE 2 : Trois blocs compacts et centrés ===
+    # === LIGNE 2 : Trois blocs centrés et rapprochés ===
     st.markdown("<div class='after-sliders'>", unsafe_allow_html=True)
     col_left, col_div1, col_center, col_div2, col_right = st.columns([1.2, 0.05, 1.2, 0.05, 1.2])
 
@@ -603,7 +609,7 @@ with tab_patient:
         calc_mode_label = cfg.get("calc_mode", "Charge iodée")
 
         st.markdown(
-            f"<div style='text-align:center; font-size:15px;'>"
+            f"<div class='block-content'>"
             f"<b>Charge iodée :</b> {charge_iod:.2f} g I/kg<br>"
             f"<b>Concentration :</b> {concentration} mg I/mL<br>"
             f"<b>Méthode :</b> {calc_mode_label}"
@@ -637,7 +643,7 @@ with tab_patient:
         acquisition_start = calculate_acquisition_start(age, cfg)
 
         st.markdown(
-            f"<div style='text-align:center; font-size:15px;'>"
+            f"<div class='block-content'>"
             f"<b>Temps {injection_mode.lower()} :</b> {base_time:.0f} s<br>"
             f"<b>Départ d'acquisition :</b> {acquisition_start:.1f} s"
             f"</div>",
@@ -654,7 +660,7 @@ with tab_patient:
         sim_enabled = bool(cfg.get("simultaneous_enabled", False))
 
         st.markdown(
-            f"<div style='text-align:center; font-size:15px;'>"
+            f"<div class='block-content'>"
             f"<b>Ajustement automatique selon l'âge :</b><br>"
             f"{'✅ activé' if auto_age else '❌ désactivé'}<br><br>"
             f"<b>Injection simultanée :</b><br>"
@@ -702,11 +708,11 @@ with tab_patient:
 
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.markdown(f"<h4>💧 Volume contraste conseillé</h4><h2>{int(vol_contrast_display)} mL</h2>", unsafe_allow_html=True)
+        st.markdown(f"<h4 style='text-align:center;'>💧 Volume contraste conseillé</h4><h2 style='text-align:center;'>{int(vol_contrast_display)} mL</h2>", unsafe_allow_html=True)
     with col2:
-        st.markdown(f"<h4>💧 Volume NaCl conseillé</h4><h2>{int(vol_nacl_total_display)} mL</h2>", unsafe_allow_html=True)
+        st.markdown(f"<h4 style='text-align:center;'>💧 Volume NaCl conseillé</h4><h2 style='text-align:center;'>{int(vol_nacl_total_display)} mL</h2>", unsafe_allow_html=True)
     with col3:
-        st.markdown(f"<h4>🚀 Débit conseillé</h4><h2>{injection_rate:.1f} mL/s</h2>", unsafe_allow_html=True)
+        st.markdown(f"<h4 style='text-align:center;'>🚀 Débit conseillé</h4><h2 style='text-align:center;'>{injection_rate:.1f} mL/s</h2>", unsafe_allow_html=True)
 
     if time_adjusted:
         st.warning(f"⚠️ Temps d’injection ajusté à {injection_time:.1f}s pour respecter le débit maximal de {float(cfg.get('max_debit',6.0)):.1f} mL/s.")
