@@ -364,9 +364,8 @@ def set_cfg_and_persist(user_id, new_cfg):
     else:
         user_sessions[user_id]["config"] = new_cfg.copy()
     save_user_sessions(user_sessions)
-
 # ------------------------
-# Onglet Paramètres (version complète corrigée)
+# Onglet Paramètres (version complète et corrigée)
 # ------------------------
 with tab_params:
     st.header("⚙️ Paramètres et Bibliothèque (personnelle)")
@@ -401,16 +400,38 @@ with tab_params:
             cfg[key] = val
 
     new_prog_name = st.text_input("Nom du nouveau programme (sera enregistré dans vos programmes personnels)")
+
+    # ✅ Sauvegarde complète du programme avec toutes les valeurs
     if st.button("💾 Ajouter/Mise à jour programme"):
         if new_prog_name.strip():
-            to_save = {k: cfg[k] for k in cfg}
-            user_sessions.setdefault(user_id, {}).setdefault("programs", {})[new_prog_name.strip()] = to_save
+            current_values = {
+                "simultaneous_enabled": cfg.get("simultaneous_enabled", False),
+                "target_concentration": cfg.get("target_concentration", 350),
+                "concentration_mg_ml": cfg.get("concentration_mg_ml", 350),
+                "calc_mode": cfg.get("calc_mode", "Charge iodée"),
+                "max_debit": cfg.get("max_debit", 6.0),
+                "auto_acquisition_by_age": cfg.get("auto_acquisition_by_age", True),
+                "acquisition_start_param": cfg.get("acquisition_start_param", 70.0),
+                "portal_time": cfg.get("portal_time", 30.0),
+                "arterial_time": cfg.get("arterial_time", 25.0),
+                "intermediate_enabled": cfg.get("intermediate_enabled", False),
+                "intermediate_time": cfg.get("intermediate_time", 28.0),
+                "rincage_volume": cfg.get("rincage_volume", 35.0),
+                "rincage_delta_debit": cfg.get("rincage_delta_debit", 0.5),
+                "volume_max_limit": cfg.get("volume_max_limit", 200.0),
+                "charges": cfg.get("charges", {})
+            }
+            cfg.update(current_values)
+
+            user_sessions.setdefault(user_id, {}).setdefault("programs", {})[new_prog_name.strip()] = cfg.copy()
             user_sessions[user_id]["config"] = cfg.copy()
             save_user_sessions(user_sessions)
-            st.success(f"Programme personnel '{new_prog_name}' ajouté/mis à jour pour l'identifiant '{user_id}' !")
-        else:
-            st.warning("Donnez un nom au programme.")
 
+            st.success(f"✅ Programme personnel '{new_prog_name}' sauvegardé avec tous les paramètres !")
+        else:
+            st.warning("Veuillez donner un nom au programme avant d’enregistrer.")
+
+    # --- Suppression de programmes ---
     st.markdown("**Gérer mes programmes personnels**")
     personal_prog_list = list(user_sessions.get(user_id, {}).get("programs", {}).keys())
     if personal_prog_list:
@@ -457,13 +478,12 @@ with tab_params:
     st.markdown("---")
     st.subheader("⏱ Départ d’acquisition et temps d’injection")
 
-    # ✅ Nouveau : ajustement automatique ou manuel
+    # ✅ Ajustement automatique ou manuel
     cfg["auto_acquisition_by_age"] = st.checkbox(
         "Ajuster automatiquement le départ d’acquisition selon l’âge",
         value=bool(cfg.get("auto_acquisition_by_age", True))
     )
 
-    # ✅ Si non automatique, on peut modifier manuellement la valeur
     if not cfg["auto_acquisition_by_age"]:
         cfg["acquisition_start_param"] = st.number_input(
             "Départ d’acquisition manuel (s)",
