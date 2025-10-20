@@ -660,7 +660,7 @@ with tab_params:
                 except Exception as e:
                     st.error(f"Erreur suppression identifiant : {e}")
 # ------------------------
-# Onglet Patient — version finale stable
+# Onglet Patient — version stable, alignement parfait
 # ------------------------
 with tab_patient:
     # === Style global ===
@@ -694,7 +694,7 @@ with tab_patient:
             text-align:center;
         }
 
-        /* Champs numériques à droite des sliders */
+        /* === Champs numériques à droite des sliders === */
         .num-inline input[type="number"] {
             text-align:center;
             font-size:13px !important;
@@ -702,29 +702,31 @@ with tab_patient:
             border-radius:6px;
             border:1px solid #ccc;
             padding:2px 0;
-            margin-top:18px;
+            margin-top:18px; /* alignement vertical avec le slider */
         }
 
-        /* Titres alignés avec leurs blocs */
+        /* === Titres alignés parfaitement sur leurs colonnes === */
         .block-title {
             font-weight:700 !important;
             color:#123A5F !important;
             font-size:16px !important;
             margin-bottom:6px !important;
-            width:100%;
             text-align:left !important;
-            padding-left:12px !important;
         }
 
-        /* Alignement précis des colonnes de blocs */
-        [data-testid="stHorizontalBlock"] > div:nth-child(1) [data-testid="stVerticalBlock"] > div {
-            margin-left:0 !important;
+        /* Bloc gauche (Paramètres principaux) */
+        [data-testid="column"]:nth-of-type(1) .block-title {
+            padding-left:10px !important;
         }
-        [data-testid="stHorizontalBlock"] > div:nth-child(3) [data-testid="stVerticalBlock"] > div {
-            margin-left:3%;
+
+        /* Bloc centre (Injection et timing) */
+        [data-testid="column"]:nth-of-type(3) .block-title {
+            padding-left:25px !important;
         }
-        [data-testid="stHorizontalBlock"] > div:nth-child(5) [data-testid="stVerticalBlock"] > div {
-            margin-left:5%;
+
+        /* Bloc droit (Options avancées) */
+        [data-testid="column"]:nth-of-type(5) .block-title {
+            padding-left:40px !important;
         }
 
         .divider {
@@ -804,6 +806,9 @@ with tab_patient:
     cfg = get_cfg()
     age = current_year - birth_year
     imc = weight / ((height / 100) ** 2)
+
+    # === Suite du bloc inchangée (kV, injection, calculs, etc.)
+
 
     # === Ligne 2 : 3 blocs ===
     col_left, col_div1, col_center, col_div2, col_right = st.columns([1.2, 0.05, 1.2, 0.05, 1.2])
