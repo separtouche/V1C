@@ -364,30 +364,20 @@ def set_cfg_and_persist(user_id, new_cfg):
     else:
         user_sessions[user_id]["config"] = new_cfg.copy()
     save_user_sessions(user_sessions)
+
 # ------------------------
-# Onglet Paramètres (version complète et corrigée)
+# Onglet Paramètres (version finale avec ordre réorganisé)
 # ------------------------
 with tab_params:
     st.header("⚙️ Paramètres et Bibliothèque (personnelle)")
     user_id = st.session_state["user_id"]
     cfg = get_cfg()
 
-    # --- Injection simultanée ---
-    cfg["simultaneous_enabled"] = st.checkbox(
-        "Activer l'injection simultanée",
-        value=cfg.get("simultaneous_enabled", False)
-    )
-    if cfg["simultaneous_enabled"]:
-        cfg["target_concentration"] = st.number_input(
-            "Concentration cible (mg I/mL)",
-            value=int(cfg.get("target_concentration", 350)),
-            min_value=200,
-            max_value=500,
-            step=10
-        )
-
-    # --- Programmes personnels ---
+    # ----------------------------------------------------------------------
+    # 📚 SECTION 1 — Vos programmes personnels (remontée en premier)
+    # ----------------------------------------------------------------------
     st.subheader("📚 Vos programmes personnels")
+
     personal_programs = user_sessions.get(user_id, {}).get("programs", {})
     program_choice = st.selectbox(
         "Programme (Personnel)",
@@ -401,7 +391,7 @@ with tab_params:
 
     new_prog_name = st.text_input("Nom du nouveau programme (sera enregistré dans vos programmes personnels)")
 
-    # ✅ Sauvegarde complète du programme avec toutes les valeurs
+    # ✅ Sauvegarde complète du programme
     if st.button("💾 Ajouter/Mise à jour programme"):
         if new_prog_name.strip():
             current_values = {
@@ -431,7 +421,6 @@ with tab_params:
         else:
             st.warning("Veuillez donner un nom au programme avant d’enregistrer.")
 
-    # --- Suppression de programmes ---
     st.markdown("**Gérer mes programmes personnels**")
     personal_prog_list = list(user_sessions.get(user_id, {}).get("programs", {}).keys())
     if personal_prog_list:
@@ -450,10 +439,25 @@ with tab_params:
     else:
         st.info("Vous n'avez pas encore de programmes personnels enregistrés.")
 
+    # ----------------------------------------------------------------------
+    # 💉 SECTION 2 — Paramètres d’injection
+    # ----------------------------------------------------------------------
     st.markdown("---")
-    st.subheader("🧩 Paramètres enregistrés dans votre espace personnel")
+    st.subheader("💉 Paramètres d’injection et calculs")
 
-    # --- Choix concentration, méthode, etc. ---
+    cfg["simultaneous_enabled"] = st.checkbox(
+        "Activer l'injection simultanée",
+        value=cfg.get("simultaneous_enabled", False)
+    )
+    if cfg["simultaneous_enabled"]:
+        cfg["target_concentration"] = st.number_input(
+            "Concentration cible (mg I/mL)",
+            value=int(cfg.get("target_concentration", 350)),
+            min_value=200,
+            max_value=500,
+            step=10
+        )
+
     cfg["concentration_mg_ml"] = st.selectbox(
         "Concentration (mg I/mL)",
         [300, 320, 350, 370, 400],
@@ -472,13 +476,12 @@ with tab_params:
         step=0.1
     )
 
-    # ------------------------
-    # 🕒 Bloc acquisition & temps
-    # ------------------------
+    # ----------------------------------------------------------------------
+    # 🕒 SECTION 3 — Acquisition et temps
+    # ----------------------------------------------------------------------
     st.markdown("---")
     st.subheader("⏱ Départ d’acquisition et temps d’injection")
 
-    # ✅ Ajustement automatique ou manuel
     cfg["auto_acquisition_by_age"] = st.checkbox(
         "Ajuster automatiquement le départ d’acquisition selon l’âge",
         value=bool(cfg.get("auto_acquisition_by_age", True))
@@ -494,7 +497,6 @@ with tab_params:
             help="Valeur utilisée si le mode automatique est désactivé."
         )
 
-    # Temps d’injection
     cfg["portal_time"] = st.number_input(
         "Portal (s)",
         value=float(cfg.get("portal_time", 30.0)),
@@ -523,7 +525,9 @@ with tab_params:
             step=1.0
         )
 
-    # --- Rinçage et volume max ---
+    # ----------------------------------------------------------------------
+    # ⚗️ SECTION 4 — Rinçage et volumes
+    # ----------------------------------------------------------------------
     cfg["rincage_volume"] = st.number_input(
         "Volume rinçage (mL)",
         value=float(cfg.get("rincage_volume", 35.0)),
@@ -546,8 +550,11 @@ with tab_params:
         step=10.0
     )
 
-    # --- Charges iodées ---
-    st.markdown("**Charges en iode par kV (g I/kg)**")
+    # ----------------------------------------------------------------------
+    # 🧮 SECTION 5 — Charges iodées
+    # ----------------------------------------------------------------------
+    st.markdown("---")
+    st.subheader("💊 Charges en iode par kV (g I/kg)")
     df_charges = pd.DataFrame({
         "kV": [80, 90, 100, 110, 120],
         "Charge (g I/kg)": [float(cfg["charges"].get(str(kv), 0.35)) for kv in [80, 90, 100, 110, 120]]
@@ -562,7 +569,9 @@ with tab_params:
         except Exception as e:
             st.error(f"Erreur lors de la sauvegarde : {e}")
 
-    # --- Gestion des identifiants ---
+    # ----------------------------------------------------------------------
+    # 👤 SECTION 6 — Gestion des identifiants
+    # ----------------------------------------------------------------------
     st.markdown("---")
     st.subheader("🗂 Gestion des sessions / identifiants")
     st.markdown("Les identifiants sont indépendants. Vos programmes et paramètres personnels ne sont accessibles qu'avec votre identifiant.")
@@ -606,7 +615,6 @@ with tab_params:
                     st.rerun()
                 except Exception as e:
                     st.error(f"Erreur suppression identifiant : {e}")
-
 # ------------------------
 # Onglet Patient — version finale complète avec option intermédiaire dynamique et message d’attention
 # ------------------------
