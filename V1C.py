@@ -872,7 +872,7 @@ with tab_patient:
             f"{'✅ activée' if sim_enabled else '❌ désactivée'}</div>",
             unsafe_allow_html=True,
         )
-               # --- Calculs finaux ---
+                 # --- Calculs finaux ---
     volume, bsa = calculate_volume(
         weight, height, kv_scanner,
         float(cfg.get("concentration_mg_ml", 350)),
@@ -886,63 +886,94 @@ with tab_patient:
 
     st.markdown("---")
 
-    # --- Si injection simultanée activée ---
-    if cfg.get("simultaneous_enabled", False):
-        target_conc = float(cfg.get("target_concentration", 350))
-        conc_contrast = float(cfg.get("concentration_mg_ml", 350))
-        if target_conc < conc_contrast:
-            # Calcul du volume NaCl nécessaire pour dilution simultanée
-            volume_nacl_mix = volume * (conc_contrast / target_conc - 1)
-            volume_nacl_mix = max(0, min(volume_nacl_mix, 100))  # limite sécurité
-        else:
-            volume_nacl_mix = float(cfg.get("rincage_volume", 35.0))
-
-        st.info(f"🧪 Injection simultanée activée — dilution pour atteindre ~{int(target_conc)} mg I/mL.")
-    else:
-        volume_nacl_mix = float(cfg.get("rincage_volume", 35.0))
-
-    # --- Calcul débit NaCl ---
+    # --- Paramètres clés ---
+    sim_enabled = bool(cfg.get("simultaneous_enabled", False))
     delta_debit = float(cfg.get("rincage_delta_debit", 0.5))
-    debit_nacl = max(0.1, injection_rate - delta_debit)
+    vol_rincage = float(cfg.get("rincage_volume", 35.0))
+    debit_rincage = max(0.1, injection_rate - delta_debit)
+
+    # --- Pourcentage dilution (à ajouter dans les paramètres si pas déjà fait) ---
+    dilution_ratio = int(cfg.get("simultaneous_ratio", 20))  # 20% par défaut
+    vol_dilution_nacl = round(volume * dilution_ratio / 100)
 
     # --- Deux cartes alignées ---
     col_contrast, col_nacl = st.columns(2)
 
     # === Bloc Contraste ===
     with col_contrast:
-        st.markdown(f"""
-            <div style='background-color:#E3F2FD;
-                        border-left:6px solid #1565C0;
-                        border-radius:12px;
-                        padding:18px;
-                        text-align:center;
-                        box-shadow:0 1px 4px rgba(0,0,0,0.08);'>
-                <h4 style='margin-top:0; color:#0D47A1; font-weight:700;'>
-                    💧 Volume et Débit de contraste conseillés
-                </h4>
-                <div style='font-size:22px; color:#0D47A1; font-weight:600; margin-top:8px;'>
-                    {int(round(volume))} mL&nbsp;&nbsp;—&nbsp;&nbsp;{injection_rate:.1f} mL/s
+        if sim_enabled:
+            st.markdown(f"""
+                <div style='background-color:#E3F2FD;
+                            border-left:6px solid #1565C0;
+                            border-radius:12px;
+                            padding:18px;
+                            text-align:center;
+                            box-shadow:0 1px 4px rgba(0,0,0,0.08);'>
+                    <h4 style='margin-top:0; color:#0D47A1; font-weight:700;'>
+                        💧 Volume et Débit de contraste conseillés
+                    </h4>
+                    <div style='font-size:22px; color:#0D47A1; font-weight:600; margin-top:8px;'>
+                        {int(round(volume))} mL — {injection_rate:.1f} mL/s
+                    </div>
+                    <div style='font-size:18px; color:#0D47A1; margin-top:6px;'>
+                        → Injection simultanée : <b>{100 - dilution_ratio}%</b> contraste
+                    </div>
                 </div>
-            </div>
-        """, unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+                <div style='background-color:#E3F2FD;
+                            border-left:6px solid #1565C0;
+                            border-radius:12px;
+                            padding:18px;
+                            text-align:center;
+                            box-shadow:0 1px 4px rgba(0,0,0,0.08);'>
+                    <h4 style='margin-top:0; color:#0D47A1; font-weight:700;'>
+                        💧 Volume et Débit de contraste conseillés
+                    </h4>
+                    <div style='font-size:22px; color:#0D47A1; font-weight:600; margin-top:8px;'>
+                        {int(round(volume))} mL — {injection_rate:.1f} mL/s
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
 
     # === Bloc NaCl ===
     with col_nacl:
-        st.markdown(f"""
-            <div style='background-color:#E8F5E9;
-                        border-left:6px solid #2E7D32;
-                        border-radius:12px;
-                        padding:18px;
-                        text-align:center;
-                        box-shadow:0 1px 4px rgba(0,0,0,0.08);'>
-                <h4 style='margin-top:0; color:#1B5E20; font-weight:700;'>
-                    💧 Volume et Débit de NaCl conseillés
-                </h4>
-                <div style='font-size:22px; color:#1B5E20; font-weight:600; margin-top:8px;'>
-                    {int(round(volume_nacl_mix))} mL&nbsp;&nbsp;—&nbsp;&nbsp;{debit_nacl:.1f} mL/s
+        if sim_enabled:
+            st.markdown(f"""
+                <div style='background-color:#E8F5E9;
+                            border-left:6px solid #2E7D32;
+                            border-radius:12px;
+                            padding:18px;
+                            text-align:center;
+                            box-shadow:0 1px 4px rgba(0,0,0,0.08);'>
+                    <h4 style='margin-top:0; color:#1B5E20; font-weight:700;'>
+                        💧 Volume et Débit de NaCl conseillés
+                    </h4>
+                    <div style='font-size:18px; color:#1B5E20; font-weight:600; margin-top:8px;'>
+                        Dilution : <b>{dilution_ratio}%</b> — {vol_dilution_nacl} mL
+                    </div>
+                    <div style='font-size:18px; color:#1B5E20; font-weight:600; margin-top:8px;'>
+                        Rinçage : <b>{int(vol_rincage)}</b> mL — {debit_rincage:.1f} mL/s
+                    </div>
                 </div>
-            </div>
-        """, unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+                <div style='background-color:#E8F5E9;
+                            border-left:6px solid #2E7D32;
+                            border-radius:12px;
+                            padding:18px;
+                            text-align:center;
+                            box-shadow:0 1px 4px rgba(0,0,0,0.08);'>
+                    <h4 style='margin-top:0; color:#1B5E20; font-weight:700;'>
+                        💧 Volume et Débit de NaCl conseillés
+                    </h4>
+                    <div style='font-size:22px; color:#1B5E20; font-weight:600; margin-top:8px;'>
+                        {int(vol_rincage)} mL — {debit_rincage:.1f} mL/s
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
 
     # --- Ajustement si temps modifié ---
     if time_adjusted:
