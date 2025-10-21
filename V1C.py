@@ -678,7 +678,7 @@ with tab_params:
                     st.error(f"Erreur suppression identifiant : {e}")
                     
 # ------------------------
-# Onglet Patient — version finale corrigée et stable
+# Onglet Patient — version finale avec centrage des radios
 # ------------------------
 with tab_patient:
     # === Style global ===
@@ -715,19 +715,6 @@ with tab_patient:
             font-size:16px;
             margin-bottom:6px;
         }
-        div[role="radiogroup"] {
-            display:flex !important;
-            justify-content:center !important;
-            align-items:center !important;
-            flex-wrap:nowrap !important;
-            gap:4px !important;
-        }
-        div[role="radiogroup"] label {
-            font-size:13px !important;
-            padding:0 4px !important;
-            margin:0 1px !important;
-            white-space:nowrap !important;
-        }
         .divider {
             border-left:1px solid #d9d9d9;
             height:100%;
@@ -740,7 +727,6 @@ with tab_patient:
     st.markdown("<div class='section-title'>🧍 Informations patient</div>", unsafe_allow_html=True)
 
     # === Ligne 1 : Sliders ===
-    st.markdown("<div class='slider-red'>", unsafe_allow_html=True)
     current_year = datetime.now().year
     col_poids, col_taille, col_annee, col_prog = st.columns([1, 1, 1, 1.3])
 
@@ -766,7 +752,6 @@ with tab_patient:
             set_cfg_and_persist(user_id, cfg)
             user_sessions[user_id]["last_selected_program"] = prog_choice_patient
             save_user_sessions(user_sessions)
-    st.markdown("</div>", unsafe_allow_html=True)
 
     # === Variables patient ===
     cfg = get_cfg()
@@ -779,14 +764,16 @@ with tab_patient:
     # --- Bloc gauche ---
     with col_left:
         st.markdown("<div class='block-title'>Choix de la tension du tube (en kV)</div>", unsafe_allow_html=True)
-        kv_scanner = st.radio(
-            "kV",
-            [80, 90, 100, 110, 120],
-            horizontal=True,
-            index=4,
-            key="kv_scanner_patient",
-            label_visibility="collapsed",
-        )
+        _, col_centered, _ = st.columns([1, 2, 1])
+        with col_centered:
+            kv_scanner = st.radio(
+                "kV",
+                [80, 90, 100, 110, 120],
+                horizontal=True,
+                index=4,
+                key="kv_scanner_patient",
+                label_visibility="collapsed"
+            )
         charge_iod = float(cfg.get("charges", {}).get(str(kv_scanner), 0.45))
         concentration = int(cfg.get("concentration_mg_ml", 350))
         calc_mode_label = cfg.get("calc_mode", "Charge iodée")
@@ -795,7 +782,7 @@ with tab_patient:
             f"<b>Charge iodée :</b> {charge_iod:.2f} g I/kg<br>"
             f"<b>Concentration :</b> {concentration} mg I/mL<br>"
             f"<b>Méthode :</b> {calc_mode_label}</div>",
-            unsafe_allow_html=True,
+            unsafe_allow_html=True
         )
 
     with col_div1:
@@ -807,15 +794,16 @@ with tab_patient:
         injection_modes = ["Portal", "Artériel"]
         if cfg.get("intermediate_enabled", False):
             injection_modes.append("Intermédiaire")
-
-        injection_mode = st.radio(
-            "Mode d'injection",
-            injection_modes,
-            horizontal=True,
-            index=0,
-            key="injection_mode_patient",
-            label_visibility="collapsed",
-        )
+        _, col_centered, _ = st.columns([1, 2, 1])
+        with col_centered:
+            injection_mode = st.radio(
+                "Mode d'injection",
+                injection_modes,
+                horizontal=True,
+                index=0,
+                key="injection_mode_patient",
+                label_visibility="collapsed"
+            )
 
         if injection_mode == "Portal":
             base_time = float(cfg.get("portal_time", 30.0))
@@ -827,13 +815,10 @@ with tab_patient:
             base_time = float(cfg.get("portal_time", 30.0))
 
         acquisition_start = calculate_acquisition_start(age, cfg)
-
-        # ✅ correction syntaxe ici :
         arterial_line = (
             f"<br><b>Départ acquisition en artériel :</b> {cfg.get('arterial_acq_time', 25.0):.1f} s"
             if cfg.get('arterial_acq_enabled', True) else ""
         )
-
         html_center = (
             f"<div style='text-align:center; font-size:15px; color:#123A5F;'>"
             f"<b>Temps {injection_mode.lower()} :</b> {base_time:.0f} s<br>"
@@ -843,30 +828,6 @@ with tab_patient:
         )
         st.markdown(html_center, unsafe_allow_html=True)
 
-        if injection_mode == "Intermédiaire":
-            st.markdown(
-                """
-                <div style='background-color:#E3F2FD; border-left:4px solid #1976D2;
-                            padding:8px 10px; margin-top:6px; border-radius:6px;
-                            color:#0D47A1; font-size:13px; text-align:center;'>
-                    ⚠️ <b>Attention :</b> pensez à ajuster le départ d’acquisition.
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
-        if cfg.get("intermediate_enabled", False) and injection_mode == "Intermédiaire":
-            new_intermediate_time = st.number_input(
-                "Modifier temps intermédiaire (s)",
-                value=float(cfg.get("intermediate_time", 28.0)),
-                min_value=5.0,
-                max_value=120.0,
-                step=1.0,
-                key="patient_intermediate_time",
-            )
-            cfg["intermediate_time"] = float(new_intermediate_time)
-            set_cfg_and_persist(st.session_state["user_id"], cfg)
-
     with col_div2:
         st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
 
@@ -874,7 +835,6 @@ with tab_patient:
     with col_right:
         st.markdown("<div class='block-title'>Options avancées</div>", unsafe_allow_html=True)
         auto_age = bool(cfg.get("auto_acquisition_by_age", True))
-
         html_opt = (
             f"<div style='text-align:center; font-size:15px; color:#123A5F;'>"
             f"<b>Ajustement automatique selon l'âge :</b><br>"
