@@ -678,7 +678,7 @@ with tab_params:
                     st.error(f"Erreur suppression identifiant : {e}")
                     
 # ------------------------
-# Onglet Patient — version finale propre, centrée et fonctionnelle
+# Onglet Patient — version finale propre et stable
 # ------------------------
 with tab_patient:
     # === Styles ===
@@ -696,18 +696,21 @@ with tab_patient:
             align-items:center !important;
             flex-wrap:nowrap !important;
             white-space:nowrap !important;
-            gap:18px !important;
-            overflow-x:auto !important;
-            padding:6px 4px !important;
+            gap:22px !important;
+            overflow-x:hidden !important;
+            padding:6px 12px !important;
+            margin-left:12px !important;
         }
         div[role="radiogroup"]::-webkit-scrollbar { display:none; }
         div[role="radiogroup"] label {
             font-size:14px !important;
-            padding:4px 12px !important;
+            padding:6px 14px !important;
             border-radius:8px !important;
             background:#F8FAFD !important;
             border:1px solid #DCE4EC !important;
             transition:all 0.2s ease-in-out;
+            min-width:65px !important;
+            text-align:center !important;
         }
         div[role="radiogroup"] label:hover {
             background:#E6EEF8 !important;
@@ -824,8 +827,7 @@ with tab_patient:
             f"<b>Ajustement automatique selon l'âge :</b><br>"
             f"{'✅ activé' if auto_age else '❌ désactivé'}</div>",
             unsafe_allow_html=True
-        )
-        
+        )        
     # === Calculs volumes et débits ===
     volume, bsa = calculate_volume(
         weight, height, kv_scanner,
