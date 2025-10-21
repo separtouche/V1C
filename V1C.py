@@ -678,9 +678,39 @@ with tab_params:
                     st.error(f"Erreur suppression identifiant : {e}")
 
 # ------------------------
-# Onglet Patient — version finale avec centrage parfait des boutons radio
+# Onglet Patient — version finale avec centrage, valeurs par défaut et synchro sliders
 # ------------------------
+
+# ✅ Initialisation automatique des valeurs par défaut à l'ouverture
+if "defaults_loaded" not in st.session_state:
+    st.session_state["defaults_loaded"] = True
+    st.session_state["num_poids"] = 70
+    st.session_state["slider_poids"] = 70
+    st.session_state["num_taille"] = 170
+    st.session_state["slider_taille"] = 170
+    st.session_state["num_annee"] = 1997
+    st.session_state["slider_annee"] = 1997
+    st.session_state["kv_scanner_patient"] = 100
+    st.session_state["injection_mode_patient"] = "Portal"
+
 with tab_patient:
+    # --- Synchronisation bidirectionnelle sliders <-> inputs ---
+    # (Met à jour automatiquement les deux sens sans boucle infinie)
+    if st.session_state.get("slider_poids") != st.session_state.get("num_poids"):
+        st.session_state["num_poids"] = st.session_state["slider_poids"]
+    if st.session_state.get("slider_taille") != st.session_state.get("num_taille"):
+        st.session_state["num_taille"] = st.session_state["slider_taille"]
+    if st.session_state.get("slider_annee") != st.session_state.get("num_annee"):
+        st.session_state["num_annee"] = st.session_state["slider_annee"]
+
+    if st.session_state.get("num_poids") != st.session_state.get("slider_poids"):
+        st.session_state["slider_poids"] = st.session_state["num_poids"]
+    if st.session_state.get("num_taille") != st.session_state.get("slider_taille"):
+        st.session_state["slider_taille"] = st.session_state["num_taille"]
+    if st.session_state.get("num_annee") != st.session_state.get("slider_annee"):
+        st.session_state["slider_annee"] = st.session_state["num_annee"]
+
+    # --- Style ---
     st.markdown("""
         <style>
         .section-title {
@@ -691,7 +721,6 @@ with tab_patient:
             font-weight:700; color:#123A5F;
             font-size:16px; margin-bottom:6px; text-align:center;
         }
-        /* ✅ Centrage parfait sans modifier l'espacement interne */
         div[role="radiogroup"] {
             display:flex !important;
             justify-content:center !important;
@@ -721,16 +750,16 @@ with tab_patient:
     col_poids, col_taille, col_annee, col_prog = st.columns([1, 1, 1, 1.3])
     with col_poids:
         st.markdown("<div class='block-title'>Poids (kg)</div>", unsafe_allow_html=True)
-        weight = st.number_input("", 20, 200, 70, step=1, key="num_poids", label_visibility="collapsed")
-        weight = st.slider(" ", 20, 200, weight, key="slider_poids", label_visibility="collapsed")
+        num_poids = st.number_input("", 20, 200, st.session_state["num_poids"], step=1, key="num_poids", label_visibility="collapsed")
+        slider_poids = st.slider(" ", 20, 200, st.session_state["slider_poids"], key="slider_poids", label_visibility="collapsed")
     with col_taille:
         st.markdown("<div class='block-title'>Taille (cm)</div>", unsafe_allow_html=True)
-        height = st.number_input("", 100, 220, 170, step=1, key="num_taille", label_visibility="collapsed")
-        height = st.slider("  ", 100, 220, height, key="slider_taille", label_visibility="collapsed")
+        num_taille = st.number_input("", 100, 220, st.session_state["num_taille"], step=1, key="num_taille", label_visibility="collapsed")
+        slider_taille = st.slider("  ", 100, 220, st.session_state["slider_taille"], key="slider_taille", label_visibility="collapsed")
     with col_annee:
         st.markdown("<div class='block-title'>Année de naissance</div>", unsafe_allow_html=True)
-        birth_year = st.number_input("", current_year-120, current_year, 1985, step=1, key="num_annee", label_visibility="collapsed")
-        birth_year = st.slider("   ", current_year-120, current_year, birth_year, key="slider_annee", label_visibility="collapsed")
+        num_annee = st.number_input("", current_year-120, current_year, st.session_state["num_annee"], step=1, key="num_annee", label_visibility="collapsed")
+        slider_annee = st.slider("   ", current_year-120, current_year, st.session_state["slider_annee"], key="slider_annee", label_visibility="collapsed")
     with col_prog:
         st.markdown("<div class='block-title'>Programme</div>", unsafe_allow_html=True)
         _uid = st.session_state["user_id"]
@@ -746,6 +775,9 @@ with tab_patient:
 
     # === Variables patient ===
     cfg = get_cfg()
+    weight = st.session_state["num_poids"]
+    height = st.session_state["num_taille"]
+    birth_year = st.session_state["num_annee"]
     age = current_year - birth_year
     imc = weight / ((height/100)**2)
 
@@ -755,14 +787,13 @@ with tab_patient:
     # --- Bloc gauche — kV ---
     with col_left:
         st.markdown("<div class='block-title'>Choix de la tension du tube (en kV)</div>", unsafe_allow_html=True)
-        # ✅ centrage parfait via colonne virtuelle
         _, col_centered, _ = st.columns([1, 2.5, 1])
         with col_centered:
             kv_scanner = st.radio(
                 "kV",
                 [80, 90, 100, 110, 120],
                 horizontal=True,
-                index=4,
+                index=[80,90,100,110,120].index(st.session_state["kv_scanner_patient"]),
                 key="kv_scanner_patient",
                 label_visibility="collapsed"
             )
@@ -787,14 +818,13 @@ with tab_patient:
         if cfg.get("intermediate_enabled", False):
             modes.append("Intermédiaire")
 
-        # ✅ centrage parfait via colonne virtuelle
         _, col_centered, _ = st.columns([1, 2.5, 1])
         with col_centered:
             injection_mode = st.radio(
                 "Mode d'injection",
                 modes,
                 horizontal=True,
-                index=0,
+                index=modes.index(st.session_state["injection_mode_patient"]) if st.session_state["injection_mode_patient"] in modes else 0,
                 key="injection_mode_patient",
                 label_visibility="collapsed"
             )
@@ -828,7 +858,7 @@ with tab_patient:
             unsafe_allow_html=True
         )
 
-    # === Calculs principaux ===
+    # === Calculs principaux et résultats ===
     volume, bsa = calculate_volume(
         weight, height, kv_scanner,
         float(cfg.get("concentration_mg_ml", 350)),
@@ -842,34 +872,15 @@ with tab_patient:
 
     st.markdown("---")
 
-    # === Injection simultanée ===
+    # === Résultats ===
     sim_enabled = bool(cfg.get("simultaneous_enabled", False))
     delta_debit = float(cfg.get("rincage_delta_debit", 0.5))
     vol_rincage = float(cfg.get("rincage_volume", 35.0))
     debit_rincage = max(0.1, injection_rate - delta_debit)
 
-    concentration = float(cfg.get("concentration_mg_ml", 350))
-    target_concentration = float(cfg.get("target_concentration", concentration))
-
-    if sim_enabled and target_concentration < concentration:
-        pct_contrast = round((target_concentration / concentration) * 100, 1)
-        pct_nacl = round(100 - pct_contrast, 1)
-        vol_contrast_effectif = round(volume * pct_contrast / 100)
-        vol_dilution_nacl = round(volume * pct_nacl / 100)
-        st.info(
-            f"🧪 Injection simultanée activée — "
-            f"{pct_contrast:.1f}% contraste + {pct_nacl:.1f}% NaCl pour atteindre {target_concentration:.0f} mg I/mL."
-        )
-    else:
-        pct_contrast, pct_nacl = 100, 0
-        vol_contrast_effectif = round(volume)
-        vol_dilution_nacl = 0
-
-    # === Pop-up ajustement automatique (⏱️) ===
     if bool(cfg.get("auto_acquisition_by_age", True)):
         st.info("⏱️ Ajustement automatique selon l’âge activé — le départ d’acquisition est adapté automatiquement.")
 
-    # === Résultats volumes / débits ===
     green_drop = "<svg width='20' height='20' viewBox='0 0 24 24' fill='#2E7D32'><path d='M12 2C12 2 5 10 5 15.5C5 19.09 8.13 22 12 22C15.87 22 19 19.09 19 15.5C19 10 12 2 12 2Z'/></svg>"
     blue_drop = "<svg width='20' height='20' viewBox='0 0 24 24' fill='#1565C0'><path d='M12 2C12 2 5 10 5 15.5C5 19.09 8.13 22 12 22C15.87 22 19 19.09 19 15.5C19 10 12 2 12 2Z'/></svg>"
 
@@ -881,7 +892,7 @@ with tab_patient:
                     {green_drop} Volume et Débit de contraste conseillé
                 </h4>
                 <div style='font-size:22px;color:#1B5E20;font-weight:600;margin-top:8px;'>
-                    {vol_contrast_effectif} mL — {injection_rate:.1f} mL/s
+                    {round(volume)} mL — {injection_rate:.1f} mL/s
                 </div>
             </div>
         """, unsafe_allow_html=True)
