@@ -678,7 +678,7 @@ with tab_params:
                     st.error(f"Erreur suppression identifiant : {e}")
                     
 # ------------------------
-# Onglet Patient — version avec centrage ajusté du bloc central
+# Onglet Patient — bloc central encore décalé à droite
 # ------------------------
 with tab_patient:
     # === Styles ===
@@ -758,9 +758,8 @@ with tab_patient:
     age = current_year - birth_year
     imc = weight / ((height / 100) ** 2)
 
-    # === Ligne suivante : 3 blocs (centré proprement) ===
-    # ⚠️ Bloc central légèrement décalé à droite
-    col_left, col_div1, col_center, col_div2, col_right = st.columns([1.3, 0.05, 1.1, 0.05, 1.2])
+    # === Ligne suivante : 3 blocs (bloc central décalé plus à droite) ===
+    col_left, col_div1, col_center, col_div2, col_right = st.columns([1.4, 0.05, 1.0, 0.05, 1.2])
 
     # --- Bloc gauche : kV ---
     with col_left:
@@ -781,7 +780,7 @@ with tab_patient:
     with col_div1:
         st.markdown("<div style='border-left:1px solid #ccc; height:100%;'></div>", unsafe_allow_html=True)
 
-    # --- Bloc central : temps d'injection (décalé) ---
+    # --- Bloc central (décalé encore plus à droite) ---
     with col_center:
         st.markdown("<div class='block-title'>Choix du temps d’injection (en s)</div>", unsafe_allow_html=True)
         injection_modes = ["Portal", "Artériel"]
