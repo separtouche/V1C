@@ -678,109 +678,91 @@ with tab_params:
                     st.error(f"Erreur suppression identifiant : {e}")
 
 # ------------------------
-# Onglet Patient — version stable et fonctionnelle avec bloc central décalé à droite
+# Onglet Patient — version avec 2 blocs + pop-up ajustement automatique
 # ------------------------
 with tab_patient:
     st.markdown("""
         <style>
-        .section-title {
-            font-size:22px; font-weight:700; color:#123A5F;
-            text-align:center; margin-bottom:12px;
+        .section-title{font-size:22px;font-weight:700;color:#123A5F;margin-bottom:12px;text-align:center;}
+        .block-title{font-weight:700;color:#123A5F;font-size:16px;margin-bottom:6px;text-align:center;}
+        div[role="radiogroup"]{
+            display:flex !important;justify-content:center !important;align-items:center !important;
+            flex-wrap:nowrap !important;white-space:nowrap !important;gap:16px !important;
         }
-        .block-title {
-            text-align:center; font-weight:700;
-            color:#123A5F; font-size:16px; margin-bottom:8px;
-        }
-        div[role="radiogroup"] {
-            display:flex !important;
-            justify-content:center !important;
-            align-items:center !important;
-            flex-wrap:nowrap !important;
-            gap:20px !important;
-            overflow-x:auto !important;
-            padding:4px 4px !important;
-        }
-        div[role="radiogroup"]::-webkit-scrollbar { display:none; }
-        div[role="radiogroup"] label {
-            font-size:14px !important;
-            padding:6px 14px !important;
-            border-radius:8px !important;
-            background:#F8FAFD !important;
-            border:1px solid #DCE4EC !important;
-            transition:all 0.2s ease-in-out;
-            min-width:95px !important;
-        }
-        div[role="radiogroup"] label:hover {
-            background:#E6EEF8 !important;
+        div[role="radiogroup"] label{
+            font-size:14px !important;padding:4px 12px !important;border-radius:8px !important;
+            background:#F8FAFD !important;border:1px solid #DCE4EC !important;margin:0 !important;
         }
         </style>
     """, unsafe_allow_html=True)
 
+    # --- Titre principal ---
     st.markdown("<div class='section-title'>🧍 Informations patient</div>", unsafe_allow_html=True)
     current_year = datetime.now().year
 
-    # Ligne sliders
+    # --- Ligne Poids / Taille / Année / Programme ---
     col_poids, col_taille, col_annee, col_prog = st.columns([1, 1, 1, 1.3])
     with col_poids:
         st.markdown("<div class='block-title'>Poids (kg)</div>", unsafe_allow_html=True)
-        weight = st.number_input("", min_value=20, max_value=200, value=70, step=1, key="num_poids", label_visibility="collapsed")
-        weight = st.slider(" ", 20, 200, weight, label_visibility="collapsed", key="slider_poids")
-
+        weight = st.number_input("", 20, 200, 70, step=1, key="num_poids", label_visibility="collapsed")
+        weight = st.slider(" ", 20, 200, weight, key="slider_poids", label_visibility="collapsed")
     with col_taille:
         st.markdown("<div class='block-title'>Taille (cm)</div>", unsafe_allow_html=True)
-        height = st.number_input("", min_value=100, max_value=220, value=170, step=1, key="num_taille", label_visibility="collapsed")
-        height = st.slider("  ", 100, 220, height, label_visibility="collapsed", key="slider_taille")
-
+        height = st.number_input("", 100, 220, 170, step=1, key="num_taille", label_visibility="collapsed")
+        height = st.slider("  ", 100, 220, height, key="slider_taille", label_visibility="collapsed")
     with col_annee:
         st.markdown("<div class='block-title'>Année de naissance</div>", unsafe_allow_html=True)
-        birth_year = st.number_input("", min_value=current_year-120, max_value=current_year, value=1985, step=1, key="num_annee", label_visibility="collapsed")
-        birth_year = st.slider("   ", current_year-120, current_year, birth_year, label_visibility="collapsed", key="slider_annee")
-
+        birth_year = st.number_input("", current_year-120, current_year, 1985, step=1, key="num_annee", label_visibility="collapsed")
+        birth_year = st.slider("   ", current_year-120, current_year, birth_year, key="slider_annee", label_visibility="collapsed")
     with col_prog:
         st.markdown("<div class='block-title'>Programme</div>", unsafe_allow_html=True)
-        user_id = st.session_state["user_id"]
-        user_programs = user_sessions.get(user_id, {}).get("programs", {})
-        prog_choice_patient = st.selectbox("", ["Sélection d'un programme"] + list(user_programs.keys()), index=0, label_visibility="collapsed")
+        _uid = st.session_state["user_id"]
+        _programs = user_sessions.get(_uid, {}).get("programs", {})
+        prog_choice_patient = st.selectbox("", ["Sélection d'un programme"] + list(_programs.keys()), index=0, label_visibility="collapsed")
         if prog_choice_patient != "Sélection d'un programme":
-            prog_conf = user_programs.get(prog_choice_patient, {})
             cfg = get_cfg()
-            for key, val in prog_conf.items():
-                cfg[key] = val
-            set_cfg_and_persist(user_id, cfg)
-            user_sessions[user_id]["last_selected_program"] = prog_choice_patient
+            for k, v in _programs.get(prog_choice_patient, {}).items():
+                cfg[k] = v
+            set_cfg_and_persist(_uid, cfg)
+            user_sessions[_uid]["last_selected_program"] = prog_choice_patient
             save_user_sessions(user_sessions)
 
+    # --- Variables patient ---
     cfg = get_cfg()
     age = current_year - birth_year
-    imc = weight / ((height / 100) ** 2)
+    imc = weight / ((height/100)**2)
 
-    # Colonnes ajustées : on décale physiquement le bloc central vers la droite
-    col_left, spacer1, col_center, spacer2, col_right = st.columns([1.2, 0.15, 1.35, 0.05, 1.1])
+    # --- Deux blocs : kV + Temps d’injection ---
+    col_left, col_div, col_center = st.columns([1.1, 0.05, 1.3])
 
-    # --- Bloc gauche ---
+    # Bloc gauche — kV
     with col_left:
         st.markdown("<div class='block-title'>Choix de la tension du tube (en kV)</div>", unsafe_allow_html=True)
         kv_scanner = st.radio("kV", [80, 90, 100, 110, 120],
-                              horizontal=True, index=4, key="kv_scanner_patient", label_visibility="collapsed")
+                              horizontal=True, index=4, key="kv_scanner_patient",
+                              label_visibility="collapsed")
         charge_iod = float(cfg.get("charges", {}).get(str(kv_scanner), 0.45))
         concentration = int(cfg.get("concentration_mg_ml", 350))
         calc_mode_label = cfg.get("calc_mode", "Charge iodée")
         st.markdown(
-            f"<div style='text-align:center; font-size:15px; color:#123A5F;'>"
+            f"<div style='text-align:center;color:#123A5F;font-size:15px;'>"
             f"<b>Charge iodée :</b> {charge_iod:.2f} g I/kg<br>"
             f"<b>Concentration :</b> {concentration} mg I/mL<br>"
             f"<b>Méthode :</b> {calc_mode_label}</div>",
             unsafe_allow_html=True
         )
 
-    # --- Bloc central (avec vrai décalage vers la droite grâce à spacer1) ---
+    with col_div:
+        st.markdown("<div style='border-left:1px solid #ccc;height:100%;'></div>", unsafe_allow_html=True)
+
+    # Bloc droit — Temps d’injection
     with col_center:
         st.markdown("<div class='block-title'>Choix du temps d’injection (en s)</div>", unsafe_allow_html=True)
-        injection_modes = ["Portal", "Artériel"]
+        modes = ["Portal", "Artériel"]
         if cfg.get("intermediate_enabled", False):
-            injection_modes.append("Intermédiaire")
+            modes.append("Intermédiaire")
 
-        injection_mode = st.radio("Mode d'injection", injection_modes,
+        injection_mode = st.radio("Mode d'injection", modes,
                                   horizontal=True, index=0, key="injection_mode_patient",
                                   label_visibility="collapsed")
 
@@ -789,37 +771,29 @@ with tab_patient:
         elif injection_mode == "Artériel":
             base_time = float(cfg.get("arterial_time", 25.0))
         else:
-            base_time = st.number_input("⏱ Temps intermédiaire (s)",
-                                        min_value=5.0, max_value=120.0, step=0.5,
-                                        value=float(cfg.get("intermediate_time", 28.0)), key="inter_input")
-            st.warning("⚠️ Attention : adaptez votre départ d’acquisition.")
+            base_time = st.number_input(
+                "⏱ Temps intermédiaire (s)",
+                min_value=5.0, max_value=120.0, step=0.5,
+                value=float(cfg.get("intermediate_time", 28.0)),
+                key="inter_input"
+            )
+            st.warning("⚠️ Attention : adaptez votre départ d’acquisition.", icon="⚠️")
 
-        acquisition_start = calculate_acquisition_start(age, cfg)
+        acq_start = calculate_acquisition_start(age, cfg)
         arterial_line = (
             f"<br><b>Départ acquisition en artériel :</b> {cfg.get('arterial_acq_time', 25.0):.1f} s"
             if cfg.get('arterial_acq_enabled', True) else ""
         )
 
         st.markdown(
-            f"<div style='text-align:center; font-size:15px; color:#123A5F;'>"
+            f"<div style='text-align:center;color:#123A5F;font-size:15px;'>"
             f"<b>Temps {injection_mode.lower()} :</b> {base_time:.1f} s<br>"
-            f"<b>Départ acquisition en portal :</b> {acquisition_start:.1f} s"
+            f"<b>Départ acquisition en portal :</b> {acq_start:.1f} s"
             f"{arterial_line}</div>",
             unsafe_allow_html=True
         )
 
-    # --- Bloc droit ---
-    with col_right:
-        st.markdown("<div class='block-title'>Options avancées</div>", unsafe_allow_html=True)
-        auto_age = bool(cfg.get("auto_acquisition_by_age", True))
-        st.markdown(
-            f"<div style='text-align:center; font-size:15px; color:#123A5F;'>"
-            f"<b>Ajustement automatique selon l'âge :</b><br>"
-            f"{'✅ activé' if auto_age else '❌ désactivé'}</div>",
-            unsafe_allow_html=True
-        )
-        
-    # === Calculs volumes et débits ===
+    # --- Calculs principaux ---
     volume, bsa = calculate_volume(
         weight, height, kv_scanner,
         float(cfg.get("concentration_mg_ml", 350)),
@@ -833,6 +807,7 @@ with tab_patient:
 
     st.markdown("---")
 
+    # --- Injection simultanée ---
     sim_enabled = bool(cfg.get("simultaneous_enabled", False))
     delta_debit = float(cfg.get("rincage_delta_debit", 0.5))
     vol_rincage = float(cfg.get("rincage_volume", 35.0))
@@ -851,71 +826,41 @@ with tab_patient:
             f"{pct_contrast:.1f}% contraste + {pct_nacl:.1f}% NaCl pour atteindre {target_concentration:.0f} mg I/mL."
         )
     else:
-        pct_contrast = 100
-        pct_nacl = 0
+        pct_contrast, pct_nacl = 100, 0
         vol_contrast_effectif = round(volume)
         vol_dilution_nacl = 0
 
+    # --- Pop-up pour ajustement automatique selon l’âge ---
+    if bool(cfg.get("auto_acquisition_by_age", True)):
+        st.info("🧠 Ajustement automatique selon l’âge activé — le départ d’acquisition est adapté automatiquement.")
+
+    # --- Résultats volumes / débits ---
     green_drop = "<svg width='20' height='20' viewBox='0 0 24 24' fill='#2E7D32'><path d='M12 2C12 2 5 10 5 15.5C5 19.09 8.13 22 12 22C15.87 22 19 19.09 19 15.5C19 10 12 2 12 2Z'/></svg>"
     blue_drop = "<svg width='20' height='20' viewBox='0 0 24 24' fill='#1565C0'><path d='M12 2C12 2 5 10 5 15.5C5 19.09 8.13 22 12 22C15.87 22 19 19.09 19 15.5C19 10 12 2 12 2Z'/></svg>"
 
     col_contrast, col_nacl = st.columns(2)
-
     with col_contrast:
         st.markdown(f"""
-            <div style='background-color:#E8F5E9;
-                        border-left:6px solid #2E7D32;
-                        border-radius:12px;
-                        padding:18px;
-                        text-align:center;
-                        box-shadow:0 1px 4px rgba(0,0,0,0.08);'>
-                <h4 style='margin-top:0; color:#1B5E20; font-weight:700; display:flex; justify-content:center; align-items:center; gap:6px;'>
+            <div style='background:#E8F5E9;border-left:6px solid #2E7D32;border-radius:12px;padding:18px;text-align:center;'>
+                <h4 style='margin:0;color:#1B5E20;font-weight:700;display:flex;justify-content:center;gap:6px;'>
                     {green_drop} Volume et Débit de contraste conseillé
                 </h4>
-                <div style='font-size:22px; color:#1B5E20; font-weight:600; margin-top:8px;'>
+                <div style='font-size:22px;color:#1B5E20;font-weight:600;margin-top:8px;'>
                     {vol_contrast_effectif} mL — {injection_rate:.1f} mL/s
                 </div>
-                {"<div style='font-size:18px; color:#1B5E20; margin-top:6px;'>→ " +
-                 f"{pct_contrast:.1f}% du mélange total" + "</div>" if sim_enabled else ""}
             </div>
         """, unsafe_allow_html=True)
-
     with col_nacl:
-        if sim_enabled:
-            st.markdown(f"""
-                <div style='background-color:#E3F2FD;
-                            border-left:6px solid #1565C0;
-                            border-radius:12px;
-                            padding:18px;
-                            text-align:center;
-                            box-shadow:0 1px 4px rgba(0,0,0,0.08);'>
-                    <h4 style='margin-top:0; color:#0D47A1; font-weight:700; display:flex; justify-content:center; align-items:center; gap:6px;'>
-                        {blue_drop} Volume et Débit de NaCl conseillé
-                    </h4>
-                    <div style='font-size:18px; color:#0D47A1; font-weight:600; margin-top:8px;'>
-                        Dilution : <b>{pct_nacl:.1f}%</b> — {vol_dilution_nacl} mL
-                    </div>
-                    <div style='font-size:18px; color:#0D47A1; font-weight:600; margin-top:8px;'>
-                        Rinçage : <b>{int(vol_rincage)}</b> mL — {debit_rincage:.1f} mL/s
-                    </div>
+        st.markdown(f"""
+            <div style='background:#E3F2FD;border-left:6px solid #1565C0;border-radius:12px;padding:18px;text-align:center;'>
+                <h4 style='margin:0;color:#0D47A1;font-weight:700;display:flex;justify-content:center;gap:6px;'>
+                    {blue_drop} Rinçage NaCl conseillé
+                </h4>
+                <div style='font-size:22px;color:#0D47A1;font-weight:600;margin-top:8px;'>
+                    {int(vol_rincage)} mL — {debit_rincage:.1f} mL/s
                 </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.markdown(f"""
-                <div style='background-color:#E3F2FD;
-                            border-left:6px solid #1565C0;
-                            border-radius:12px;
-                            padding:18px;
-                            text-align:center;
-                            box-shadow:0 1px 4px rgba(0,0,0,0.08);'>
-                    <h4 style='margin-top:0; color:#0D47A1; font-weight:700; display:flex; justify-content:center; align-items:center; gap:6px;'>
-                        {blue_drop} Volume et Débit de NaCl conseillé
-                    </h4>
-                    <div style='font-size:22px; color:#0D47A1; font-weight:600; margin-top:8px;'>
-                        {int(vol_rincage)} mL — {debit_rincage:.1f} mL/s
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
+            </div>
+        """, unsafe_allow_html=True)
 
     if time_adjusted:
         st.warning(f"⚠️ Temps ajusté à {injection_time:.1f}s (max {float(cfg.get('max_debit',6.0)):.1f} mL/s).")
