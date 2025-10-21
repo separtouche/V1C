@@ -841,7 +841,6 @@ with tab_patient:
             f"{'✅ activé' if auto_age else '❌ désactivé'}</div>",
             unsafe_allow_html=True
         )
-        
     # === Calculs volumes et débits ===
     volume, bsa = calculate_volume(
         weight, height, kv_scanner,
