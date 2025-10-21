@@ -887,7 +887,7 @@ with tab_patient:
         st.markdown(f"""
             <div style='background:#E3F2FD;border-left:6px solid #1565C0;border-radius:12px;padding:18px;text-align:center;'>
                 <h4 style='margin:0;color:#0D47A1;font-weight:700;display:flex;justify-content:center;gap:6px;'>
-                    {blue_drop} Rinçage NaCl conseillé
+                    {blue_drop} Volume et Débit de NaCl conseillé
                 </h4>
                 <div style='font-size:22px;color:#0D47A1;font-weight:600;margin-top:8px;'>
                     {int(vol_rincage)} mL — {debit_rincage:.1f} mL/s
