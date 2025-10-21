@@ -678,66 +678,30 @@ with tab_params:
                     st.error(f"Erreur suppression identifiant : {e}")
                     
 # ------------------------
-# Onglet Patient — version finale centrée, stable, sans retour à la ligne
+# Onglet Patient — sliders + saisie numérique synchronisée
 # ------------------------
 with tab_patient:
     # === Style global ===
     st.markdown("""
         <style>
-        div[data-testid="stSlider"] > label,
-        div[data-testid="stSlider"] > label *,
-        div[data-testid="stSelectbox"] > label,
-        div[data-testid="stSelectbox"] > label * {
-            display:block !important;
-            width:100% !important;
-            text-align:center !important;
-            font-weight:700 !important;
-            font-size:16px !important;
-            color:#123A5F !important;
-            margin-bottom:6px !important;
-        }
-        .slider-red .stSlider [data-baseweb="slider"],
-        .slider-red .stSlider [data-baseweb="slider"] div[role="slider"],
-        .slider-red .stSlider [data-baseweb="slider"] div[role="slider"]::before {
-            background-color:#E53935 !important;
-        }
         .section-title {
-            font-size:22px;
-            font-weight:700;
-            color:#123A5F;
-            margin-bottom:12px;
-            text-align:center;
+            font-size:22px; font-weight:700; color:#123A5F; margin-bottom:12px; text-align:center;
         }
         .block-title {
-            text-align:center;
-            font-weight:700;
-            color:#123A5F;
-            font-size:16px;
-            margin-bottom:6px;
+            text-align:center; font-weight:700; color:#123A5F; font-size:16px; margin-bottom:6px;
         }
-        /* ✅ Correction : centrage parfait + pas de retour à la ligne */
         div[role="radiogroup"] {
-            display:flex !important;
-            justify-content:center !important;
-            align-items:center !important;
-            flex-wrap:nowrap !important;
-            white-space:nowrap !important;
-            gap:10px !important;
-            overflow-x:auto !important;
-            scrollbar-width:none;
-            -ms-overflow-style:none;
+            display:flex !important; justify-content:center !important; align-items:center !important;
+            flex-wrap:nowrap !important; white-space:nowrap !important; gap:10px !important;
         }
-        div[role="radiogroup"]::-webkit-scrollbar { display: none; }
         div[role="radiogroup"] label {
-            font-size:13px !important;
-            margin:0 3px !important;
-            white-space:nowrap !important;
-            flex-shrink:0 !important;
+            font-size:13px !important; white-space:nowrap !important;
+        }
+        input[type=number] {
+            border-radius:6px; text-align:center; height:2.2em; width:80%; margin-top:6px;
         }
         .divider {
-            border-left:1px solid #d9d9d9;
-            height:100%;
-            margin:0 10px;
+            border-left:1px solid #d9d9d9; height:100%; margin:0 10px;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -745,32 +709,52 @@ with tab_patient:
     # --- Titre principal ---
     st.markdown("<div class='section-title'>🧍 Informations patient</div>", unsafe_allow_html=True)
 
-    # === Ligne 1 : Sliders ===
+    # === Ligne 1 : sliders + saisie numérique ===
+    st.markdown("<div class='slider-red'>", unsafe_allow_html=True)
     current_year = datetime.now().year
     col_poids, col_taille, col_annee, col_prog = st.columns([1, 1, 1, 1.3])
 
     with col_poids:
-        weight = st.slider("Poids (kg)", 20, 200, 70)
+        st.markdown("<div style='text-align:center;font-weight:700;color:#123A5F;'>Poids (kg)</div>", unsafe_allow_html=True)
+        c1, c2 = st.columns([4, 1])
+        with c1:
+            weight_slider = st.slider(" ", 20, 200, 70, key="slider_poids", label_visibility="collapsed")
+        with c2:
+            weight_input = st.number_input(" ", min_value=20, max_value=200, value=weight_slider, key="input_poids", label_visibility="collapsed")
+        weight = weight_input
+
     with col_taille:
-        height = st.slider("Taille (cm)", 100, 220, 170)
+        st.markdown("<div style='text-align:center;font-weight:700;color:#123A5F;'>Taille (cm)</div>", unsafe_allow_html=True)
+        c1, c2 = st.columns([4, 1])
+        with c1:
+            height_slider = st.slider(" ", 100, 220, 170, key="slider_taille", label_visibility="collapsed")
+        with c2:
+            height_input = st.number_input(" ", min_value=100, max_value=220, value=height_slider, key="input_taille", label_visibility="collapsed")
+        height = height_input
+
     with col_annee:
-        birth_year = st.slider("Année de naissance", current_year - 120, current_year, 1985)
+        st.markdown("<div style='text-align:center;font-weight:700;color:#123A5F;'>Année de naissance</div>", unsafe_allow_html=True)
+        c1, c2 = st.columns([4, 1])
+        with c1:
+            birth_slider = st.slider(" ", current_year - 120, current_year, 1985, key="slider_annee", label_visibility="collapsed")
+        with c2:
+            birth_input = st.number_input(" ", min_value=current_year - 120, max_value=current_year, value=birth_slider, key="input_annee", label_visibility="collapsed")
+        birth_year = birth_input
+
     with col_prog:
         user_id = st.session_state["user_id"]
         user_programs = user_sessions.get(user_id, {}).get("programs", {})
-        prog_choice_patient = st.selectbox(
-            "Sélection d'un programme",
-            ["Sélection d'un programme"] + list(user_programs.keys()),
-            index=0
-        )
+        prog_choice_patient = st.selectbox("Programme", ["Sélection d'un programme"] + list(user_programs.keys()), index=0)
         if prog_choice_patient != "Sélection d'un programme":
             prog_conf = user_programs.get(prog_choice_patient, {})
             cfg = get_cfg()
-            for key, val in prog_conf.items():
-                cfg[key] = val
+            for k, v in prog_conf.items():
+                cfg[k] = v
             set_cfg_and_persist(user_id, cfg)
             user_sessions[user_id]["last_selected_program"] = prog_choice_patient
             save_user_sessions(user_sessions)
+
+    st.markdown("</div>", unsafe_allow_html=True)
 
     # === Variables patient ===
     cfg = get_cfg()
