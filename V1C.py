@@ -841,7 +841,6 @@ with tab_patient:
             unsafe_allow_html=True,
         )
 
-        # ✅ Message d’attention si "Intermédiaire" est sélectionné
         if injection_mode == "Intermédiaire":
             st.markdown(
                 """
@@ -854,7 +853,6 @@ with tab_patient:
                 unsafe_allow_html=True
             )
 
-        # ✅ Champ pour modifier temps intermédiaire si activé
         if cfg.get("intermediate_enabled", False) and injection_mode == "Intermédiaire":
             new_intermediate_time = st.number_input(
                 "Modifier temps intermédiaire (s)",
@@ -874,14 +872,18 @@ with tab_patient:
     with col_right:
         st.markdown("<div class='block-title'>Options avancées</div>", unsafe_allow_html=True)
         auto_age = bool(cfg.get("auto_acquisition_by_age", True))
-        
-        st.markdown(
-            f"<div style='text-align:center; font-size:15px; color:#123A5F;'>"
+
+        # ✅ Bloc simplifié sans injection simultanée
+        html_opt = (
             f"<b>Ajustement automatique selon l'âge :</b><br>"
-            f"{'✅ activé' if auto_age else '❌ désactivé'}<br><br>"
+            f"{'✅ activé' if auto_age else '❌ désactivé'}"
+        )
+
+        st.markdown(
+            f"<div style='text-align:center; font-size:15px; color:#123A5F;'>{html_opt}</div>",
             unsafe_allow_html=True,
         )
-                    
+                
     # --- Calculs finaux ---
     volume, bsa = calculate_volume(
         weight, height, kv_scanner,
