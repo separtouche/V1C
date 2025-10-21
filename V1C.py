@@ -745,32 +745,69 @@ with tab_patient:
     # --- Titre principal ---
     st.markdown("<div class='section-title'>🧍 Informations patient</div>", unsafe_allow_html=True)
 
-    # === Ligne 1 : Sliders ===
-    current_year = datetime.now().year
-    col_poids, col_taille, col_annee, col_prog = st.columns([1, 1, 1, 1.3])
+    # === Ligne 1 : Sliders avec saisie numérique synchronisée ===
+st.markdown("<div class='slider-red'>", unsafe_allow_html=True)
+current_year = datetime.now().year
+col_poids, col_taille, col_annee, col_prog = st.columns([1, 1, 1, 1.3])
 
-    with col_poids:
-        weight = st.slider("Poids (kg)", 20, 200, 70)
-    with col_taille:
-        height = st.slider("Taille (cm)", 100, 220, 170)
-    with col_annee:
-        birth_year = st.slider("Année de naissance", current_year - 120, current_year, 1985)
-    with col_prog:
-        user_id = st.session_state["user_id"]
-        user_programs = user_sessions.get(user_id, {}).get("programs", {})
-        prog_choice_patient = st.selectbox(
-            "Sélection d'un programme",
-            ["Sélection d'un programme"] + list(user_programs.keys()),
-            index=0
-        )
-        if prog_choice_patient != "Sélection d'un programme":
-            prog_conf = user_programs.get(prog_choice_patient, {})
-            cfg = get_cfg()
-            for key, val in prog_conf.items():
-                cfg[key] = val
-            set_cfg_and_persist(user_id, cfg)
-            user_sessions[user_id]["last_selected_program"] = prog_choice_patient
-            save_user_sessions(user_sessions)
+# --- Poids ---
+with col_poids:
+    st.markdown("<div style='text-align:center; font-weight:700; color:#123A5F;'>Poids (kg)</div>", unsafe_allow_html=True)
+    poids_col_slider, poids_col_input = st.columns([4, 1])
+    with poids_col_slider:
+        weight = st.slider("", 20, 200, 70, key="slider_poids")
+    with poids_col_input:
+        weight_input = st.number_input("", 20, 200, weight, key="input_poids", label_visibility="collapsed")
+    if weight_input != weight:
+        weight = weight_input
+    else:
+        st.session_state["input_poids"] = weight
+
+# --- Taille ---
+with col_taille:
+    st.markdown("<div style='text-align:center; font-weight:700; color:#123A5F;'>Taille (cm)</div>", unsafe_allow_html=True)
+    taille_col_slider, taille_col_input = st.columns([4, 1])
+    with taille_col_slider:
+        height = st.slider("", 100, 220, 170, key="slider_taille")
+    with taille_col_input:
+        height_input = st.number_input("", 100, 220, height, key="input_taille", label_visibility="collapsed")
+    if height_input != height:
+        height = height_input
+    else:
+        st.session_state["input_taille"] = height
+
+# --- Année de naissance ---
+with col_annee:
+    st.markdown("<div style='text-align:center; font-weight:700; color:#123A5F;'>Année de naissance</div>", unsafe_allow_html=True)
+    annee_col_slider, annee_col_input = st.columns([4, 1])
+    with annee_col_slider:
+        birth_year = st.slider("", current_year - 120, current_year, 1985, key="slider_annee")
+    with annee_col_input:
+        year_input = st.number_input("", current_year - 120, current_year, birth_year, key="input_annee", label_visibility="collapsed")
+    if year_input != birth_year:
+        birth_year = year_input
+    else:
+        st.session_state["input_annee"] = birth_year
+
+# --- Sélection du programme ---
+with col_prog:
+    user_id = st.session_state["user_id"]
+    user_programs = user_sessions.get(user_id, {}).get("programs", {})
+    prog_choice_patient = st.selectbox(
+        "Sélection d'un programme",
+        ["Sélection d'un programme"] + list(user_programs.keys()),
+        index=0
+    )
+    if prog_choice_patient != "Sélection d'un programme":
+        prog_conf = user_programs.get(prog_choice_patient, {})
+        cfg = get_cfg()
+        for key, val in prog_conf.items():
+            cfg[key] = val
+        set_cfg_and_persist(user_id, cfg)
+        user_sessions[user_id]["last_selected_program"] = prog_choice_patient
+        save_user_sessions(user_sessions)
+
+st.markdown("</div>", unsafe_allow_html=True)
 
     # === Variables patient ===
     cfg = get_cfg()
