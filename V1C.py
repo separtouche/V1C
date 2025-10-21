@@ -678,7 +678,7 @@ with tab_params:
                     st.error(f"Erreur suppression identifiant : {e}")
 
 # ------------------------
-# Onglet Patient — version finale épurée et centrée
+# Onglet Patient — version finale avec centrage parfait des boutons radio
 # ------------------------
 with tab_patient:
     st.markdown("""
@@ -689,23 +689,23 @@ with tab_patient:
         }
         .block-title {
             font-weight:700; color:#123A5F;
-            font-size:16px; margin-bottom:8px; text-align:center;
+            font-size:16px; margin-bottom:6px; text-align:center;
         }
-        /* Centrage parfait des radios */
+        /* ✅ Centrage parfait sans modifier l'espacement interne */
         div[role="radiogroup"] {
             display:flex !important;
             justify-content:center !important;
             align-items:center !important;
-            gap:20px !important;
+            gap:12px !important;
             flex-wrap:nowrap !important;
+            white-space:nowrap !important;
         }
         div[role="radiogroup"] label {
             font-size:14px !important;
-            padding:6px 14px !important;
+            padding:4px 12px !important;
             border-radius:8px !important;
             background:#F8FAFD !important;
             border:1px solid #DCE4EC !important;
-            transition:all 0.2s ease-in-out;
         }
         div[role="radiogroup"] label:hover {
             background:#E6EEF8 !important;
@@ -847,7 +847,7 @@ with tab_patient:
         vol_contrast_effectif = round(volume)
         vol_dilution_nacl = 0
 
-    # === Pop-up pour ajustement automatique (style identique à injection simultanée) ===
+    # === Pop-up ajustement automatique (⏱️) ===
     if bool(cfg.get("auto_acquisition_by_age", True)):
         st.info("⏱️ Ajustement automatique selon l’âge activé — le départ d’acquisition est adapté automatiquement.")
 
