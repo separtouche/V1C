@@ -678,29 +678,46 @@ with tab_params:
                     st.error(f"Erreur suppression identifiant : {e}")
 
 # ------------------------
-# Onglet Patient — version avec 2 blocs + pop-up ajustement automatique
+# Onglet Patient — version finale épurée et centrée
 # ------------------------
 with tab_patient:
     st.markdown("""
         <style>
-        .section-title{font-size:22px;font-weight:700;color:#123A5F;margin-bottom:12px;text-align:center;}
-        .block-title{font-weight:700;color:#123A5F;font-size:16px;margin-bottom:6px;text-align:center;}
-        div[role="radiogroup"]{
-            display:flex !important;justify-content:center !important;align-items:center !important;
-            flex-wrap:nowrap !important;white-space:nowrap !important;gap:16px !important;
+        .section-title {
+            font-size:22px; font-weight:700; color:#123A5F;
+            margin-bottom:12px; text-align:center;
         }
-        div[role="radiogroup"] label{
-            font-size:14px !important;padding:4px 12px !important;border-radius:8px !important;
-            background:#F8FAFD !important;border:1px solid #DCE4EC !important;margin:0 !important;
+        .block-title {
+            font-weight:700; color:#123A5F;
+            font-size:16px; margin-bottom:8px; text-align:center;
+        }
+        /* Centrage parfait des radios */
+        div[role="radiogroup"] {
+            display:flex !important;
+            justify-content:center !important;
+            align-items:center !important;
+            gap:20px !important;
+            flex-wrap:nowrap !important;
+        }
+        div[role="radiogroup"] label {
+            font-size:14px !important;
+            padding:6px 14px !important;
+            border-radius:8px !important;
+            background:#F8FAFD !important;
+            border:1px solid #DCE4EC !important;
+            transition:all 0.2s ease-in-out;
+        }
+        div[role="radiogroup"] label:hover {
+            background:#E6EEF8 !important;
         }
         </style>
     """, unsafe_allow_html=True)
 
-    # --- Titre principal ---
+    # === Titre principal ===
     st.markdown("<div class='section-title'>🧍 Informations patient</div>", unsafe_allow_html=True)
     current_year = datetime.now().year
 
-    # --- Ligne Poids / Taille / Année / Programme ---
+    # === Ligne Poids / Taille / Année / Programme ===
     col_poids, col_taille, col_annee, col_prog = st.columns([1, 1, 1, 1.3])
     with col_poids:
         st.markdown("<div class='block-title'>Poids (kg)</div>", unsafe_allow_html=True)
@@ -727,13 +744,13 @@ with tab_patient:
             user_sessions[_uid]["last_selected_program"] = prog_choice_patient
             save_user_sessions(user_sessions)
 
-    # --- Variables patient ---
+    # === Variables patient ===
     cfg = get_cfg()
     age = current_year - birth_year
     imc = weight / ((height/100)**2)
 
-    # --- Deux blocs : kV + Temps d’injection ---
-    col_left, col_div, col_center = st.columns([1.1, 0.05, 1.3])
+    # === Deux blocs : kV + Temps d’injection ===
+    col_left, col_div, col_center = st.columns([1.15, 0.05, 1.15])
 
     # Bloc gauche — kV
     with col_left:
@@ -777,7 +794,7 @@ with tab_patient:
                 value=float(cfg.get("intermediate_time", 28.0)),
                 key="inter_input"
             )
-            st.warning("⚠️ Attention : adaptez votre départ d’acquisition.", icon="⚠️")
+            st.warning("⚠️ Attention : adaptez votre départ d’acquisition.")
 
         acq_start = calculate_acquisition_start(age, cfg)
         arterial_line = (
@@ -793,7 +810,7 @@ with tab_patient:
             unsafe_allow_html=True
         )
 
-    # --- Calculs principaux ---
+    # === Calculs principaux ===
     volume, bsa = calculate_volume(
         weight, height, kv_scanner,
         float(cfg.get("concentration_mg_ml", 350)),
@@ -807,7 +824,7 @@ with tab_patient:
 
     st.markdown("---")
 
-    # --- Injection simultanée ---
+    # === Injection simultanée ===
     sim_enabled = bool(cfg.get("simultaneous_enabled", False))
     delta_debit = float(cfg.get("rincage_delta_debit", 0.5))
     vol_rincage = float(cfg.get("rincage_volume", 35.0))
@@ -830,11 +847,11 @@ with tab_patient:
         vol_contrast_effectif = round(volume)
         vol_dilution_nacl = 0
 
-    # --- Pop-up pour ajustement automatique selon l’âge ---
+    # === Pop-up pour ajustement automatique (style identique à injection simultanée) ===
     if bool(cfg.get("auto_acquisition_by_age", True)):
-        st.info("🧠 Ajustement automatique selon l’âge activé — le départ d’acquisition est adapté automatiquement.")
+        st.info("⏱️ Ajustement automatique selon l’âge activé — le départ d’acquisition est adapté automatiquement.")
 
-    # --- Résultats volumes / débits ---
+    # === Résultats volumes / débits ===
     green_drop = "<svg width='20' height='20' viewBox='0 0 24 24' fill='#2E7D32'><path d='M12 2C12 2 5 10 5 15.5C5 19.09 8.13 22 12 22C15.87 22 19 19.09 19 15.5C19 10 12 2 12 2Z'/></svg>"
     blue_drop = "<svg width='20' height='20' viewBox='0 0 24 24' fill='#1565C0'><path d='M12 2C12 2 5 10 5 15.5C5 19.09 8.13 22 12 22C15.87 22 19 19.09 19 15.5C19 10 12 2 12 2Z'/></svg>"
 
