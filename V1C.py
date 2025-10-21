@@ -682,66 +682,59 @@ with tab_params:
 # ------------------------
 with tab_patient:
     # === Style global ===
- st.markdown("""
-    <style>
-    /* Titre de section principal */
-    .section-title {
-        font-size:22px;
-        font-weight:700;
-        color:#123A5F;
-        text-align:center;
-        margin-bottom:12px;
-    }
-
-    /* Titre de sous-bloc */
-    .block-title {
-        text-align:center;
-        font-weight:700;
-        color:#123A5F;
-        font-size:16px;
-        margin-bottom:4px;
-    }
-
-    /* ✅ Centrage parfait du contenu radio sous le titre */
-    div[data-testid="stVerticalBlock"] > div:has(> label + div[role="radiogroup"]) {
-        display:flex !important;
-        flex-direction:column !important;
-        align-items:center !important;
-        justify-content:center !important;
-    }
-
-    div[role="radiogroup"] {
-        display:flex !important;
-        justify-content:center !important;
-        align-items:center !important;
-        flex-wrap:nowrap !important;
-        gap:6px !important;
-        margin-top:6px !important;
-    }
-
-    div[role="radiogroup"] label {
-        font-size:13px !important;
-        font-weight:600 !important;
-        color:#123A5F !important;
-        padding:2px 4px !important;
-    }
-
-    /* Centrage sliders et selects */
-    div[data-testid="stSlider"] > label,
-    div[data-testid="stSelectbox"] > label {
-        text-align:center !important;
-        font-weight:700 !important;
-        color:#123A5F !important;
-    }
-
-    /* Diviseurs */
-    .divider {
-        border-left:1px solid #d9d9d9;
-        height:100%;
-        margin:0 10px;
-    }
-    </style>
-""", unsafe_allow_html=True)
+    st.markdown("""
+        <style>
+        div[data-testid="stSlider"] > label,
+        div[data-testid="stSlider"] > label *,
+        div[data-testid="stSelectbox"] > label,
+        div[data-testid="stSelectbox"] > label * {
+            display:block !important;
+            width:100% !important;
+            text-align:center !important;
+            font-weight:700 !important;
+            font-size:16px !important;
+            color:#123A5F !important;
+            margin-bottom:6px !important;
+        }
+        .slider-red .stSlider [data-baseweb="slider"],
+        .slider-red .stSlider [data-baseweb="slider"] div[role="slider"],
+        .slider-red .stSlider [data-baseweb="slider"] div[role="slider"]::before {
+            background-color:#E53935 !important;
+        }
+        .section-title {
+            font-size:22px;
+            font-weight:700;
+            color:#123A5F;
+            margin-bottom:12px;
+            text-align:center;
+        }
+        .block-title {
+            text-align:center;
+            font-weight:700;
+            color:#123A5F;
+            font-size:16px;
+            margin-bottom:6px;
+        }
+        div[role="radiogroup"] {
+            display:flex !important;
+            justify-content:center !important;
+            align-items:center !important;
+            flex-wrap:nowrap !important;
+            gap:4px !important;
+        }
+        div[role="radiogroup"] label {
+            font-size:13px !important;
+            padding:0 4px !important;
+            margin:0 1px !important;
+            white-space:nowrap !important;
+        }
+        .divider {
+            border-left:1px solid #d9d9d9;
+            height:100%;
+            margin:0 10px;
+        }
+        </style>
+    """, unsafe_allow_html=True)
 
     # --- Titre principal ---
     st.markdown("<div class='section-title'>🧍 Informations patient</div>", unsafe_allow_html=True)
