@@ -862,7 +862,6 @@ with tab_patient:
         )
         st.markdown(html_opt, unsafe_allow_html=True)
 
-        st.markdown(html_opt, unsafe_allow_html=True)
 
     # === Calculs volumes et débits ===
     volume, bsa = calculate_volume(
