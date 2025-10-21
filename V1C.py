@@ -747,14 +747,33 @@ with tab_patient:
 
     # === Ligne 1 : Sliders ===
     current_year = datetime.now().year
-    col_poids, col_taille, col_annee, col_prog = st.columns([1, 1, 1, 1.3])
+current_year = datetime.now().year
+col_poids, col_taille, col_annee, col_prog = st.columns([1, 1, 1, 1.3])
 
-    with col_poids:
+with col_poids:
+    weight_col1, weight_col2 = st.columns([4, 1])
+    with weight_col1:
         weight = st.slider("Poids (kg)", 20, 200, 70)
-    with col_taille:
+    with weight_col2:
+        weight_input = st.number_input(" ", min_value=20, max_value=200, value=weight, key="num_poids", label_visibility="collapsed")
+        weight = weight_input
+
+with col_taille:
+    height_col1, height_col2 = st.columns([4, 1])
+    with height_col1:
         height = st.slider("Taille (cm)", 100, 220, 170)
-    with col_annee:
+    with height_col2:
+        height_input = st.number_input(" ", min_value=100, max_value=220, value=height, key="num_taille", label_visibility="collapsed")
+        height = height_input
+
+with col_annee:
+    year_col1, year_col2 = st.columns([4, 1])
+    with year_col1:
         birth_year = st.slider("Année de naissance", current_year - 120, current_year, 1985)
+    with year_col2:
+        birth_input = st.number_input(" ", min_value=current_year - 120, max_value=current_year, value=birth_year, key="num_annee", label_visibility="collapsed")
+        birth_year = birth_input
+
     with col_prog:
         user_id = st.session_state["user_id"]
         user_programs = user_sessions.get(user_id, {}).get("programs", {})
