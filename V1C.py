@@ -678,10 +678,10 @@ with tab_params:
                     st.error(f"Erreur suppression identifiant : {e}")
                     
 # ------------------------
-# Onglet Patient — version finale propre, centrée et fonctionnelle
+# Onglet Patient — version figée (visuel constant sur tous écrans)
 # ------------------------
 with tab_patient:
-    # === Styles ===
+    # --- CSS global verrouillé ---
     st.markdown("""
         <style>
         .section-title {
@@ -689,6 +689,18 @@ with tab_patient:
         }
         .block-title {
             text-align:center; font-weight:700; color:#123A5F; font-size:16px; margin-bottom:6px;
+            white-space:nowrap;
+        }
+        /* Désactiver la mise en page responsive de Streamlit */
+        .main, .block-container {
+            max-width: 1200px !important;
+            min-width: 1200px !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+        }
+        [data-testid="stHorizontalBlock"] {
+            flex-wrap: nowrap !important;
+            justify-content: space-between !important;
         }
         div[role="radiogroup"] {
             display:flex !important;
@@ -697,10 +709,7 @@ with tab_patient:
             flex-wrap:nowrap !important;
             white-space:nowrap !important;
             gap:18px !important;
-            overflow-x:auto !important;
-            padding:6px 4px !important;
         }
-        div[role="radiogroup"]::-webkit-scrollbar { display:none; }
         div[role="radiogroup"] label {
             font-size:14px !important;
             padding:4px 12px !important;
@@ -708,10 +717,9 @@ with tab_patient:
             background:#F8FAFD !important;
             border:1px solid #DCE4EC !important;
             transition:all 0.2s ease-in-out;
+            white-space:nowrap !important;
         }
-        div[role="radiogroup"] label:hover {
-            background:#E6EEF8 !important;
-        }
+        div[role="radiogroup"] label:hover { background:#E6EEF8 !important; }
         </style>
     """, unsafe_allow_html=True)
 
@@ -719,7 +727,7 @@ with tab_patient:
     st.markdown("<div class='section-title'>🧍 Informations patient</div>", unsafe_allow_html=True)
     current_year = datetime.now().year
 
-    # === Ligne compacte : Poids / Taille / Année / Programme ===
+    # === Ligne 1 : Poids / Taille / Année / Programme ===
     col_poids, col_taille, col_annee, col_prog = st.columns([1, 1, 1, 1.3])
 
     with col_poids:
@@ -756,14 +764,13 @@ with tab_patient:
     age = current_year - birth_year
     imc = weight / ((height / 100) ** 2)
 
-    # === Ligne suivante : 3 blocs ===
+    # === Ligne 2 : 3 blocs fixes ===
     col_left, col_div1, col_center, col_div2, col_right = st.columns([1.2, 0.05, 1.2, 0.05, 1.2])
 
-    # --- Bloc gauche : kV ---
+    # --- Bloc gauche ---
     with col_left:
         st.markdown("<div class='block-title'>Choix de la tension du tube (en kV)</div>", unsafe_allow_html=True)
-        kv_scanner = st.radio("kV", [80, 90, 100, 110, 120],
-                              horizontal=True, index=4, key="kv_scanner_patient", label_visibility="collapsed")
+        kv_scanner = st.radio("kV", [80, 90, 100, 110, 120], horizontal=True, index=4, key="kv_scanner_patient", label_visibility="collapsed")
         charge_iod = float(cfg.get("charges", {}).get(str(kv_scanner), 0.45))
         concentration = int(cfg.get("concentration_mg_ml", 350))
         calc_mode_label = cfg.get("calc_mode", "Charge iodée")
@@ -778,7 +785,7 @@ with tab_patient:
     with col_div1:
         st.markdown("<div style='border-left:1px solid #ccc; height:100%;'></div>", unsafe_allow_html=True)
 
-    # --- Bloc central : temps d'injection ---
+    # --- Bloc central ---
     with col_center:
         st.markdown("<div class='block-title'>Choix du temps d’injection (en s)</div>", unsafe_allow_html=True)
         injection_modes = ["Portal", "Artériel"]
@@ -794,8 +801,10 @@ with tab_patient:
         elif injection_mode == "Artériel":
             base_time = float(cfg.get("arterial_time", 25.0))
         else:
-            base_time = st.number_input("⏱ Temps intermédiaire (s)", min_value=5.0, max_value=120.0, step=0.5,
-                                        value=float(cfg.get("intermediate_time", 28.0)), key="inter_input")
+            base_time = st.number_input("⏱ Temps intermédiaire (s)",
+                                        min_value=5.0, max_value=120.0, step=0.5,
+                                        value=float(cfg.get("intermediate_time", 28.0)),
+                                        key="inter_input")
             st.warning("⚠️ Attention : adaptez votre départ d’acquisition.")
 
         acquisition_start = calculate_acquisition_start(age, cfg)
@@ -815,7 +824,7 @@ with tab_patient:
     with col_div2:
         st.markdown("<div style='border-left:1px solid #ccc; height:100%;'></div>", unsafe_allow_html=True)
 
-    # --- Bloc droit : options avancées ---
+    # --- Bloc droit ---
     with col_right:
         st.markdown("<div class='block-title'>Options avancées</div>", unsafe_allow_html=True)
         auto_age = bool(cfg.get("auto_acquisition_by_age", True))
@@ -825,7 +834,6 @@ with tab_patient:
             f"{'✅ activé' if auto_age else '❌ désactivé'}</div>",
             unsafe_allow_html=True
         )
-        
     # === Calculs volumes et débits ===
     volume, bsa = calculate_volume(
         weight, height, kv_scanner,
