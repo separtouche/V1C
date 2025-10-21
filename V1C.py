@@ -678,7 +678,7 @@ with tab_params:
                     st.error(f"Erreur suppression identifiant : {e}")
 
 # ------------------------
-# Onglet Patient — version stable, alignée et avec décalage moyen (45px)
+# Onglet Patient — version stable avec décalage fort du bloc central
 # ------------------------
 with tab_patient:
     st.markdown("""
@@ -693,11 +693,12 @@ with tab_patient:
         }
         .radio-flex {
             display:flex !important;
-            justify-content:center !important;
+            justify-content:flex-start !important;
             align-items:center !important;
             flex-wrap:nowrap !important;
             gap:22px !important;
             margin-top:-6px !important;
+            margin-left:90px !important;  /* 🔹 Décalage fort visible */
         }
         div[role="radiogroup"] label {
             font-size:14px !important;
@@ -761,6 +762,7 @@ with tab_patient:
     # Trois colonnes équilibrées
     col_left, col_div1, col_center, col_div2, col_right = st.columns([1.25, 0.05, 1.35, 0.05, 1.1])
 
+    # Bloc gauche — kV
     with col_left:
         st.markdown("<div class='block-title'>Choix de la tension du tube (en kV)</div>", unsafe_allow_html=True)
         kv_scanner = st.radio("kV", [80, 90, 100, 110, 120], horizontal=True, index=4, key="kv_scanner_patient", label_visibility="collapsed")
@@ -778,15 +780,14 @@ with tab_patient:
     with col_div1:
         st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
 
-    # Bloc central ajusté avec décalage moyen
+    # Bloc central — avec décalage fort
     with col_center:
         st.markdown("<div class='block-title'>Choix du temps d’injection (en s)</div>", unsafe_allow_html=True)
         injection_modes = ["Portal", "Artériel"]
         if cfg.get("intermediate_enabled", False):
             injection_modes.append("Intermédiaire")
 
-        # 🔹 Décalage horizontal moyen : 45 px
-        st.markdown("<div class='radio-flex' style='justify-content:flex-start; margin-left:45px;'>", unsafe_allow_html=True)
+        st.markdown("<div class='radio-flex'>", unsafe_allow_html=True)
         injection_mode = st.radio(
             "Mode d'injection",
             injection_modes,
@@ -829,6 +830,7 @@ with tab_patient:
     with col_div2:
         st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
 
+    # Bloc droit — options avancées
     with col_right:
         st.markdown("<div class='block-title'>Options avancées</div>", unsafe_allow_html=True)
         auto_age = bool(cfg.get("auto_acquisition_by_age", True))
