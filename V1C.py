@@ -678,7 +678,7 @@ with tab_params:
                     st.error(f"Erreur suppression identifiant : {e}")
                     
 # ------------------------
-# Onglet Patient — version finale avec centrage des radios
+# Onglet Patient — version finale centrée, stable, sans retour à la ligne
 # ------------------------
 with tab_patient:
     # === Style global ===
@@ -714,6 +714,25 @@ with tab_patient:
             color:#123A5F;
             font-size:16px;
             margin-bottom:6px;
+        }
+        /* ✅ Correction : centrage parfait + pas de retour à la ligne */
+        div[role="radiogroup"] {
+            display:flex !important;
+            justify-content:center !important;
+            align-items:center !important;
+            flex-wrap:nowrap !important;
+            white-space:nowrap !important;
+            gap:10px !important;
+            overflow-x:auto !important;
+            scrollbar-width:none;
+            -ms-overflow-style:none;
+        }
+        div[role="radiogroup"]::-webkit-scrollbar { display: none; }
+        div[role="radiogroup"] label {
+            font-size:13px !important;
+            margin:0 3px !important;
+            white-space:nowrap !important;
+            flex-shrink:0 !important;
         }
         .divider {
             border-left:1px solid #d9d9d9;
@@ -764,7 +783,7 @@ with tab_patient:
     # --- Bloc gauche ---
     with col_left:
         st.markdown("<div class='block-title'>Choix de la tension du tube (en kV)</div>", unsafe_allow_html=True)
-        _, col_centered, _ = st.columns([1, 2, 1])
+        _, col_centered, _ = st.columns([1, 2.5, 1])
         with col_centered:
             kv_scanner = st.radio(
                 "kV",
@@ -794,7 +813,7 @@ with tab_patient:
         injection_modes = ["Portal", "Artériel"]
         if cfg.get("intermediate_enabled", False):
             injection_modes.append("Intermédiaire")
-        _, col_centered, _ = st.columns([1, 2, 1])
+        _, col_centered, _ = st.columns([1, 2.5, 1])
         with col_centered:
             injection_mode = st.radio(
                 "Mode d'injection",
@@ -841,6 +860,8 @@ with tab_patient:
             f"{'✅ activé' if auto_age else '❌ désactivé'}"
             f"</div>"
         )
+        st.markdown(html_opt, unsafe_allow_html=True)
+
         st.markdown(html_opt, unsafe_allow_html=True)
 
     # === Calculs volumes et débits ===
