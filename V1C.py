@@ -678,10 +678,9 @@ with tab_params:
                     st.error(f"Erreur suppression identifiant : {e}")
                     
 # ------------------------
-# Onglet Patient — version figée (visuel constant sur tous écrans)
+# Onglet Patient — version stable sans scroll ni wrap
 # ------------------------
 with tab_patient:
-    # --- CSS global verrouillé ---
     st.markdown("""
         <style>
         .section-title {
@@ -691,35 +690,42 @@ with tab_patient:
             text-align:center; font-weight:700; color:#123A5F; font-size:16px; margin-bottom:6px;
             white-space:nowrap;
         }
-        /* Désactiver la mise en page responsive de Streamlit */
+
+        /* ✅ Page fixe mais centrée, pas responsive */
         .main, .block-container {
+            width: 90% !important;
             max-width: 1200px !important;
-            min-width: 1200px !important;
+            min-width: 900px !important;
             margin-left: auto !important;
             margin-right: auto !important;
         }
-        [data-testid="stHorizontalBlock"] {
-            flex-wrap: nowrap !important;
-            justify-content: space-between !important;
-        }
+
+        /* ✅ Empêche le wrap et le scroll des radios tout en gardant visibilité totale */
         div[role="radiogroup"] {
             display:flex !important;
-            justify-content:center !important;
+            justify-content:space-evenly !important;
             align-items:center !important;
             flex-wrap:nowrap !important;
             white-space:nowrap !important;
-            gap:18px !important;
+            gap:14px !important;
+            transform: scale(0.95); /* réduit légèrement les boutons pour éviter dépassement */
+            transform-origin:center;
         }
         div[role="radiogroup"] label {
             font-size:14px !important;
-            padding:4px 12px !important;
+            padding:4px 10px !important;
             border-radius:8px !important;
             background:#F8FAFD !important;
             border:1px solid #DCE4EC !important;
             transition:all 0.2s ease-in-out;
-            white-space:nowrap !important;
         }
         div[role="radiogroup"] label:hover { background:#E6EEF8 !important; }
+
+        /* Colonnes non responsives */
+        [data-testid="stHorizontalBlock"] {
+            flex-wrap: nowrap !important;
+            justify-content: space-between !important;
+        }
         </style>
     """, unsafe_allow_html=True)
 
@@ -732,17 +738,17 @@ with tab_patient:
 
     with col_poids:
         st.markdown("<div class='block-title'>Poids (kg)</div>", unsafe_allow_html=True)
-        weight = st.number_input("", min_value=20, max_value=200, value=70, step=1, key="num_poids", label_visibility="collapsed")
+        weight = st.number_input("", 20, 200, 70, step=1, key="num_poids", label_visibility="collapsed")
         weight = st.slider(" ", 20, 200, weight, label_visibility="collapsed", key="slider_poids")
 
     with col_taille:
         st.markdown("<div class='block-title'>Taille (cm)</div>", unsafe_allow_html=True)
-        height = st.number_input("", min_value=100, max_value=220, value=170, step=1, key="num_taille", label_visibility="collapsed")
+        height = st.number_input("", 100, 220, 170, step=1, key="num_taille", label_visibility="collapsed")
         height = st.slider("  ", 100, 220, height, label_visibility="collapsed", key="slider_taille")
 
     with col_annee:
         st.markdown("<div class='block-title'>Année de naissance</div>", unsafe_allow_html=True)
-        birth_year = st.number_input("", min_value=current_year-120, max_value=current_year, value=1985, step=1, key="num_annee", label_visibility="collapsed")
+        birth_year = st.number_input("", current_year-120, current_year, 1985, step=1, key="num_annee", label_visibility="collapsed")
         birth_year = st.slider("   ", current_year-120, current_year, birth_year, label_visibility="collapsed", key="slider_annee")
 
     with col_prog:
@@ -764,13 +770,15 @@ with tab_patient:
     age = current_year - birth_year
     imc = weight / ((height / 100) ** 2)
 
-    # === Ligne 2 : 3 blocs fixes ===
+    # === Ligne 2 : 3 blocs ===
     col_left, col_div1, col_center, col_div2, col_right = st.columns([1.2, 0.05, 1.2, 0.05, 1.2])
 
     # --- Bloc gauche ---
     with col_left:
         st.markdown("<div class='block-title'>Choix de la tension du tube (en kV)</div>", unsafe_allow_html=True)
-        kv_scanner = st.radio("kV", [80, 90, 100, 110, 120], horizontal=True, index=4, key="kv_scanner_patient", label_visibility="collapsed")
+        kv_scanner = st.radio("kV", [80, 90, 100, 110, 120],
+                              horizontal=True, index=4, key="kv_scanner_patient",
+                              label_visibility="collapsed")
         charge_iod = float(cfg.get("charges", {}).get(str(kv_scanner), 0.45))
         concentration = int(cfg.get("concentration_mg_ml", 350))
         calc_mode_label = cfg.get("calc_mode", "Charge iodée")
@@ -785,7 +793,7 @@ with tab_patient:
     with col_div1:
         st.markdown("<div style='border-left:1px solid #ccc; height:100%;'></div>", unsafe_allow_html=True)
 
-    # --- Bloc central ---
+    # --- Bloc centre ---
     with col_center:
         st.markdown("<div class='block-title'>Choix du temps d’injection (en s)</div>", unsafe_allow_html=True)
         injection_modes = ["Portal", "Artériel"]
@@ -812,7 +820,6 @@ with tab_patient:
             f"<br><b>Départ acquisition en artériel :</b> {cfg.get('arterial_acq_time', 25.0):.1f} s"
             if cfg.get('arterial_acq_enabled', True) else ""
         )
-
         st.markdown(
             f"<div style='text-align:center; font-size:15px; color:#123A5F;'>"
             f"<b>Temps {injection_mode.lower()} :</b> {base_time:.1f} s<br>"
@@ -834,6 +841,7 @@ with tab_patient:
             f"{'✅ activé' if auto_age else '❌ désactivé'}</div>",
             unsafe_allow_html=True
         )
+        
     # === Calculs volumes et débits ===
     volume, bsa = calculate_volume(
         weight, height, kv_scanner,
