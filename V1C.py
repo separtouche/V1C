@@ -678,63 +678,56 @@ with tab_params:
                     st.error(f"Erreur suppression identifiant : {e}")
                     
 # ------------------------
-# Onglet Patient — centrage parfait des titres et radios
+# Onglet Patient — version finale corrigée et stable
 # ------------------------
 with tab_patient:
     # === Style global ===
     st.markdown("""
         <style>
-        /* TITRE GLOBAL */
+        div[data-testid="stSlider"] > label,
+        div[data-testid="stSlider"] > label *,
+        div[data-testid="stSelectbox"] > label,
+        div[data-testid="stSelectbox"] > label * {
+            display:block !important;
+            width:100% !important;
+            text-align:center !important;
+            font-weight:700 !important;
+            font-size:16px !important;
+            color:#123A5F !important;
+            margin-bottom:6px !important;
+        }
+        .slider-red .stSlider [data-baseweb="slider"],
+        .slider-red .stSlider [data-baseweb="slider"] div[role="slider"],
+        .slider-red .stSlider [data-baseweb="slider"] div[role="slider"]::before {
+            background-color:#E53935 !important;
+        }
         .section-title {
             font-size:22px;
             font-weight:700;
             color:#123A5F;
+            margin-bottom:12px;
             text-align:center;
-            margin-bottom:16px;
         }
-
-        /* TITRES DES BLOCS */
         .block-title {
-            text-align:center !important;
-            font-weight:700 !important;
-            color:#123A5F !important;
-            font-size:16px !important;
-            margin-bottom:0px !important;
+            text-align:center;
+            font-weight:700;
+            color:#123A5F;
+            font-size:16px;
+            margin-bottom:6px;
         }
-
-        /* --- Centrage réel des radios sous le titre --- */
-        div[data-testid="stVerticalBlock"] > div:has(div[role='radiogroup']) {
-            display:flex !important;
-            flex-direction:column !important;
-            align-items:center !important;
-            justify-content:center !important;
-        }
-
         div[role="radiogroup"] {
             display:flex !important;
             justify-content:center !important;
             align-items:center !important;
-            gap:10px !important;
-            margin-top:6px !important;
+            flex-wrap:nowrap !important;
+            gap:4px !important;
         }
-
         div[role="radiogroup"] label {
-            font-size:14px !important;
-            font-weight:600 !important;
-            color:#123A5F !important;
-            margin:0 !important;
-            padding:2px 4px !important;
+            font-size:13px !important;
+            padding:0 4px !important;
+            margin:0 1px !important;
             white-space:nowrap !important;
         }
-
-        /* Centrage sliders/select */
-        div[data-testid="stSlider"] > label,
-        div[data-testid="stSelectbox"] > label {
-            text-align:center !important;
-            font-weight:700 !important;
-            color:#123A5F !important;
-        }
-
         .divider {
             border-left:1px solid #d9d9d9;
             height:100%;
@@ -743,12 +736,14 @@ with tab_patient:
         </style>
     """, unsafe_allow_html=True)
 
-    # === Titre principal ===
+    # --- Titre principal ---
     st.markdown("<div class='section-title'>🧍 Informations patient</div>", unsafe_allow_html=True)
 
-    # === Ligne 1 : sliders ===
+    # === Ligne 1 : Sliders ===
+    st.markdown("<div class='slider-red'>", unsafe_allow_html=True)
     current_year = datetime.now().year
     col_poids, col_taille, col_annee, col_prog = st.columns([1, 1, 1, 1.3])
+
     with col_poids:
         weight = st.slider("Poids (kg)", 20, 200, 70)
     with col_taille:
@@ -771,16 +766,17 @@ with tab_patient:
             set_cfg_and_persist(user_id, cfg)
             user_sessions[user_id]["last_selected_program"] = prog_choice_patient
             save_user_sessions(user_sessions)
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    # === Variables ===
+    # === Variables patient ===
     cfg = get_cfg()
     age = current_year - birth_year
     imc = weight / ((height / 100) ** 2)
 
-    # === Ligne 2 : kV / temps / options ===
+    # === Ligne 2 : 3 blocs ===
     col_left, col_div1, col_center, col_div2, col_right = st.columns([1.2, 0.05, 1.2, 0.05, 1.2])
 
-    # --- Bloc gauche : kV ---
+    # --- Bloc gauche ---
     with col_left:
         st.markdown("<div class='block-title'>Choix de la tension du tube (en kV)</div>", unsafe_allow_html=True)
         kv_scanner = st.radio(
@@ -791,11 +787,9 @@ with tab_patient:
             key="kv_scanner_patient",
             label_visibility="collapsed",
         )
-
         charge_iod = float(cfg.get("charges", {}).get(str(kv_scanner), 0.45))
         concentration = int(cfg.get("concentration_mg_ml", 350))
         calc_mode_label = cfg.get("calc_mode", "Charge iodée")
-
         st.markdown(
             f"<div style='text-align:center; font-size:15px; color:#123A5F;'>"
             f"<b>Charge iodée :</b> {charge_iod:.2f} g I/kg<br>"
@@ -807,7 +801,7 @@ with tab_patient:
     with col_div1:
         st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
 
-    # --- Bloc centre : temps d'injection ---
+    # --- Bloc centre ---
     with col_center:
         st.markdown("<div class='block-title'>Choix du temps d’injection (en s)</div>", unsafe_allow_html=True)
         injection_modes = ["Portal", "Artériel"]
@@ -833,31 +827,48 @@ with tab_patient:
             base_time = float(cfg.get("portal_time", 30.0))
 
         acquisition_start = calculate_acquisition_start(age, cfg)
+
+        # ✅ correction syntaxe ici :
         arterial_line = (
             f"<br><b>Départ acquisition en artériel :</b> {cfg.get('arterial_acq_time', 25.0):.1f} s"
             if cfg.get('arterial_acq_enabled', True) else ""
         )
-        st.markdown(
+
+        html_center = (
             f"<div style='text-align:center; font-size:15px; color:#123A5F;'>"
             f"<b>Temps {injection_mode.lower()} :</b> {base_time:.0f} s<br>"
             f"<b>Départ acquisition en portal :</b> {acquisition_start:.1f} s"
-            f"{arterial_line}</div>",
-            unsafe_allow_html=True,
+            f"{arterial_line}"
+            f"</div>"
         )
+        st.markdown(html_center, unsafe_allow_html=True)
+
+        if injection_mode == "Intermédiaire":
+            st.markdown(
+                """
+                <div style='background-color:#E3F2FD; border-left:4px solid #1976D2;
+                            padding:8px 10px; margin-top:6px; border-radius:6px;
+                            color:#0D47A1; font-size:13px; text-align:center;'>
+                    ⚠️ <b>Attention :</b> pensez à ajuster le départ d’acquisition.
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+        if cfg.get("intermediate_enabled", False) and injection_mode == "Intermédiaire":
+            new_intermediate_time = st.number_input(
+                "Modifier temps intermédiaire (s)",
+                value=float(cfg.get("intermediate_time", 28.0)),
+                min_value=5.0,
+                max_value=120.0,
+                step=1.0,
+                key="patient_intermediate_time",
+            )
+            cfg["intermediate_time"] = float(new_intermediate_time)
+            set_cfg_and_persist(st.session_state["user_id"], cfg)
 
     with col_div2:
         st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
-
-    # --- Bloc droit : options ---
-    with col_right:
-        st.markdown("<div class='block-title'>Options avancées</div>", unsafe_allow_html=True)
-        auto_age = bool(cfg.get("auto_acquisition_by_age", True))
-        st.markdown(
-            f"<div style='text-align:center; font-size:15px; color:#123A5F;'>"
-            f"<b>Ajustement automatique selon l'âge :</b><br>"
-            f"{'✅ activé' if auto_age else '❌ désactivé'}</div>",
-            unsafe_allow_html=True,
-        )
 
     # --- Bloc droit ---
     with col_right:
