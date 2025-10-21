@@ -678,7 +678,7 @@ with tab_params:
                     st.error(f"Erreur suppression identifiant : {e}")
 
 # ------------------------
-# Onglet Patient — version stable et alignée proprement
+# Onglet Patient — version stable, alignée et avec décalage moyen (45px)
 # ------------------------
 with tab_patient:
     st.markdown("""
@@ -778,15 +778,23 @@ with tab_patient:
     with col_div1:
         st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
 
-    # Bloc central ajusté
+    # Bloc central ajusté avec décalage moyen
     with col_center:
         st.markdown("<div class='block-title'>Choix du temps d’injection (en s)</div>", unsafe_allow_html=True)
         injection_modes = ["Portal", "Artériel"]
         if cfg.get("intermediate_enabled", False):
             injection_modes.append("Intermédiaire")
 
-        st.markdown("<div class='radio-flex'>", unsafe_allow_html=True)
-        injection_mode = st.radio("Mode d'injection", injection_modes, horizontal=True, index=0, key="injection_mode_patient", label_visibility="collapsed")
+        # 🔹 Décalage horizontal moyen : 45 px
+        st.markdown("<div class='radio-flex' style='justify-content:flex-start; margin-left:45px;'>", unsafe_allow_html=True)
+        injection_mode = st.radio(
+            "Mode d'injection",
+            injection_modes,
+            horizontal=True,
+            index=0,
+            key="injection_mode_patient",
+            label_visibility="collapsed"
+        )
         st.markdown("</div>", unsafe_allow_html=True)
 
         if injection_mode == "Portal":
@@ -794,8 +802,14 @@ with tab_patient:
         elif injection_mode == "Artériel":
             base_time = float(cfg.get("arterial_time", 25.0))
         else:
-            base_time = st.number_input("⏱ Temps intermédiaire (s)", min_value=5.0, max_value=120.0, step=0.5,
-                                        value=float(cfg.get("intermediate_time", 28.0)), key="inter_input")
+            base_time = st.number_input(
+                "⏱ Temps intermédiaire (s)",
+                min_value=5.0,
+                max_value=120.0,
+                step=0.5,
+                value=float(cfg.get("intermediate_time", 28.0)),
+                key="inter_input"
+            )
             st.warning("⚠️ Attention : adaptez votre départ d’acquisition.")
 
         acquisition_start = calculate_acquisition_start(age, cfg)
@@ -824,6 +838,7 @@ with tab_patient:
             f"{'✅ activé' if auto_age else '❌ désactivé'}</div>",
             unsafe_allow_html=True
         )
+        
     # === Calculs volumes et débits ===
     volume, bsa = calculate_volume(
         weight, height, kv_scanner,
