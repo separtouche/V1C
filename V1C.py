@@ -833,14 +833,21 @@ with tab_patient:
             base_time = float(cfg.get("portal_time", 30.0))
 
         acquisition_start = calculate_acquisition_start(age, cfg)
-        st.markdown(
-            f"<div style='text-align:center; font-size:15px; color:#123A5F;'>"
-            f"<b>Temps {injection_mode.lower()} :</b> {base_time:.0f} s<br>"
-            f"<b>Départ acquisition en portal :</b> {acquisition_start:.1f} s"
-            + (f"<br><b>Départ acquisition en artériel :</b> {cfg.get('arterial_acq_time', 25.0):.1f} s" if cfg.get('arterial_acq_enabled', True) else "")
-            f"</div>",
-            unsafe_allow_html=True,
-        )
+        
+arterial_line = (
+    f"<br><b>Départ acquisition en artériel :</b> {cfg.get('arterial_acq_time', 25.0):.1f} s"
+    if cfg.get('arterial_acq_enabled', True) else ""
+)
+
+html_center = (
+    f"<div style='text-align:center; font-size:15px; color:#123A5F;'>"
+    f"<b>Temps {injection_mode.lower()} :</b> {base_time:.0f} s<br>"
+    f"<b>Départ acquisition en portal :</b> {acquisition_start:.1f} s"
+    f"{arterial_line}"
+    f"</div>"
+)
+
+st.markdown(html_center, unsafe_allow_html=True)
 
         if injection_mode == "Intermédiaire":
             st.markdown(
@@ -875,15 +882,13 @@ with tab_patient:
         auto_age = bool(cfg.get("auto_acquisition_by_age", True))
 
         # ✅ Bloc simplifié sans injection simultanée
-        html_opt = (
-            f"<b>Ajustement automatique selon l'âge :</b><br>"
-            f"{'✅ activé' if auto_age else '❌ désactivé'}"
-        )
-
-        st.markdown(
-            f"<div style='text-align:center; font-size:15px; color:#123A5F;'>{html_opt}</div>",
-            unsafe_allow_html=True,
-        )
+html_opt = (
+    f"<div style='text-align:center; font-size:15px; color:#123A5F;'>"
+    f"<b>Ajustement automatique selon l'âge :</b><br>"
+    f"{'✅ activé' if auto_age else '❌ désactivé'}"
+    f"</div>"
+)
+st.markdown(html_opt, unsafe_allow_html=True)
                 
     # --- Calculs finaux ---
     volume, bsa = calculate_volume(
