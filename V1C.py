@@ -735,21 +735,6 @@ with tab_patient:
         }
         </style>
     """, unsafe_allow_html=True)
-    # --- Correction visuelle : centrage des boutons radio (compatible Streamlit 1.5)
-st.markdown("""
-<style>
-.row-widget.stRadio {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-}
-.row-widget.stRadio > div {
-    display: flex;
-    justify-content: center;
-}
-</style>
-""", unsafe_allow_html=True)
 
     # --- Titre principal ---
     st.markdown("<div class='section-title'>🧍 Informations patient</div>", unsafe_allow_html=True)
