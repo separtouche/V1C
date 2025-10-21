@@ -523,18 +523,19 @@ with tab_params:
         disabled=disabled
     )
 
-    if not cfg["auto_acquisition_by_age"]:
-        cfg["acquisition_start_param"] = st.number_input(
-            "Départ d’acquisition manuel (s)",
-            value=float(cfg.get("acquisition_start_param", 70.0)),
-            min_value=30.0,
-            max_value=120.0,
-            step=1.0,
-            disabled=disabled
-        )
-        cfg["arterial_acq_enabled"] = st.checkbox(
-            "Activer départ acquisition artériel",
-             value=bool(cfg.get("arterial_acq_enabled", True))
+if not cfg["auto_acquisition_by_age"]:
+    cfg["acquisition_start_param"] = st.number_input(
+        "Départ d’acquisition manuel (s)",
+        value=float(cfg.get("acquisition_start_param", 70.0)),
+        min_value=30.0,
+        max_value=120.0,
+        step=1.0,
+        disabled=disabled
+    )
+    cfg["arterial_acq_enabled"] = st.checkbox(
+        "Activer départ acquisition artériel",
+        value=bool(cfg.get("arterial_acq_enabled", True)),
+        disabled=disabled
     )
     if cfg["arterial_acq_enabled"]:
         cfg["arterial_acq_time"] = st.number_input(
