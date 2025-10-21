@@ -678,9 +678,8 @@ with tab_params:
                     st.error(f"Erreur suppression identifiant : {e}")
 
 # ------------------------
-# Onglet Patient — version finale complète et stable (avec restauration par défaut)
+# Onglet Patient — version finale complète et stable
 # ------------------------
-
 if "defaults_loaded" not in st.session_state:
     st.session_state["defaults_loaded"] = True
     st.session_state["num_poids"] = 70
@@ -691,31 +690,6 @@ if "defaults_loaded" not in st.session_state:
     st.session_state["slider_annee"] = 1985
     st.session_state["kv_scanner_patient"] = 120
     st.session_state["injection_mode_patient"] = "Portal"
-
-# === Fonction de restauration par défaut ===
-def get_default_cfg():
-    """Retourne la configuration par défaut complète."""
-    return {
-        "charges": {str(kv): val for kv, val in zip([80, 90, 100, 110, 120], [0.35, 0.38, 0.40, 0.42, 0.45])},
-        "concentration_mg_ml": 350,
-        "portal_time": 30.0,
-        "arterial_time": 25.0,
-        "intermediate_enabled": False,
-        "intermediate_time": 28.0,
-        "acquisition_start_param": 70.0,
-        "auto_acquisition_by_age": True,
-        "max_debit": 6.0,
-        "rincage_volume": 35.0,
-        "rincage_delta_debit": 0.5,
-        "calc_mode": "Charge iodée",
-        "simultaneous_enabled": False,
-        "target_concentration": 350,
-        "volume_max_limit": 200.0,
-        "arterial_acq_enabled": True,
-        "arterial_acq_time": 25.0,
-        "intermediate_enabled": True,
-        "super_user": "admin"
-    }
 
 with tab_patient:
     st.markdown("""
@@ -738,19 +712,25 @@ with tab_patient:
     st.markdown("<div class='section-title'>🧍 Informations patient</div>", unsafe_allow_html=True)
     current_year = datetime.now().year
 
-    # --- Fonction synchronisée (slider ↔ input) ---
+    # --- Fonction synchronisée avec réaction immédiate ---
     def sync_slider_with_input(num_key, slider_key, min_val, max_val, step):
+        # Lecture actuelle
         num_val = st.session_state.get(num_key, 0)
-        st.number_input(
+        slider_val = st.session_state.get(slider_key, 0)
+
+        # Champ numérique (prioritaire si modifié)
+        num_val_new = st.number_input(
             "", min_val, max_val, num_val, step=step, key=num_key,
-            label_visibility="collapsed",
-            on_change=lambda: st.session_state.update({slider_key: st.session_state[num_key]})
+            label_visibility="collapsed", on_change=lambda: st.session_state.update({slider_key: st.session_state[num_key]})
         )
-        st.slider(
-            " ", min_val, max_val, st.session_state[slider_key],
-            key=slider_key, label_visibility="collapsed",
-            on_change=lambda: st.session_state.update({num_key: st.session_state[slider_key]})
+
+        # Slider (met à jour le champ)
+        slider_val_new = st.slider(
+            " ", min_val, max_val, st.session_state[slider_key], key=slider_key,
+            label_visibility="collapsed", on_change=lambda: st.session_state.update({num_key: st.session_state[slider_key]})
         )
+
+        # Retourne la valeur actuelle commune
         return st.session_state[num_key]
 
     # === Ligne Poids / Taille / Année / Programme ===
@@ -772,29 +752,14 @@ with tab_patient:
         st.markdown("<div class='block-title'>Programme</div>", unsafe_allow_html=True)
         _uid = st.session_state["user_id"]
         _programs = user_sessions.get(_uid, {}).get("programs", {})
-
-        prog_choice_patient = st.selectbox(
-            "", ["Sélection d'un programme"] + list(_programs.keys()),
-            index=0, label_visibility="collapsed"
-        )
-
-        cfg = get_cfg()
-
+        prog_choice_patient = st.selectbox("", ["Sélection d'un programme"] + list(_programs.keys()), index=0, label_visibility="collapsed")
         if prog_choice_patient != "Sélection d'un programme":
-            # Charger programme sauvegardé
+            cfg = get_cfg()
             for k, v in _programs.get(prog_choice_patient, {}).items():
                 cfg[k] = v
             set_cfg_and_persist(_uid, cfg)
             user_sessions[_uid]["last_selected_program"] = prog_choice_patient
             save_user_sessions(user_sessions)
-        else:
-            # 🔹 Revenir à la configuration par défaut
-            default_cfg = get_default_cfg()
-            set_cfg_and_persist(_uid, default_cfg)
-            if "last_selected_program" in user_sessions[_uid]:
-                del user_sessions[_uid]["last_selected_program"]
-            save_user_sessions(user_sessions)
-            st.info("🔄 Configuration par défaut restaurée.")
 
     # === Variables patient ===
     cfg = get_cfg()
@@ -810,10 +775,12 @@ with tab_patient:
         _, col_centered, _ = st.columns([1, 2.5, 1])
         with col_centered:
             kv_scanner = st.radio(
-                "kV", [80, 90, 100, 110, 120],
+                "kV",
+                [80, 90, 100, 110, 120],
                 horizontal=True,
                 index=[80, 90, 100, 110, 120].index(st.session_state["kv_scanner_patient"]),
-                key="kv_scanner_patient", label_visibility="collapsed"
+                key="kv_scanner_patient",
+                label_visibility="collapsed"
             )
 
         charge_iod = float(cfg.get("charges", {}).get(str(kv_scanner), 0.45))
@@ -840,10 +807,12 @@ with tab_patient:
         _, col_centered, _ = st.columns([1, 2.5, 1])
         with col_centered:
             injection_mode = st.radio(
-                "Mode d'injection", modes,
+                "Mode d'injection",
+                modes,
                 horizontal=True,
                 index=modes.index(st.session_state["injection_mode_patient"]) if st.session_state["injection_mode_patient"] in modes else 0,
-                key="injection_mode_patient", label_visibility="collapsed"
+                key="injection_mode_patient",
+                label_visibility="collapsed"
             )
 
         if injection_mode == "Portal":
@@ -853,8 +822,11 @@ with tab_patient:
         else:
             base_time = st.number_input(
                 "⏱ Temps intermédiaire (s)",
-                min_value=5.0, max_value=120.0, step=0.5,
-                value=float(cfg.get("intermediate_time", 28.0)), key="inter_input"
+                min_value=5.0,
+                max_value=120.0,
+                step=0.5,
+                value=float(cfg.get("intermediate_time", 28.0)),
+                key="inter_input"
             )
             st.warning("⚠️ Attention : adaptez votre départ d’acquisition.")
 
@@ -875,8 +847,8 @@ with tab_patient:
     # === Calculs principaux ===
     volume, bsa = calculate_volume(
         weight, height, kv_scanner,
-        float(cfg.get("concentration_mg_ml", 350)), imc,
-        cfg.get("calc_mode", "Charge iodée"),
+        float(cfg.get("concentration_mg_ml", 350)),
+        imc, cfg.get("calc_mode", "Charge iodée"),
         cfg.get("charges", {}),
         float(cfg.get("volume_max_limit", 200.0))
     )
@@ -887,6 +859,7 @@ with tab_patient:
     st.markdown("---")
 
     # === Injection simultanée ===
+    sim_enabled = bool(cfg.get("simultaneous_enabled", False))
     delta_debit = float(cfg.get("rincage_delta_debit", 0.5))
     vol_rincage = float(cfg.get("rincage_volume", 35.0))
     debit_rincage = max(0.1, injection_rate - delta_debit)
