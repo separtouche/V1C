@@ -678,7 +678,7 @@ with tab_params:
                     st.error(f"Erreur suppression identifiant : {e}")
                     
 # ------------------------
-# Onglet Patient — version finale centrée, stable, sans retour à la ligne
+# Onglet Patient — version finale stable avec saisie numérique
 # ------------------------
 with tab_patient:
     # === Style global ===
@@ -696,26 +696,6 @@ with tab_patient:
             color:#123A5F !important;
             margin-bottom:6px !important;
         }
-        .slider-red .stSlider [data-baseweb="slider"],
-        .slider-red .stSlider [data-baseweb="slider"] div[role="slider"],
-        .slider-red .stSlider [data-baseweb="slider"] div[role="slider"]::before {
-            background-color:#E53935 !important;
-        }
-        .section-title {
-            font-size:22px;
-            font-weight:700;
-            color:#123A5F;
-            margin-bottom:12px;
-            text-align:center;
-        }
-        .block-title {
-            text-align:center;
-            font-weight:700;
-            color:#123A5F;
-            font-size:16px;
-            margin-bottom:6px;
-        }
-        /* ✅ Correction : centrage parfait + pas de retour à la ligne */
         div[role="radiogroup"] {
             display:flex !important;
             justify-content:center !important;
@@ -734,6 +714,20 @@ with tab_patient:
             white-space:nowrap !important;
             flex-shrink:0 !important;
         }
+        .section-title {
+            font-size:22px;
+            font-weight:700;
+            color:#123A5F;
+            margin-bottom:12px;
+            text-align:center;
+        }
+        .block-title {
+            text-align:center;
+            font-weight:700;
+            color:#123A5F;
+            font-size:16px;
+            margin-bottom:6px;
+        }
         .divider {
             border-left:1px solid #d9d9d9;
             height:100%;
@@ -745,16 +739,34 @@ with tab_patient:
     # --- Titre principal ---
     st.markdown("<div class='section-title'>🧍 Informations patient</div>", unsafe_allow_html=True)
 
-    # === Ligne 1 : Sliders ===
+    # === Ligne 1 : Sliders + saisie numérique ===
     current_year = datetime.now().year
     col_poids, col_taille, col_annee, col_prog = st.columns([1, 1, 1, 1.3])
 
     with col_poids:
-        weight = st.slider("Poids (kg)", 20, 200, 70)
+        c1, c2 = st.columns([4, 1])
+        with c1:
+            weight = st.slider("Poids (kg)", 20, 200, 70)
+        with c2:
+            weight_input = st.number_input(" ", min_value=20, max_value=200, value=weight, key="num_poids", label_visibility="collapsed")
+        weight = weight_input
+
     with col_taille:
-        height = st.slider("Taille (cm)", 100, 220, 170)
+        c1, c2 = st.columns([4, 1])
+        with c1:
+            height = st.slider("Taille (cm)", 100, 220, 170)
+        with c2:
+            height_input = st.number_input(" ", min_value=100, max_value=220, value=height, key="num_taille", label_visibility="collapsed")
+        height = height_input
+
     with col_annee:
-        birth_year = st.slider("Année de naissance", current_year - 120, current_year, 1985)
+        c1, c2 = st.columns([4, 1])
+        with c1:
+            birth_year = st.slider("Année de naissance", current_year - 120, current_year, 1985)
+        with c2:
+            birth_input = st.number_input(" ", min_value=current_year - 120, max_value=current_year, value=birth_year, key="num_annee", label_visibility="collapsed")
+        birth_year = birth_input
+
     with col_prog:
         user_id = st.session_state["user_id"]
         user_programs = user_sessions.get(user_id, {}).get("programs", {})
@@ -777,7 +789,7 @@ with tab_patient:
     age = current_year - birth_year
     imc = weight / ((height / 100) ** 2)
 
-    # === Ligne 2 : 3 blocs ===
+    # === Ligne 2 : Blocs centrés ===
     col_left, col_div1, col_center, col_div2, col_right = st.columns([1.2, 0.05, 1.2, 0.05, 1.2])
 
     # --- Bloc gauche ---
@@ -786,12 +798,9 @@ with tab_patient:
         _, col_centered, _ = st.columns([1, 2.5, 1])
         with col_centered:
             kv_scanner = st.radio(
-                "kV",
-                [80, 90, 100, 110, 120],
-                horizontal=True,
-                index=4,
-                key="kv_scanner_patient",
-                label_visibility="collapsed"
+                "kV", [80, 90, 100, 110, 120],
+                horizontal=True, index=4,
+                key="kv_scanner_patient", label_visibility="collapsed"
             )
         charge_iod = float(cfg.get("charges", {}).get(str(kv_scanner), 0.45))
         concentration = int(cfg.get("concentration_mg_ml", 350))
@@ -842,8 +851,7 @@ with tab_patient:
             f"<div style='text-align:center; font-size:15px; color:#123A5F;'>"
             f"<b>Temps {injection_mode.lower()} :</b> {base_time:.0f} s<br>"
             f"<b>Départ acquisition en portal :</b> {acquisition_start:.1f} s"
-            f"{arterial_line}"
-            f"</div>"
+            f"{arterial_line}</div>"
         )
         st.markdown(html_center, unsafe_allow_html=True)
 
@@ -857,11 +865,9 @@ with tab_patient:
         html_opt = (
             f"<div style='text-align:center; font-size:15px; color:#123A5F;'>"
             f"<b>Ajustement automatique selon l'âge :</b><br>"
-            f"{'✅ activé' if auto_age else '❌ désactivé'}"
-            f"</div>"
+            f"{'✅ activé' if auto_age else '❌ désactivé'}</div>"
         )
         st.markdown(html_opt, unsafe_allow_html=True)
-
 
     # === Calculs volumes et débits ===
     volume, bsa = calculate_volume(
