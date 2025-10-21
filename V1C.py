@@ -676,30 +676,29 @@ with tab_params:
                     st.rerun()
                 except Exception as e:
                     st.error(f"Erreur suppression identifiant : {e}")
+
 # ------------------------
-# Onglet Patient — version corrigée et équilibrée (visuel stable)
+# Onglet Patient — version stable et alignée proprement
 # ------------------------
 with tab_patient:
-    # === Styles ===
     st.markdown("""
         <style>
         .section-title {
-            font-size:22px; font-weight:700; color:#123A5F; margin-bottom:12px; text-align:center;
+            font-size:22px; font-weight:700; color:#123A5F;
+            text-align:center; margin-bottom:12px;
         }
         .block-title {
-            text-align:center; font-weight:700; color:#123A5F; font-size:16px; margin-bottom:6px;
+            text-align:center; font-weight:700;
+            color:#123A5F; font-size:16px; margin-bottom:8px;
         }
-        div[role="radiogroup"] {
+        .radio-flex {
             display:flex !important;
             justify-content:center !important;
             align-items:center !important;
             flex-wrap:nowrap !important;
-            white-space:nowrap !important;
-            gap:20px !important;
-            overflow-x:hidden !important;
-            padding:6px 10px !important;
+            gap:22px !important;
+            margin-top:-6px !important;
         }
-        div[role="radiogroup"]::-webkit-scrollbar { display:none; }
         div[role="radiogroup"] label {
             font-size:14px !important;
             padding:6px 18px !important;
@@ -707,22 +706,25 @@ with tab_patient:
             background:#F8FAFD !important;
             border:1px solid #DCE4EC !important;
             transition:all 0.2s ease-in-out;
-            min-width:95px !important;
             text-align:center !important;
+            min-width:95px !important;
         }
         div[role="radiogroup"] label:hover {
             background:#E6EEF8 !important;
         }
+        .divider {
+            border-left:1px solid #ccc;
+            height:100%;
+            margin:0 12px;
+        }
         </style>
     """, unsafe_allow_html=True)
 
-    # === Titre ===
     st.markdown("<div class='section-title'>🧍 Informations patient</div>", unsafe_allow_html=True)
     current_year = datetime.now().year
 
-    # === Ligne compacte : Poids / Taille / Année / Programme ===
+    # Ligne sliders
     col_poids, col_taille, col_annee, col_prog = st.columns([1, 1, 1, 1.3])
-
     with col_poids:
         st.markdown("<div class='block-title'>Poids (kg)</div>", unsafe_allow_html=True)
         weight = st.number_input("", min_value=20, max_value=200, value=70, step=1, key="num_poids", label_visibility="collapsed")
@@ -752,21 +754,16 @@ with tab_patient:
             user_sessions[user_id]["last_selected_program"] = prog_choice_patient
             save_user_sessions(user_sessions)
 
-    # === Variables patient ===
     cfg = get_cfg()
     age = current_year - birth_year
     imc = weight / ((height / 100) ** 2)
 
-    # === Ligne suivante : blocs bien proportionnés ===
+    # Trois colonnes équilibrées
     col_left, col_div1, col_center, col_div2, col_right = st.columns([1.25, 0.05, 1.35, 0.05, 1.1])
 
-    # --- Bloc gauche : kV ---
     with col_left:
         st.markdown("<div class='block-title'>Choix de la tension du tube (en kV)</div>", unsafe_allow_html=True)
-        kv_scanner = st.radio(
-            "kV", [80, 90, 100, 110, 120],
-            horizontal=True, index=4, key="kv_scanner_patient", label_visibility="collapsed"
-        )
+        kv_scanner = st.radio("kV", [80, 90, 100, 110, 120], horizontal=True, index=4, key="kv_scanner_patient", label_visibility="collapsed")
         charge_iod = float(cfg.get("charges", {}).get(str(kv_scanner), 0.45))
         concentration = int(cfg.get("concentration_mg_ml", 350))
         calc_mode_label = cfg.get("calc_mode", "Charge iodée")
@@ -779,31 +776,26 @@ with tab_patient:
         )
 
     with col_div1:
-        st.markdown("<div style='border-left:1px solid #ccc; height:100%;'></div>", unsafe_allow_html=True)
+        st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
 
-    # --- Bloc central : temps d’injection ---
+    # Bloc central ajusté
     with col_center:
         st.markdown("<div class='block-title'>Choix du temps d’injection (en s)</div>", unsafe_allow_html=True)
         injection_modes = ["Portal", "Artériel"]
         if cfg.get("intermediate_enabled", False):
             injection_modes.append("Intermédiaire")
 
-        injection_mode = st.radio(
-            "Mode d'injection", injection_modes,
-            horizontal=True, index=0, key="injection_mode_patient",
-            label_visibility="collapsed"
-        )
+        st.markdown("<div class='radio-flex'>", unsafe_allow_html=True)
+        injection_mode = st.radio("Mode d'injection", injection_modes, horizontal=True, index=0, key="injection_mode_patient", label_visibility="collapsed")
+        st.markdown("</div>", unsafe_allow_html=True)
 
         if injection_mode == "Portal":
             base_time = float(cfg.get("portal_time", 30.0))
         elif injection_mode == "Artériel":
             base_time = float(cfg.get("arterial_time", 25.0))
         else:
-            base_time = st.number_input(
-                "⏱ Temps intermédiaire (s)",
-                min_value=5.0, max_value=120.0, step=0.5,
-                value=float(cfg.get("intermediate_time", 28.0)), key="inter_input"
-            )
+            base_time = st.number_input("⏱ Temps intermédiaire (s)", min_value=5.0, max_value=120.0, step=0.5,
+                                        value=float(cfg.get("intermediate_time", 28.0)), key="inter_input")
             st.warning("⚠️ Attention : adaptez votre départ d’acquisition.")
 
         acquisition_start = calculate_acquisition_start(age, cfg)
@@ -821,9 +813,8 @@ with tab_patient:
         )
 
     with col_div2:
-        st.markdown("<div style='border-left:1px solid #ccc; height:100%;'></div>", unsafe_allow_html=True)
+        st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
 
-    # --- Bloc droit ---
     with col_right:
         st.markdown("<div class='block-title'>Options avancées</div>", unsafe_allow_html=True)
         auto_age = bool(cfg.get("auto_acquisition_by_age", True))
@@ -833,7 +824,6 @@ with tab_patient:
             f"{'✅ activé' if auto_age else '❌ désactivé'}</div>",
             unsafe_allow_html=True
         )
-
     # === Calculs volumes et débits ===
     volume, bsa = calculate_volume(
         weight, height, kv_scanner,
