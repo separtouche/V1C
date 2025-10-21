@@ -678,17 +678,22 @@ with tab_params:
                     st.error(f"Erreur suppression identifiant : {e}")
                     
 # ------------------------
-# Onglet Patient — version finale propre, centrée et fonctionnelle
+# Onglet Patient — version stable et non déformable
 # ------------------------
 with tab_patient:
-    # === Styles ===
     st.markdown("""
         <style>
+        /* Structure globale verrouillée */
+        [data-testid="stHorizontalBlock"] {
+            flex-wrap: nowrap !important;
+            overflow-x: auto !important;
+        }
         .section-title {
             font-size:22px; font-weight:700; color:#123A5F; margin-bottom:12px; text-align:center;
         }
         .block-title {
             text-align:center; font-weight:700; color:#123A5F; font-size:16px; margin-bottom:6px;
+            white-space:nowrap;
         }
         div[role="radiogroup"] {
             display:flex !important;
@@ -708,9 +713,19 @@ with tab_patient:
             background:#F8FAFD !important;
             border:1px solid #DCE4EC !important;
             transition:all 0.2s ease-in-out;
+            white-space:nowrap !important;
         }
-        div[role="radiogroup"] label:hover {
-            background:#E6EEF8 !important;
+        div[role="radiogroup"] label:hover { background:#E6EEF8 !important; }
+        /* Centrage et taille fixes pour les inputs */
+        .stNumberInput, .stSlider {
+            min-width: 160px !important;
+            max-width: 160px !important;
+            margin-left:auto !important;
+            margin-right:auto !important;
+        }
+        /* Empêcher Streamlit de compresser les colonnes sur petit écran */
+        .stColumn {
+            min-width: 180px !important;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -794,8 +809,10 @@ with tab_patient:
         elif injection_mode == "Artériel":
             base_time = float(cfg.get("arterial_time", 25.0))
         else:
-            base_time = st.number_input("⏱ Temps intermédiaire (s)", min_value=5.0, max_value=120.0, step=0.5,
-                                        value=float(cfg.get("intermediate_time", 28.0)), key="inter_input")
+            base_time = st.number_input("⏱ Temps intermédiaire (s)",
+                                        min_value=5.0, max_value=120.0, step=0.5,
+                                        value=float(cfg.get("intermediate_time", 28.0)),
+                                        key="inter_input")
             st.warning("⚠️ Attention : adaptez votre départ d’acquisition.")
 
         acquisition_start = calculate_acquisition_start(age, cfg)
