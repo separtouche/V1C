@@ -676,9 +676,8 @@ with tab_params:
                     st.rerun()
                 except Exception as e:
                     st.error(f"Erreur suppression identifiant : {e}")
-
 # ------------------------
-# Onglet Patient — version finale avec centrage parfait des boutons radio
+# Onglet Patient — centrage visuel final parfait
 # ------------------------
 with tab_patient:
     st.markdown("""
@@ -689,31 +688,22 @@ with tab_patient:
         }
         .block-title {
             font-weight:700; color:#123A5F;
-            font-size:16px; margin-bottom:6px; text-align:center;
+            font-size:16px; margin-bottom:8px; text-align:center;
         }
-        /* ✅ Centrage parfait sans modifier l'espacement interne */
         div[role="radiogroup"] {
-            display:flex !important;
             justify-content:center !important;
-            align-items:center !important;
-            gap:12px !important;
-            flex-wrap:nowrap !important;
-            white-space:nowrap !important;
+            gap: 14px !important;
         }
         div[role="radiogroup"] label {
             font-size:14px !important;
-            padding:4px 12px !important;
+            padding:6px 14px !important;
             border-radius:8px !important;
             background:#F8FAFD !important;
             border:1px solid #DCE4EC !important;
         }
-        div[role="radiogroup"] label:hover {
-            background:#E6EEF8 !important;
-        }
         </style>
     """, unsafe_allow_html=True)
 
-    # === Titre principal ===
     st.markdown("<div class='section-title'>🧍 Informations patient</div>", unsafe_allow_html=True)
     current_year = datetime.now().year
 
@@ -755,9 +745,11 @@ with tab_patient:
     # Bloc gauche — kV
     with col_left:
         st.markdown("<div class='block-title'>Choix de la tension du tube (en kV)</div>", unsafe_allow_html=True)
+        st.markdown("<div style='text-align:center;'>", unsafe_allow_html=True)
         kv_scanner = st.radio("kV", [80, 90, 100, 110, 120],
                               horizontal=True, index=4, key="kv_scanner_patient",
                               label_visibility="collapsed")
+        st.markdown("</div>", unsafe_allow_html=True)
         charge_iod = float(cfg.get("charges", {}).get(str(kv_scanner), 0.45))
         concentration = int(cfg.get("concentration_mg_ml", 350))
         calc_mode_label = cfg.get("calc_mode", "Charge iodée")
@@ -775,13 +767,14 @@ with tab_patient:
     # Bloc droit — Temps d’injection
     with col_center:
         st.markdown("<div class='block-title'>Choix du temps d’injection (en s)</div>", unsafe_allow_html=True)
+        st.markdown("<div style='text-align:center;'>", unsafe_allow_html=True)
         modes = ["Portal", "Artériel"]
         if cfg.get("intermediate_enabled", False):
             modes.append("Intermédiaire")
-
         injection_mode = st.radio("Mode d'injection", modes,
                                   horizontal=True, index=0, key="injection_mode_patient",
                                   label_visibility="collapsed")
+        st.markdown("</div>", unsafe_allow_html=True)
 
         if injection_mode == "Portal":
             base_time = float(cfg.get("portal_time", 30.0))
@@ -810,44 +803,7 @@ with tab_patient:
             unsafe_allow_html=True
         )
 
-    # === Calculs principaux ===
-    volume, bsa = calculate_volume(
-        weight, height, kv_scanner,
-        float(cfg.get("concentration_mg_ml", 350)),
-        imc, cfg.get("calc_mode", "Charge iodée"),
-        cfg.get("charges", {}),
-        float(cfg.get("volume_max_limit", 200.0))
-    )
-    injection_rate, injection_time, time_adjusted = adjust_injection_rate(
-        volume, float(base_time), float(cfg.get("max_debit", 6.0))
-    )
-
-    st.markdown("---")
-
-    # === Injection simultanée ===
-    sim_enabled = bool(cfg.get("simultaneous_enabled", False))
-    delta_debit = float(cfg.get("rincage_delta_debit", 0.5))
-    vol_rincage = float(cfg.get("rincage_volume", 35.0))
-    debit_rincage = max(0.1, injection_rate - delta_debit)
-
-    concentration = float(cfg.get("concentration_mg_ml", 350))
-    target_concentration = float(cfg.get("target_concentration", concentration))
-
-    if sim_enabled and target_concentration < concentration:
-        pct_contrast = round((target_concentration / concentration) * 100, 1)
-        pct_nacl = round(100 - pct_contrast, 1)
-        vol_contrast_effectif = round(volume * pct_contrast / 100)
-        vol_dilution_nacl = round(volume * pct_nacl / 100)
-        st.info(
-            f"🧪 Injection simultanée activée — "
-            f"{pct_contrast:.1f}% contraste + {pct_nacl:.1f}% NaCl pour atteindre {target_concentration:.0f} mg I/mL."
-        )
-    else:
-        pct_contrast, pct_nacl = 100, 0
-        vol_contrast_effectif = round(volume)
-        vol_dilution_nacl = 0
-
-    # === Pop-up ajustement automatique (⏱️) ===
+    # Pop-up ajustement automatique
     if bool(cfg.get("auto_acquisition_by_age", True)):
         st.info("⏱️ Ajustement automatique selon l’âge activé — le départ d’acquisition est adapté automatiquement.")
 
