@@ -678,7 +678,7 @@ with tab_params:
                     st.error(f"Erreur suppression identifiant : {e}")
                     
 # ------------------------
-# Onglet Patient — version finale stable et fonctionnelle
+# Onglet Patient — version finale propre, centrée et fonctionnelle
 # ------------------------
 with tab_patient:
     # === Styles ===
@@ -712,9 +712,6 @@ with tab_patient:
         div[role="radiogroup"] label:hover {
             background:#E6EEF8 !important;
         }
-        .mini-number {
-            width:65px;
-        }
         </style>
     """, unsafe_allow_html=True)
 
@@ -726,21 +723,25 @@ with tab_patient:
     col_poids, col_taille, col_annee, col_prog = st.columns([1, 1, 1, 1.3])
 
     with col_poids:
-        weight = st.number_input("Poids (kg)", min_value=20, max_value=200, value=70, step=1, key="num_poids")
+        st.markdown("<div class='block-title'>Poids (kg)</div>", unsafe_allow_html=True)
+        weight = st.number_input("", min_value=20, max_value=200, value=70, step=1, key="num_poids", label_visibility="collapsed")
         weight = st.slider(" ", 20, 200, weight, label_visibility="collapsed", key="slider_poids")
 
     with col_taille:
-        height = st.number_input("Taille (cm)", min_value=100, max_value=220, value=170, step=1, key="num_taille")
-        height = st.slider(" ", 100, 220, height, label_visibility="collapsed", key="slider_taille")
+        st.markdown("<div class='block-title'>Taille (cm)</div>", unsafe_allow_html=True)
+        height = st.number_input("", min_value=100, max_value=220, value=170, step=1, key="num_taille", label_visibility="collapsed")
+        height = st.slider("  ", 100, 220, height, label_visibility="collapsed", key="slider_taille")
 
     with col_annee:
-        birth_year = st.number_input("Année de naissance", min_value=current_year-120, max_value=current_year, value=1985, step=1, key="num_annee")
-        birth_year = st.slider("  ", current_year-120, current_year, birth_year, label_visibility="collapsed", key="slider_annee")
+        st.markdown("<div class='block-title'>Année de naissance</div>", unsafe_allow_html=True)
+        birth_year = st.number_input("", min_value=current_year-120, max_value=current_year, value=1985, step=1, key="num_annee", label_visibility="collapsed")
+        birth_year = st.slider("   ", current_year-120, current_year, birth_year, label_visibility="collapsed", key="slider_annee")
 
     with col_prog:
+        st.markdown("<div class='block-title'>Programme</div>", unsafe_allow_html=True)
         user_id = st.session_state["user_id"]
         user_programs = user_sessions.get(user_id, {}).get("programs", {})
-        prog_choice_patient = st.selectbox("Programme", ["Sélection d'un programme"] + list(user_programs.keys()), index=0)
+        prog_choice_patient = st.selectbox("", ["Sélection d'un programme"] + list(user_programs.keys()), index=0, label_visibility="collapsed")
         if prog_choice_patient != "Sélection d'un programme":
             prog_conf = user_programs.get(prog_choice_patient, {})
             cfg = get_cfg()
@@ -793,7 +794,8 @@ with tab_patient:
         elif injection_mode == "Artériel":
             base_time = float(cfg.get("arterial_time", 25.0))
         else:
-            base_time = float(cfg.get("intermediate_time", 28.0))
+            base_time = st.number_input("⏱ Temps intermédiaire (s)", min_value=5.0, max_value=120.0, step=0.5,
+                                        value=float(cfg.get("intermediate_time", 28.0)), key="inter_input")
             st.warning("⚠️ Attention : adaptez votre départ d’acquisition.")
 
         acquisition_start = calculate_acquisition_start(age, cfg)
