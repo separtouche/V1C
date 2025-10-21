@@ -678,95 +678,70 @@ with tab_params:
                     st.error(f"Erreur suppression identifiant : {e}")
                     
 # ------------------------
-# Onglet Patient — version stable finale (fixe, sans scroll, 120kV visible)
+# Onglet Patient — version finale propre, centrée et fonctionnelle
 # ------------------------
 with tab_patient:
+    # === Styles ===
     st.markdown("""
         <style>
         .section-title {
-            font-size:22px; font-weight:700; color:#123A5F;
-            margin-bottom:12px; text-align:center;
+            font-size:22px; font-weight:700; color:#123A5F; margin-bottom:12px; text-align:center;
         }
         .block-title {
-            text-align:center; font-weight:700; color:#123A5F;
-            font-size:16px; margin-bottom:6px;
+            text-align:center; font-weight:700; color:#123A5F; font-size:16px; margin-bottom:6px;
         }
-        /* ✅ largeur figée, visuel stable */
-        .main, .block-container {
-            width: 92% !important;
-            max-width: 1150px !important;
-            margin-left: auto !important;
-            margin-right: auto !important;
-        }
-        [data-testid="stHorizontalBlock"] {
-            flex-wrap: nowrap !important;
-            justify-content: space-between !important;
-        }
-        /* ✅ radios : taille ajustée, pas de scroll ni wrap */
         div[role="radiogroup"] {
             display:flex !important;
             justify-content:center !important;
             align-items:center !important;
             flex-wrap:nowrap !important;
             white-space:nowrap !important;
-            gap:14px !important;
+            gap:18px !important;
+            overflow-x:auto !important;
+            padding:6px 4px !important;
         }
+        div[role="radiogroup"]::-webkit-scrollbar { display:none; }
         div[role="radiogroup"] label {
             font-size:14px !important;
-            padding:3px 8px !important;
-            border-radius:6px !important;
+            padding:4px 12px !important;
+            border-radius:8px !important;
             background:#F8FAFD !important;
             border:1px solid #DCE4EC !important;
-            transition:all 0.15s ease-in-out;
+            transition:all 0.2s ease-in-out;
         }
         div[role="radiogroup"] label:hover {
-            background:#E7EEF9 !important;
+            background:#E6EEF8 !important;
         }
         </style>
     """, unsafe_allow_html=True)
 
-    # --- titre ---
+    # === Titre ===
     st.markdown("<div class='section-title'>🧍 Informations patient</div>", unsafe_allow_html=True)
     current_year = datetime.now().year
 
-    # === Ligne 1 : sliders + entrée numérique ===
+    # === Ligne compacte : Poids / Taille / Année / Programme ===
     col_poids, col_taille, col_annee, col_prog = st.columns([1, 1, 1, 1.3])
 
     with col_poids:
         st.markdown("<div class='block-title'>Poids (kg)</div>", unsafe_allow_html=True)
-        col_num, col_slide = st.columns([0.35, 0.65])
-        with col_num:
-            poids_num = st.number_input("", 20, 200, 70, step=1, key="poids_num", label_visibility="collapsed")
-        with col_slide:
-            poids_slider = st.slider(" ", 20, 200, poids_num, label_visibility="collapsed", key="poids_slider")
-        weight = poids_slider
+        weight = st.number_input("", min_value=20, max_value=200, value=70, step=1, key="num_poids", label_visibility="collapsed")
+        weight = st.slider(" ", 20, 200, weight, label_visibility="collapsed", key="slider_poids")
 
     with col_taille:
         st.markdown("<div class='block-title'>Taille (cm)</div>", unsafe_allow_html=True)
-        col_num, col_slide = st.columns([0.35, 0.65])
-        with col_num:
-            taille_num = st.number_input("", 100, 220, 170, step=1, key="taille_num", label_visibility="collapsed")
-        with col_slide:
-            taille_slider = st.slider(" ", 100, 220, taille_num, label_visibility="collapsed", key="taille_slider")
-        height = taille_slider
+        height = st.number_input("", min_value=100, max_value=220, value=170, step=1, key="num_taille", label_visibility="collapsed")
+        height = st.slider("  ", 100, 220, height, label_visibility="collapsed", key="slider_taille")
 
     with col_annee:
         st.markdown("<div class='block-title'>Année de naissance</div>", unsafe_allow_html=True)
-        col_num, col_slide = st.columns([0.45, 0.55])
-        with col_num:
-            annee_num = st.number_input("", current_year - 120, current_year, 1985, step=1,
-                                        key="annee_num", label_visibility="collapsed")
-        with col_slide:
-            annee_slider = st.slider(" ", current_year - 120, current_year, annee_num,
-                                     label_visibility="collapsed", key="annee_slider")
-        birth_year = annee_slider
+        birth_year = st.number_input("", min_value=current_year-120, max_value=current_year, value=1985, step=1, key="num_annee", label_visibility="collapsed")
+        birth_year = st.slider("   ", current_year-120, current_year, birth_year, label_visibility="collapsed", key="slider_annee")
 
     with col_prog:
         st.markdown("<div class='block-title'>Programme</div>", unsafe_allow_html=True)
         user_id = st.session_state["user_id"]
         user_programs = user_sessions.get(user_id, {}).get("programs", {})
-        prog_choice_patient = st.selectbox(" ", ["Sélection d'un programme"] + list(user_programs.keys()),
-                                           index=0, label_visibility="collapsed")
+        prog_choice_patient = st.selectbox("", ["Sélection d'un programme"] + list(user_programs.keys()), index=0, label_visibility="collapsed")
         if prog_choice_patient != "Sélection d'un programme":
             prog_conf = user_programs.get(prog_choice_patient, {})
             cfg = get_cfg()
@@ -781,15 +756,14 @@ with tab_patient:
     age = current_year - birth_year
     imc = weight / ((height / 100) ** 2)
 
-    # === Ligne 2 : 3 blocs ===
+    # === Ligne suivante : 3 blocs ===
     col_left, col_div1, col_center, col_div2, col_right = st.columns([1.2, 0.05, 1.2, 0.05, 1.2])
 
-    # --- Bloc gauche ---
+    # --- Bloc gauche : kV ---
     with col_left:
         st.markdown("<div class='block-title'>Choix de la tension du tube (en kV)</div>", unsafe_allow_html=True)
         kv_scanner = st.radio("kV", [80, 90, 100, 110, 120],
-                              horizontal=True, index=4, key="kv_scanner_patient",
-                              label_visibility="collapsed")
+                              horizontal=True, index=4, key="kv_scanner_patient", label_visibility="collapsed")
         charge_iod = float(cfg.get("charges", {}).get(str(kv_scanner), 0.45))
         concentration = int(cfg.get("concentration_mg_ml", 350))
         calc_mode_label = cfg.get("calc_mode", "Charge iodée")
@@ -804,7 +778,7 @@ with tab_patient:
     with col_div1:
         st.markdown("<div style='border-left:1px solid #ccc; height:100%;'></div>", unsafe_allow_html=True)
 
-    # --- Bloc centre ---
+    # --- Bloc central : temps d'injection ---
     with col_center:
         st.markdown("<div class='block-title'>Choix du temps d’injection (en s)</div>", unsafe_allow_html=True)
         injection_modes = ["Portal", "Artériel"]
@@ -815,16 +789,13 @@ with tab_patient:
                                   horizontal=True, index=0, key="injection_mode_patient",
                                   label_visibility="collapsed")
 
-        # Gestion des temps selon mode
         if injection_mode == "Portal":
             base_time = float(cfg.get("portal_time", 30.0))
         elif injection_mode == "Artériel":
             base_time = float(cfg.get("arterial_time", 25.0))
         else:
-            base_time = st.number_input("⏱ Temps intermédiaire (s)",
-                                        min_value=5.0, max_value=120.0, step=0.5,
-                                        value=float(cfg.get("intermediate_time", 28.0)),
-                                        key="inter_input")
+            base_time = st.number_input("⏱ Temps intermédiaire (s)", min_value=5.0, max_value=120.0, step=0.5,
+                                        value=float(cfg.get("intermediate_time", 28.0)), key="inter_input")
             st.warning("⚠️ Attention : adaptez votre départ d’acquisition.")
 
         acquisition_start = calculate_acquisition_start(age, cfg)
@@ -832,6 +803,7 @@ with tab_patient:
             f"<br><b>Départ acquisition en artériel :</b> {cfg.get('arterial_acq_time', 25.0):.1f} s"
             if cfg.get('arterial_acq_enabled', True) else ""
         )
+
         st.markdown(
             f"<div style='text-align:center; font-size:15px; color:#123A5F;'>"
             f"<b>Temps {injection_mode.lower()} :</b> {base_time:.1f} s<br>"
@@ -843,7 +815,7 @@ with tab_patient:
     with col_div2:
         st.markdown("<div style='border-left:1px solid #ccc; height:100%;'></div>", unsafe_allow_html=True)
 
-    # --- Bloc droit ---
+    # --- Bloc droit : options avancées ---
     with col_right:
         st.markdown("<div class='block-title'>Options avancées</div>", unsafe_allow_html=True)
         auto_age = bool(cfg.get("auto_acquisition_by_age", True))
@@ -853,6 +825,7 @@ with tab_patient:
             f"{'✅ activé' if auto_age else '❌ désactivé'}</div>",
             unsafe_allow_html=True
         )
+        
     # === Calculs volumes et débits ===
     volume, bsa = calculate_volume(
         weight, height, kv_scanner,
