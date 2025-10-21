@@ -745,7 +745,7 @@ with tab_patient:
     # --- Titre principal ---
     st.markdown("<div class='section-title'>🧍 Informations patient</div>", unsafe_allow_html=True)
 
-    # === Ligne 1 : Sliders avec saisie numérique synchronisée ===
+# === Ligne 1 : Sliders avec saisie numérique synchronisée ===
 st.markdown("<div class='slider-red'>", unsafe_allow_html=True)
 current_year = datetime.now().year
 col_poids, col_taille, col_annee, col_prog = st.columns([1, 1, 1, 1.3])
