@@ -678,7 +678,7 @@ with tab_params:
                     st.error(f"Erreur suppression identifiant : {e}")
                     
 # ------------------------
-# Onglet Patient — version finale propre et élargie
+# Onglet Patient — version finale stable et fonctionnelle
 # ------------------------
 with tab_patient:
     # === Styles ===
@@ -703,7 +703,7 @@ with tab_patient:
         div[role="radiogroup"]::-webkit-scrollbar { display:none; }
         div[role="radiogroup"] label {
             font-size:14px !important;
-            padding:4px 10px !important;
+            padding:4px 12px !important;
             border-radius:8px !important;
             background:#F8FAFD !important;
             border:1px solid #DCE4EC !important;
@@ -712,13 +712,8 @@ with tab_patient:
         div[role="radiogroup"] label:hover {
             background:#E6EEF8 !important;
         }
-        .mini-input {
-            width:60px;
-            text-align:center;
-            border:1px solid #ccc;
-            border-radius:5px;
-            height:25px;
-            font-size:14px;
+        .mini-number {
+            width:65px;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -731,28 +726,16 @@ with tab_patient:
     col_poids, col_taille, col_annee, col_prog = st.columns([1, 1, 1, 1.3])
 
     with col_poids:
-        st.markdown(
-            """<div style="display:flex; justify-content:center; align-items:center; gap:6px;">
-                <span style="font-weight:700; color:#123A5F;">Poids (kg)</span>
-                <input class="mini-input" id="poids_input" type="number" min="20" max="200" value="70">
-            </div>""", unsafe_allow_html=True)
-        weight = st.slider("", 20, 200, 70, key="slider_poids", label_visibility="collapsed")
+        weight = st.number_input("Poids (kg)", min_value=20, max_value=200, value=70, step=1, key="num_poids")
+        weight = st.slider(" ", 20, 200, weight, label_visibility="collapsed", key="slider_poids")
 
     with col_taille:
-        st.markdown(
-            """<div style="display:flex; justify-content:center; align-items:center; gap:6px;">
-                <span style="font-weight:700; color:#123A5F;">Taille (cm)</span>
-                <input class="mini-input" id="taille_input" type="number" min="100" max="220" value="170">
-            </div>""", unsafe_allow_html=True)
-        height = st.slider("", 100, 220, 170, key="slider_taille", label_visibility="collapsed")
+        height = st.number_input("Taille (cm)", min_value=100, max_value=220, value=170, step=1, key="num_taille")
+        height = st.slider(" ", 100, 220, height, label_visibility="collapsed", key="slider_taille")
 
     with col_annee:
-        st.markdown(
-            f"""<div style="display:flex; justify-content:center; align-items:center; gap:6px;">
-                <span style="font-weight:700; color:#123A5F;">Année</span>
-                <input class="mini-input" id="annee_input" type="number" min="{current_year-120}" max="{current_year}" value="1985">
-            </div>""", unsafe_allow_html=True)
-        birth_year = st.slider("", current_year - 120, current_year, 1985, key="slider_annee", label_visibility="collapsed")
+        birth_year = st.number_input("Année de naissance", min_value=current_year-120, max_value=current_year, value=1985, step=1, key="num_annee")
+        birth_year = st.slider("  ", current_year-120, current_year, birth_year, label_visibility="collapsed", key="slider_annee")
 
     with col_prog:
         user_id = st.session_state["user_id"]
@@ -811,6 +794,7 @@ with tab_patient:
             base_time = float(cfg.get("arterial_time", 25.0))
         else:
             base_time = float(cfg.get("intermediate_time", 28.0))
+            st.warning("⚠️ Attention : adaptez votre départ d’acquisition.")
 
         acquisition_start = calculate_acquisition_start(age, cfg)
         arterial_line = (
@@ -818,20 +802,11 @@ with tab_patient:
             if cfg.get('arterial_acq_enabled', True) else ""
         )
 
-        inter_field = ""
-        if injection_mode == "Intermédiaire":
-            inter_value = st.number_input("⏱ Temps intermédiaire (s)",
-                                          min_value=5.0, max_value=120.0, step=0.5,
-                                          value=base_time, key="inter_input")
-            inter_field = f"<br><b>Temps intermédiaire :</b> {inter_value:.1f} s"
-            st.warning("⚠️ Attention : adaptez votre départ d’acquisition.")
-            base_time = inter_value
-
         st.markdown(
             f"<div style='text-align:center; font-size:15px; color:#123A5F;'>"
             f"<b>Temps {injection_mode.lower()} :</b> {base_time:.1f} s<br>"
             f"<b>Départ acquisition en portal :</b> {acquisition_start:.1f} s"
-            f"{arterial_line}{inter_field}</div>",
+            f"{arterial_line}</div>",
             unsafe_allow_html=True
         )
 
