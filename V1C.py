@@ -366,7 +366,7 @@ def set_cfg_and_persist(user_id, new_cfg):
     save_user_sessions(user_sessions)
 
 # ------------------------
-# Onglet Paramètres (version finale complète et corrigée)
+# Onglet Paramètres (version finale complète avec départ artériel)
 # ------------------------
 with tab_params:
     st.header("⚙️ Paramètres et Bibliothèque (personnelle)")
@@ -434,6 +434,8 @@ with tab_params:
                 "acquisition_start_param": cfg.get("acquisition_start_param", 70.0),
                 "portal_time": cfg.get("portal_time", 30.0),
                 "arterial_time": cfg.get("arterial_time", 25.0),
+                "arterial_acq_enabled": cfg.get("arterial_acq_enabled", True),
+                "arterial_acq_time": cfg.get("arterial_acq_time", 25.0),
                 "intermediate_enabled": cfg.get("intermediate_enabled", False),
                 "intermediate_time": cfg.get("intermediate_time", 28.0),
                 "rincage_volume": cfg.get("rincage_volume", 35.0),
@@ -445,7 +447,6 @@ with tab_params:
             user_sessions.setdefault(user_id, {}).setdefault("programs", {})[new_prog_name.strip()] = cfg.copy()
             user_sessions[user_id]["config"] = cfg.copy()
             save_user_sessions(user_sessions)
-
             st.success(f"✅ Programme personnel '{new_prog_name}' sauvegardé avec tous les paramètres !")
 
     # 🗑 Gestion des programmes personnels
@@ -523,26 +524,33 @@ with tab_params:
         disabled=disabled
     )
 
-if not cfg["auto_acquisition_by_age"]:
-    cfg["acquisition_start_param"] = st.number_input(
-        "Départ d’acquisition manuel (s)",
-        value=float(cfg.get("acquisition_start_param", 70.0)),
-        min_value=30.0,
-        max_value=120.0,
-        step=1.0,
-        disabled=disabled
-    )
+    if not cfg["auto_acquisition_by_age"]:
+        cfg["acquisition_start_param"] = st.number_input(
+            "Départ d’acquisition manuel (s)",
+            value=float(cfg.get("acquisition_start_param", 70.0)),
+            min_value=30.0,
+            max_value=120.0,
+            step=1.0,
+            disabled=disabled
+        )
+
+    # ✅ Ajout : départ artériel activable + modifiable
     cfg["arterial_acq_enabled"] = st.checkbox(
         "Activer départ acquisition artériel",
         value=bool(cfg.get("arterial_acq_enabled", True)),
         disabled=disabled
     )
+
     if cfg["arterial_acq_enabled"]:
         cfg["arterial_acq_time"] = st.number_input(
-            "Départ acquisition artériel (s)",
+            "Départ d’acquisition artériel (s)",
             value=float(cfg.get("arterial_acq_time", 25.0)),
-            min_value=5.0, max_value=120.0, step=1.0
+            min_value=10.0,
+            max_value=120.0,
+            step=0.5,
+            disabled=disabled
         )
+
     cfg["portal_time"] = st.number_input(
         "Portal (s)",
         value=float(cfg.get("portal_time", 30.0)),
@@ -594,7 +602,6 @@ if not cfg["auto_acquisition_by_age"]:
         step=0.1,
         disabled=disabled
     )
-    
     cfg["volume_max_limit"] = st.number_input(
         "Plafond volume (mL) - seringue",
         value=float(cfg.get("volume_max_limit", 200.0)),
@@ -669,6 +676,7 @@ if not cfg["auto_acquisition_by_age"]:
                     st.rerun()
                 except Exception as e:
                     st.error(f"Erreur suppression identifiant : {e}")
+                    
 # ------------------------
 # Onglet Patient — version finale corrigée et stable
 # ------------------------
