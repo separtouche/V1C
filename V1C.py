@@ -677,7 +677,7 @@ with tab_params:
                 except Exception as e:
                     st.error(f"Erreur suppression identifiant : {e}")
 # ------------------------
-# Onglet Patient — version stable et équilibrée
+# Onglet Patient — version corrigée et équilibrée (visuel stable)
 # ------------------------
 with tab_patient:
     # === Styles ===
@@ -695,19 +695,19 @@ with tab_patient:
             align-items:center !important;
             flex-wrap:nowrap !important;
             white-space:nowrap !important;
-            gap:18px !important;
+            gap:20px !important;
             overflow-x:hidden !important;
-            padding:8px 12px !important;
+            padding:6px 10px !important;
         }
         div[role="radiogroup"]::-webkit-scrollbar { display:none; }
         div[role="radiogroup"] label {
             font-size:14px !important;
-            padding:6px 16px !important;
+            padding:6px 18px !important;
             border-radius:8px !important;
             background:#F8FAFD !important;
             border:1px solid #DCE4EC !important;
             transition:all 0.2s ease-in-out;
-            min-width:90px !important;
+            min-width:95px !important;
             text-align:center !important;
         }
         div[role="radiogroup"] label:hover {
@@ -757,8 +757,8 @@ with tab_patient:
     age = current_year - birth_year
     imc = weight / ((height / 100) ** 2)
 
-    # === Ligne suivante : blocs équilibrés ===
-    col_left, col_div1, col_center, col_div2, col_right = st.columns([1.3, 0.05, 1.25, 0.05, 1.15])
+    # === Ligne suivante : blocs bien proportionnés ===
+    col_left, col_div1, col_center, col_div2, col_right = st.columns([1.25, 0.05, 1.35, 0.05, 1.1])
 
     # --- Bloc gauche : kV ---
     with col_left:
@@ -781,7 +781,7 @@ with tab_patient:
     with col_div1:
         st.markdown("<div style='border-left:1px solid #ccc; height:100%;'></div>", unsafe_allow_html=True)
 
-    # --- Bloc central ---
+    # --- Bloc central : temps d’injection ---
     with col_center:
         st.markdown("<div class='block-title'>Choix du temps d’injection (en s)</div>", unsafe_allow_html=True)
         injection_modes = ["Portal", "Artériel"]
