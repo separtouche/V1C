@@ -678,67 +678,33 @@ with tab_params:
                     st.error(f"Erreur suppression identifiant : {e}")
 
 # ------------------------
-# Onglet Patient — version finale avec centrage, valeurs par défaut et synchro sliders
+# Onglet Patient — version finale complète et stable
 # ------------------------
-
-# ✅ Initialisation automatique des valeurs par défaut à l'ouverture
 if "defaults_loaded" not in st.session_state:
     st.session_state["defaults_loaded"] = True
     st.session_state["num_poids"] = 70
     st.session_state["slider_poids"] = 70
     st.session_state["num_taille"] = 170
     st.session_state["slider_taille"] = 170
-    st.session_state["num_annee"] = 1997
-    st.session_state["slider_annee"] = 1997
-    st.session_state["kv_scanner_patient"] = 100
+    st.session_state["num_annee"] = 1985
+    st.session_state["slider_annee"] = 1985
+    st.session_state["kv_scanner_patient"] = 120
     st.session_state["injection_mode_patient"] = "Portal"
 
 with tab_patient:
-    # --- Synchronisation bidirectionnelle sliders <-> inputs ---
-    # (Met à jour automatiquement les deux sens sans boucle infinie)
-    if st.session_state.get("slider_poids") != st.session_state.get("num_poids"):
-        st.session_state["num_poids"] = st.session_state["slider_poids"]
-    if st.session_state.get("slider_taille") != st.session_state.get("num_taille"):
-        st.session_state["num_taille"] = st.session_state["slider_taille"]
-    if st.session_state.get("slider_annee") != st.session_state.get("num_annee"):
-        st.session_state["num_annee"] = st.session_state["slider_annee"]
-
-    if st.session_state.get("num_poids") != st.session_state.get("slider_poids"):
-        st.session_state["slider_poids"] = st.session_state["num_poids"]
-    if st.session_state.get("num_taille") != st.session_state.get("slider_taille"):
-        st.session_state["slider_taille"] = st.session_state["num_taille"]
-    if st.session_state.get("num_annee") != st.session_state.get("slider_annee"):
-        st.session_state["slider_annee"] = st.session_state["num_annee"]
-
-    # --- Style ---
     st.markdown("""
         <style>
-        .section-title {
-            font-size:22px; font-weight:700; color:#123A5F;
-            margin-bottom:12px; text-align:center;
-        }
-        .block-title {
-            font-weight:700; color:#123A5F;
-            font-size:16px; margin-bottom:6px; text-align:center;
-        }
+        .section-title {font-size:22px;font-weight:700;color:#123A5F;text-align:center;margin-bottom:12px;}
+        .block-title {font-weight:700;color:#123A5F;font-size:16px;margin-bottom:6px;text-align:center;}
         div[role="radiogroup"] {
-            display:flex !important;
-            justify-content:center !important;
-            align-items:center !important;
-            gap:12px !important;
-            flex-wrap:nowrap !important;
-            white-space:nowrap !important;
+            display:flex !important;justify-content:center !important;align-items:center !important;
+            gap:12px !important;flex-wrap:nowrap !important;white-space:nowrap !important;
         }
         div[role="radiogroup"] label {
-            font-size:14px !important;
-            padding:4px 12px !important;
-            border-radius:8px !important;
-            background:#F8FAFD !important;
-            border:1px solid #DCE4EC !important;
+            font-size:14px !important;padding:4px 12px !important;border-radius:8px !important;
+            background:#F8FAFD !important;border:1px solid #DCE4EC !important;
         }
-        div[role="radiogroup"] label:hover {
-            background:#E6EEF8 !important;
-        }
+        div[role="radiogroup"] label:hover {background:#E6EEF8 !important;}
         </style>
     """, unsafe_allow_html=True)
 
@@ -746,20 +712,42 @@ with tab_patient:
     st.markdown("<div class='section-title'>🧍 Informations patient</div>", unsafe_allow_html=True)
     current_year = datetime.now().year
 
+    # --- Fonction synchronisée avec réaction immédiate ---
+    def sync_slider_with_input(num_key, slider_key, min_val, max_val, step):
+        # Lecture actuelle
+        num_val = st.session_state.get(num_key, 0)
+        slider_val = st.session_state.get(slider_key, 0)
+
+        # Champ numérique (prioritaire si modifié)
+        num_val_new = st.number_input(
+            "", min_val, max_val, num_val, step=step, key=num_key,
+            label_visibility="collapsed", on_change=lambda: st.session_state.update({slider_key: st.session_state[num_key]})
+        )
+
+        # Slider (met à jour le champ)
+        slider_val_new = st.slider(
+            " ", min_val, max_val, st.session_state[slider_key], key=slider_key,
+            label_visibility="collapsed", on_change=lambda: st.session_state.update({num_key: st.session_state[slider_key]})
+        )
+
+        # Retourne la valeur actuelle commune
+        return st.session_state[num_key]
+
     # === Ligne Poids / Taille / Année / Programme ===
     col_poids, col_taille, col_annee, col_prog = st.columns([1, 1, 1, 1.3])
+
     with col_poids:
         st.markdown("<div class='block-title'>Poids (kg)</div>", unsafe_allow_html=True)
-        num_poids = st.number_input("", 20, 200, st.session_state["num_poids"], step=1, key="num_poids", label_visibility="collapsed")
-        slider_poids = st.slider(" ", 20, 200, st.session_state["slider_poids"], key="slider_poids", label_visibility="collapsed")
+        weight = sync_slider_with_input("num_poids", "slider_poids", 20, 200, 1)
+
     with col_taille:
         st.markdown("<div class='block-title'>Taille (cm)</div>", unsafe_allow_html=True)
-        num_taille = st.number_input("", 100, 220, st.session_state["num_taille"], step=1, key="num_taille", label_visibility="collapsed")
-        slider_taille = st.slider("  ", 100, 220, st.session_state["slider_taille"], key="slider_taille", label_visibility="collapsed")
+        height = sync_slider_with_input("num_taille", "slider_taille", 100, 220, 1)
+
     with col_annee:
         st.markdown("<div class='block-title'>Année de naissance</div>", unsafe_allow_html=True)
-        num_annee = st.number_input("", current_year-120, current_year, st.session_state["num_annee"], step=1, key="num_annee", label_visibility="collapsed")
-        slider_annee = st.slider("   ", current_year-120, current_year, st.session_state["slider_annee"], key="slider_annee", label_visibility="collapsed")
+        birth_year = sync_slider_with_input("num_annee", "slider_annee", current_year - 120, current_year, 1)
+
     with col_prog:
         st.markdown("<div class='block-title'>Programme</div>", unsafe_allow_html=True)
         _uid = st.session_state["user_id"]
@@ -775,16 +763,13 @@ with tab_patient:
 
     # === Variables patient ===
     cfg = get_cfg()
-    weight = st.session_state["num_poids"]
-    height = st.session_state["num_taille"]
-    birth_year = st.session_state["num_annee"]
     age = current_year - birth_year
-    imc = weight / ((height/100)**2)
+    imc = weight / ((height / 100) ** 2)
 
-    # === Deux blocs : kV + Temps d’injection ===
+    # === Deux blocs principaux ===
     col_left, col_div, col_center = st.columns([1.15, 0.05, 1.15])
 
-    # --- Bloc gauche — kV ---
+    # --- Bloc gauche : kV ---
     with col_left:
         st.markdown("<div class='block-title'>Choix de la tension du tube (en kV)</div>", unsafe_allow_html=True)
         _, col_centered, _ = st.columns([1, 2.5, 1])
@@ -793,10 +778,11 @@ with tab_patient:
                 "kV",
                 [80, 90, 100, 110, 120],
                 horizontal=True,
-                index=[80,90,100,110,120].index(st.session_state["kv_scanner_patient"]),
+                index=[80, 90, 100, 110, 120].index(st.session_state["kv_scanner_patient"]),
                 key="kv_scanner_patient",
                 label_visibility="collapsed"
             )
+
         charge_iod = float(cfg.get("charges", {}).get(str(kv_scanner), 0.45))
         concentration = int(cfg.get("concentration_mg_ml", 350))
         calc_mode_label = cfg.get("calc_mode", "Charge iodée")
@@ -811,7 +797,7 @@ with tab_patient:
     with col_div:
         st.markdown("<div style='border-left:1px solid #ccc;height:100%;'></div>", unsafe_allow_html=True)
 
-    # --- Bloc droit — Temps d’injection ---
+    # --- Bloc droit : Temps d’injection ---
     with col_center:
         st.markdown("<div class='block-title'>Choix du temps d’injection (en s)</div>", unsafe_allow_html=True)
         modes = ["Portal", "Artériel"]
@@ -858,7 +844,7 @@ with tab_patient:
             unsafe_allow_html=True
         )
 
-    # === Calculs principaux et résultats ===
+    # === Calculs principaux ===
     volume, bsa = calculate_volume(
         weight, height, kv_scanner,
         float(cfg.get("concentration_mg_ml", 350)),
@@ -872,7 +858,7 @@ with tab_patient:
 
     st.markdown("---")
 
-    # === Résultats ===
+    # === Injection simultanée ===
     sim_enabled = bool(cfg.get("simultaneous_enabled", False))
     delta_debit = float(cfg.get("rincage_delta_debit", 0.5))
     vol_rincage = float(cfg.get("rincage_volume", 35.0))
@@ -881,6 +867,7 @@ with tab_patient:
     if bool(cfg.get("auto_acquisition_by_age", True)):
         st.info("⏱️ Ajustement automatique selon l’âge activé — le départ d’acquisition est adapté automatiquement.")
 
+    # === Résultats visuels ===
     green_drop = "<svg width='20' height='20' viewBox='0 0 24 24' fill='#2E7D32'><path d='M12 2C12 2 5 10 5 15.5C5 19.09 8.13 22 12 22C15.87 22 19 19.09 19 15.5C19 10 12 2 12 2Z'/></svg>"
     blue_drop = "<svg width='20' height='20' viewBox='0 0 24 24' fill='#1565C0'><path d='M12 2C12 2 5 10 5 15.5C5 19.09 8.13 22 12 22C15.87 22 19 19.09 19 15.5C19 10 12 2 12 2Z'/></svg>"
 
