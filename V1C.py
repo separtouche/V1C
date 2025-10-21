@@ -752,12 +752,20 @@ with tab_patient:
     # === Deux blocs : kV + Temps d’injection ===
     col_left, col_div, col_center = st.columns([1.15, 0.05, 1.15])
 
-    # Bloc gauche — kV
+    # --- Bloc gauche — kV ---
     with col_left:
         st.markdown("<div class='block-title'>Choix de la tension du tube (en kV)</div>", unsafe_allow_html=True)
-        kv_scanner = st.radio("kV", [80, 90, 100, 110, 120],
-                              horizontal=True, index=4, key="kv_scanner_patient",
-                              label_visibility="collapsed")
+        # ✅ centrage parfait via colonne virtuelle
+        _, col_centered, _ = st.columns([1, 2.5, 1])
+        with col_centered:
+            kv_scanner = st.radio(
+                "kV",
+                [80, 90, 100, 110, 120],
+                horizontal=True,
+                index=4,
+                key="kv_scanner_patient",
+                label_visibility="collapsed"
+            )
         charge_iod = float(cfg.get("charges", {}).get(str(kv_scanner), 0.45))
         concentration = int(cfg.get("concentration_mg_ml", 350))
         calc_mode_label = cfg.get("calc_mode", "Charge iodée")
@@ -772,16 +780,24 @@ with tab_patient:
     with col_div:
         st.markdown("<div style='border-left:1px solid #ccc;height:100%;'></div>", unsafe_allow_html=True)
 
-    # Bloc droit — Temps d’injection
+    # --- Bloc droit — Temps d’injection ---
     with col_center:
         st.markdown("<div class='block-title'>Choix du temps d’injection (en s)</div>", unsafe_allow_html=True)
         modes = ["Portal", "Artériel"]
         if cfg.get("intermediate_enabled", False):
             modes.append("Intermédiaire")
 
-        injection_mode = st.radio("Mode d'injection", modes,
-                                  horizontal=True, index=0, key="injection_mode_patient",
-                                  label_visibility="collapsed")
+        # ✅ centrage parfait via colonne virtuelle
+        _, col_centered, _ = st.columns([1, 2.5, 1])
+        with col_centered:
+            injection_mode = st.radio(
+                "Mode d'injection",
+                modes,
+                horizontal=True,
+                index=0,
+                key="injection_mode_patient",
+                label_visibility="collapsed"
+            )
 
         if injection_mode == "Portal":
             base_time = float(cfg.get("portal_time", 30.0))
@@ -790,7 +806,9 @@ with tab_patient:
         else:
             base_time = st.number_input(
                 "⏱ Temps intermédiaire (s)",
-                min_value=5.0, max_value=120.0, step=0.5,
+                min_value=5.0,
+                max_value=120.0,
+                step=0.5,
                 value=float(cfg.get("intermediate_time", 28.0)),
                 key="inter_input"
             )
@@ -916,6 +934,7 @@ with tab_patient:
             <b>🚀 Débit contraste :</b> {debit_str} = <b>{debit_calc:.2f} mL/s</b>
         </div>
     """, unsafe_allow_html=True)
+
 # ------------------------
 # Onglet Tutoriel (inchangé)
 # ------------------------
