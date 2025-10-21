@@ -532,7 +532,16 @@ with tab_params:
             step=1.0,
             disabled=disabled
         )
-
+        cfg["arterial_acq_enabled"] = st.checkbox(
+            "Activer départ acquisition artériel",
+             value=bool(cfg.get("arterial_acq_enabled", True))
+    )
+    if cfg["arterial_acq_enabled"]:
+        cfg["arterial_acq_time"] = st.number_input(
+            "Départ acquisition artériel (s)",
+            value=float(cfg.get("arterial_acq_time", 25.0)),
+            min_value=5.0, max_value=120.0, step=1.0
+        )
     cfg["portal_time"] = st.number_input(
         "Portal (s)",
         value=float(cfg.get("portal_time", 30.0)),
@@ -769,7 +778,7 @@ with tab_patient:
 
     # --- Bloc gauche ---
     with col_left:
-        st.markdown("<div class='block-title'>Paramètres principaux</div>", unsafe_allow_html=True)
+        st.markdown("<div class='block-title'>Choix de la tension du tube (en kV)</div>", unsafe_allow_html=True)
         c1, c2, c3 = st.columns([0.3, 1, 0.3])
         with c2:
             kv_scanner = st.radio(
@@ -796,7 +805,7 @@ with tab_patient:
 
     # --- Bloc centre ---
     with col_center:
-        st.markdown("<div class='block-title'>Injection et timing</div>", unsafe_allow_html=True)
+        st.markdown("<div class='block-title'>Choix du temps d’injection (en s)</div>", unsafe_allow_html=True)
         c1, c2, c3 = st.columns([0.3, 1, 0.3])
         with c2:
             injection_modes = ["Portal", "Artériel"]
@@ -826,7 +835,8 @@ with tab_patient:
         st.markdown(
             f"<div style='text-align:center; font-size:15px; color:#123A5F;'>"
             f"<b>Temps {injection_mode.lower()} :</b> {base_time:.0f} s<br>"
-            f"<b>Départ d'acquisition :</b> {acquisition_start:.1f} s"
+            f"<b>Départ acquisition en portal :</b> {acquisition_start:.1f} s"
+            + (f"<br><b>Départ acquisition en artériel :</b> {cfg.get('arterial_acq_time', 25.0):.1f} s" if cfg.get('arterial_acq_enabled', True) else "")
             f"</div>",
             unsafe_allow_html=True,
         )
@@ -864,13 +874,11 @@ with tab_patient:
     with col_right:
         st.markdown("<div class='block-title'>Options avancées</div>", unsafe_allow_html=True)
         auto_age = bool(cfg.get("auto_acquisition_by_age", True))
-        sim_enabled = bool(cfg.get("simultaneous_enabled", False))
+        
         st.markdown(
             f"<div style='text-align:center; font-size:15px; color:#123A5F;'>"
             f"<b>Ajustement automatique selon l'âge :</b><br>"
             f"{'✅ activé' if auto_age else '❌ désactivé'}<br><br>"
-            f"<b>Injection simultanée :</b><br>"
-            f"{'✅ activée' if sim_enabled else '❌ désactivée'}</div>",
             unsafe_allow_html=True,
         )
                     
@@ -1018,7 +1026,7 @@ with tab_patient:
         <div style='text-align:center; margin-top:12px;
                     font-size:15px; color:#123A5F; line-height:1.6;'>
             <b>🧮 Volume contraste :</b> {calc_str} = <b>{volume_calc:.1f} mL</b><br>
-            <b>🚀 Débit :</b> {debit_str} = <b>{debit_calc:.2f} mL/s</b>
+            <b>🚀 Débit contraste :</b> {debit_str} = <b>{debit_calc:.2f} mL/s</b>
         </div>
     """, unsafe_allow_html=True)
 
